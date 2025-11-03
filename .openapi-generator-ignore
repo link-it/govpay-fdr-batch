@@ -1,0 +1,22 @@
+# OpenAPI Generator Ignore
+# Lines beginning with a # are comments
+
+# Ignore all files in the test directories
+*Test.java
+*TestCase.java
+
+# Ignore build files
+pom.xml
+build.gradle
+build.sbt
+.travis.yml
+git_push.sh
+
+# Ignore documentation
+README.md
+docs/**
+
+# Keep only API and Model classes
+!src/main/java/**/api/**
+!src/main/java/**/model/**
+!src/main/java/**/invoker/**

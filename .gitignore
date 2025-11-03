@@ -10,8 +10,12 @@ buildNumber.properties
 # https://maven.apache.org/wrapper/#usage-without-binary-jar
 .mvn/wrapper/maven-wrapper.jar
 
-# Eclipse m2e generated files
-# Eclipse Core
+# IDEs and editors
+/.idea
 .project
-# JDT-specific (Eclipse Java Development Tools)
 .classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
