@@ -23,17 +23,17 @@ public interface FrTempRepository extends JpaRepository<FrTemp, Long> {
     /**
      * Find unprocessed records ordered by publication date
      */
-    Page<FrTemp> findByProcessatoFalseOrderByDataPubblicazioneAsc(Pageable pageable);
+    Page<FrTemp> findByOrderByDataOraPubblicazioneAsc(Pageable pageable);
 
     /**
      * Find unprocessed records by domain code
      */
-    List<FrTemp> findByCodDominioAndProcessatoFalseOrderByDataPubblicazioneAsc(String codDominio);
+    List<FrTemp> findByCodDominioOrderByDataOraPubblicazioneAsc(String codDominio);
 
     /**
      * Check if FDR already exists in temporary table
      */
-    boolean existsByCodDominioAndCodFlussoAndCodPspAndRevision(
-        String codDominio, String codFlusso, String codPsp, Long revision
+    boolean existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
+        String codDominio, String codFlusso, String idPsp, Long revision
     );
 }

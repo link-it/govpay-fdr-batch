@@ -1,4 +1,4 @@
-package it.govpay.fdr.batch.step3;
+package it.govpay.fdr.batch.step4;
 
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.repository.FrTempRepository;
@@ -39,7 +39,7 @@ public class FdrPaymentsReader implements ItemReader<FrTemp> {
         if (currentPageIterator != null && currentPageIterator.hasNext()) {
             FrTemp frTemp = currentPageIterator.next();
             log.debug("Reading FR_TEMP record: {} - {} - revision {}",
-                frTemp.getCodDominio(), frTemp.getCodFlusso(), frTemp.getRevision());
+                frTemp.getCodDominio(), frTemp.getCodFlusso(), frTemp.getRevisione());
             return frTemp;
         } else if (loadNextPage()) {
             return read();
@@ -51,7 +51,7 @@ public class FdrPaymentsReader implements ItemReader<FrTemp> {
 
     private boolean loadNextPage() {
         Pageable pageable = PageRequest.of(currentPage, pageSize);
-        Page<FrTemp> page = frTempRepository.findByProcessatoFalseOrderByDataPubblicazioneAsc(pageable);
+        Page<FrTemp> page = frTempRepository.findByOrderByDataOraPubblicazioneAsc(pageable);
 
         if (!page.isEmpty()) {
             currentPageIterator = page.getContent().iterator();

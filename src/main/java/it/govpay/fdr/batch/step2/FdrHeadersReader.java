@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 
@@ -18,7 +19,7 @@ import java.util.List;
 public class FdrHeadersReader implements ItemReader<DominioProcessingContext> {
 
     private final DominioRepository dominioRepository;
-    private Iterator<Dominio> dominioIterator;
+    private Iterator<Object[]> dominioIterator;
     private boolean initialized = false;
 
     public FdrHeadersReader(DominioRepository dominioRepository) {
@@ -28,20 +29,21 @@ public class FdrHeadersReader implements ItemReader<DominioProcessingContext> {
     @Override
     public DominioProcessingContext read() {
         if (!initialized) {
-            List<Dominio> domini = dominioRepository.findByAbilitatoTrue();
-            log.info("Found {} enabled domains to process", domini.size());
-            dominioIterator = domini.iterator();
+            List<Object[]> dominiInfos = dominioRepository.findDominioWithMaxDataOraPubblicazione();
+            log.info("Found {} enabled domains to process", dominiInfos.size());
+            dominioIterator = dominiInfos.iterator();
             initialized = true;
         }
 
         if (dominioIterator != null && dominioIterator.hasNext()) {
-            Dominio dominio = dominioIterator.next();
+            Object[] dominioInfos = dominioIterator.next();
+            Dominio dominio = (Dominio)dominioInfos[0];
             log.debug("Reading domain: {}", dominio.getCodDominio());
 
             return DominioProcessingContext.builder()
                 .dominioId(dominio.getId())
                 .codDominio(dominio.getCodDominio())
-                .lastPublicationDate(dominio.getDataUltimaAcquisizione())
+                .lastPublicationDate((Instant)dominioInfos[1])
                 .build();
         }
 

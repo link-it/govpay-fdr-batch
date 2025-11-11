@@ -29,33 +29,36 @@ public class Fr {
     @Column(name = "id")
     private Long id;
 
+    @Column(name = "cod_psp", nullable = false, length = 35)
+    private String codPsp;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_dominio", nullable = false)
     private Dominio dominio;
 
+    @Column(name = "cod_dominio", nullable = false)
+    private String codDominio;
+
     @Column(name = "cod_flusso", nullable = false, length = 35)
     private String codFlusso;
-
-    @Column(name = "cod_psp", nullable = false, length = 35)
-    private String codPsp;
-
-    @Column(name = "revision", nullable = false)
-    private Long revision;
 
     @Column(name = "stato", length = 35)
     private String stato;
 
-    @Column(name = "data_flusso")
-    private Instant dataFlusso;
+    @Column(name = "descrizione_stato", columnDefinition = "TEXT")
+    private String descrizioneStato;
+
+    @Column(name = "iur", length = 35)
+    private String iur;
+
+    @Column(name = "data_ora_flusso")
+    private Instant dataOraFlusso;
 
     @Column(name = "data_regolamento")
     private Instant dataRegolamento;
 
-    @Column(name = "identificativo_regolamento", length = 35)
-    private String identificativoRegolamento;
-
-    @Column(name = "bic_riversamento", length = 35)
-    private String bicRiversamento;
+    @Column(name = "data_acquisizione")
+    private Instant dataAcquisizione;
 
     @Column(name = "numero_pagamenti")
     private Long numeroPagamenti;
@@ -63,31 +66,37 @@ public class Fr {
     @Column(name = "importo_totale_pagamenti", precision = 19, scale = 2)
     private BigDecimal importoTotalePagamenti;
 
-    @Column(name = "cod_psp_mittente", length = 35)
-    private String codPspMittente;
+    @Column(name = "cod_bic_riversamento", length = 35)
+    private String codBicRiversamento;
+
+    @Column(name = "xml", columnDefinition = "TEXT")
+    private String xml;
 
     @Column(name = "ragione_sociale_psp", length = 255)
     private String ragioneSocialePsp;
 
-    @Column(name = "cod_intermediario_psp", length = 35)
-    private String codIntermediarioPsp;
+    @Column(name = "ragione_sociale_dominio", length = 255)
+    private String ragioneSocialeDominio;
 
-    @Column(name = "cod_canale", length = 35)
-    private String codCanale;
+    @Column(name = "data_ora_pubblicazione")
+    private Instant dataOraPubblicazione;
 
-    @Column(name = "data_pubblicazione")
-    private Instant dataPubblicazione;
+    @Column(name = "data_ora_aggiornamento")
+    private Instant dataOraAggiornamento;
 
-    @Column(name = "data_acquisizione")
-    private Instant dataAcquisizione;
+    @Column(name = "revisione", nullable = false)
+    private Long revisione;
+
+    @Column(name = "obsoleto", nullable = false)
+    @Builder.Default
+    private Boolean obsoleto = false;
+
+    @Column(name = "id_incasso")
+    private Long idIncasso;
 
     @OneToMany(mappedBy = "fr", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Rendicontazione> rendicontazioni = new ArrayList<>();
-
-    @Version
-    @Column(name = "version")
-    private Long version;
 
     @PrePersist
     protected void onCreate() {

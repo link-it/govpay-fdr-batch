@@ -10,12 +10,12 @@ import java.util.Optional;
 public interface FrRepository extends JpaRepository<Fr, Long> {
 
     /**
-     * Find FDR by flow code, PSP code and revision
+     * Find FDR by flow code, PSP id and revision
      */
-    Optional<Fr> findByCodFlussoAndCodPspAndRevision(String codFlusso, String codPsp, Long revision);
+    Optional<Fr> findByCodFlussoAndCodPspAndRevisione(String codFlusso, String codPsp, Long revision);
 
     /**
      * Check if FDR already exists
      */
-    boolean existsByCodFlussoAndCodPspAndRevision(String codFlusso, String codPsp, Long revision);
+    boolean existsByCodFlussoAndCodPspAndRevisione(String codFlusso, String codPsp, Long revision);
 }

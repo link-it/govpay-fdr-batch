@@ -42,14 +42,14 @@ public class Rendicontazione {
     @Column(name = "indice_dati")
     private Long indiceDati;
 
-    @Column(name = "importo", nullable = false, precision = 19, scale = 2)
-    private BigDecimal importo;
+    @Column(name = "importo_pagamento", nullable = false, precision = 19, scale = 2)
+    private BigDecimal importoPagamento;
 
     @Column(name = "esito", length = 35)
     private String esito;
 
-    @Column(name = "data_pagamento")
-    private Instant dataPagamento;
+    @Column(name = "data")
+    private Instant data;
 
     @Column(name = "stato", length = 35)
     private String stato;

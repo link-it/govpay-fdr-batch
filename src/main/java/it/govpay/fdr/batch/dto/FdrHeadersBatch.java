@@ -19,9 +19,9 @@ public class FdrHeadersBatch {
     @Builder
     public static class FdrHeader {
         private String codFlusso;
-        private String codPsp;
+        private String idPsp;
         private Long revision;
-        private Instant dataFlusso;
-        private Instant dataPubblicazione;
+        private Instant dataOraFlusso;
+        private Instant dataOraPubblicazione;
     }
 }

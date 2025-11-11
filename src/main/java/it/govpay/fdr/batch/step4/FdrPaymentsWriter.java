@@ -1,4 +1,4 @@
-package it.govpay.fdr.batch.step3;
+package it.govpay.fdr.batch.step4;
 
 import it.govpay.fdr.batch.entity.*;
 import it.govpay.fdr.batch.repository.*;
@@ -8,6 +8,7 @@ import org.springframework.batch.item.ItemWriter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -42,14 +43,14 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
     public void write(Chunk<? extends FdrPaymentsProcessor.FdrCompleteData> chunk) {
         for (FdrPaymentsProcessor.FdrCompleteData data : chunk) {
             log.info("Writing FDR: domain={}, flow={}, revision={} with {} payments",
-                data.getCodDominio(), data.getCodFlusso(), data.getRevision(), data.getPayments().size());
+                data.getCodDominio(), data.getCodFlusso(), data.getRevisione(), data.getPayments().size());
 
             try {
                 // Check if FR already exists
-                Optional<Fr> existingFr = frRepository.findByCodFlussoAndCodPspAndRevision(
+                Optional<Fr> existingFr = frRepository.findByCodFlussoAndCodPspAndRevisione(
                     data.getCodFlusso(),
                     data.getCodPsp(),
-                    data.getRevision()
+                    data.getRevisione()
                 );
 
                 if (existingFr.isPresent()) {
@@ -67,22 +68,23 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 
                 // Create FR entity
                 Fr fr = Fr.builder()
+                	.codPsp(data.getCodPsp())
                     .dominio(dominioOpt.get())
+                    .codDominio(dominioOpt.get().getCodDominio())
                     .codFlusso(data.getCodFlusso())
-                    .codPsp(data.getCodPsp())
-                    .revision(data.getRevision())
                     .stato(data.getStato())
-                    .dataFlusso(data.getDataFlusso())
+                    .iur(data.getIur())
+                    .dataOraFlusso(data.getDataOraFlusso())
                     .dataRegolamento(data.getDataRegolamento())
-                    .identificativoRegolamento(data.getIdentificativoRegolamento())
-                    .bicRiversamento(data.getBicRiversamento())
+                    .dataAcquisizione(Instant.now())
                     .numeroPagamenti(data.getNumeroPagamenti())
                     .importoTotalePagamenti(data.getImportoTotalePagamenti())
-                    .codPspMittente(data.getCodPspMittente())
+                    .codBicRiversamento(data.getCodBicRiversamento())
                     .ragioneSocialePsp(data.getRagioneSocialePsp())
-                    .codIntermediarioPsp(data.getCodIntermediarioPsp())
-                    .codCanale(data.getCodCanale())
-                    .dataPubblicazione(data.getDataPubblicazione())
+                    .ragioneSocialeDominio(data.getRagioneSocialeDominio())
+                    .dataOraPubblicazione(data.getDataOraPubblicazione())
+                    .dataOraAggiornamento(data.getDataOraAggiornamento())
+                    .revisione(data.getRevisione())
                     .build();
 
                 // Save FR
@@ -95,7 +97,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
                     Optional<Pagamento> pagamentoOpt = pagamentoRepository.findByCodDominioAndIuvAndIndiceDati(
                         data.getCodDominio(),
                         paymentData.getIuv(),
-                        paymentData.getIndice()
+                        paymentData.getIndiceDati()
                     );
 
                     Rendicontazione rendicontazione = Rendicontazione.builder()
@@ -103,10 +105,10 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
                         .pagamento(pagamentoOpt.orElse(null))
                         .iuv(paymentData.getIuv())
                         .iur(paymentData.getIur())
-                        .indiceDati(paymentData.getIndice())
-                        .importo(paymentData.getImporto())
+                        .indiceDati(paymentData.getIndiceDati())
+                        .importoPagamento(paymentData.getImportoPagato())
                         .esito(paymentData.getEsito())
-                        .dataPagamento(paymentData.getDataPagamento())
+                        .data(paymentData.getData())
                         .stato("ACQUISITO")
                         .build();
 
@@ -128,9 +130,8 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 
     private void markFrTempAsProcessed(Long frTempId) {
         frTempRepository.findById(frTempId).ifPresent(frTemp -> {
-            frTemp.setProcessato(true);
-            frTempRepository.save(frTemp);
-            log.debug("Marked FR_TEMP id={} as processed", frTempId);
+            frTempRepository.delete(frTemp);
+            log.debug("Removed FR_TEMP id={}", frTempId);
         });
     }
 }

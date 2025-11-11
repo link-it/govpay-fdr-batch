@@ -1,12 +1,12 @@
 package it.govpay.fdr.batch.entity;
 
+import java.util.List;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.Instant;
 
 /**
  * Entity representing a domain (creditor institution)
@@ -27,16 +27,11 @@ public class Dominio {
     @Column(name = "cod_dominio", nullable = false, unique = true, length = 35)
     private String codDominio;
 
-    @Column(name = "ragione_sociale", length = 255)
-    private String ragioneSociale;
+    @Column(name = "scarica_fr", nullable = false)
+    @Builder.Default
+    private Boolean scaricaFr = true;
 
-    @Column(name = "abilitato", nullable = false)
-    private Boolean abilitato = true;
+    @OneToMany(mappedBy = "dominio")
+    private List<Fr> frList;
 
-    @Column(name = "data_ultima_acquisizione")
-    private Instant dataUltimaAcquisizione;
-
-    @Version
-    @Column(name = "version")
-    private Long version;
 }

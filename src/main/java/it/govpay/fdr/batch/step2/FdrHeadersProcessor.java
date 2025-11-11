@@ -11,7 +11,6 @@ import org.springframework.web.client.RestClientException;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -27,6 +26,15 @@ public class FdrHeadersProcessor implements ItemProcessor<DominioProcessingConte
         this.fdrApiService = fdrApiService;
     }
 
+    private FdrHeadersBatch.FdrHeader flowConverter(FlowByPSP flow) {
+    	return FdrHeadersBatch.FdrHeader.builder()
+                .codFlusso(flow.getFdr())
+                .idPsp(flow.getPspId())
+                .revision(flow.getRevision())
+                .dataOraFlusso(convertToInstant(flow.getFlowDate()))
+                .dataOraPubblicazione(convertToInstant(flow.getPublished()))
+                .build();
+    }
     @Override
     public FdrHeadersBatch process(DominioProcessingContext context) throws Exception {
         log.info("Processing domain: {} with last publication date: {}",
@@ -45,17 +53,7 @@ public class FdrHeadersProcessor implements ItemProcessor<DominioProcessingConte
             }
 
             // Convert to internal DTO
-            List<FdrHeadersBatch.FdrHeader> headers = new ArrayList<>();
-            for (FlowByPSP flow : flows) {
-                headers.add(FdrHeadersBatch.FdrHeader.builder()
-                    .codFlusso(flow.getFdr())
-                    .codPsp(flow.getPspId())
-                    .revision(flow.getRevision())
-                    .dataFlusso(convertToInstant(flow.getFlowDate()))
-                    .dataPubblicazione(convertToInstant(flow.getPublished()))
-                    .build());
-            }
-
+            List<FdrHeadersBatch.FdrHeader> headers = flows.stream().map(this::flowConverter).toList();
             log.info("Found {} FDR headers for domain {}", headers.size(), context.getCodDominio());
 
             return FdrHeadersBatch.builder()
