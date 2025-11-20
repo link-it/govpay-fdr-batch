@@ -11,9 +11,10 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
-import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 /**
  * Processor to fetch FDR metadata from pagoPA API
@@ -51,7 +52,7 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
                 .dataOraFlusso(convertToInstant(flowDetails.getFdrDate()))
                 .dataRegolamento(convertToInstant(flowDetails.getRegulationDate()))
                 .numeroPagamenti(flowDetails.getTotPayments())
-                .importoTotalePagamenti(flowDetails.getSumPayments() != null ? BigDecimal.valueOf(flowDetails.getSumPayments()) : null)
+                .importoTotalePagamenti(flowDetails.getSumPayments())
                 .codBicRiversamento(flowDetails.getBicCodePouringBank())
                 .codPspMittente(flowDetails.getSender() != null ? flowDetails.getSender().getPspId() : null)
                 .ragioneSocialePsp(flowDetails.getSender() != null ? flowDetails.getSender().getPspName() : null)
@@ -77,6 +78,13 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
         return offsetDateTime.toInstant();
     }
 
+    private Instant convertToInstant(LocalDate localDate) {
+        if (localDate == null) {
+            return null;
+        }
+        return localDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+    }
+
     /**
      * DTO containing complete FDR data with payments
      */
@@ -92,7 +100,7 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
         private Instant dataOraFlusso;
         private Instant dataRegolamento;
         private Long numeroPagamenti;
-        private BigDecimal importoTotalePagamenti;
+        private Double importoTotalePagamenti;
         private String codBicRiversamento;
         private String codPspMittente;
         private String ragioneSocialePsp;

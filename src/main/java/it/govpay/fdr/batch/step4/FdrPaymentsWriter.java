@@ -42,8 +42,8 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
     @Transactional
     public void write(Chunk<? extends FdrPaymentsProcessor.FdrCompleteData> chunk) {
         for (FdrPaymentsProcessor.FdrCompleteData data : chunk) {
-            log.info("Writing FDR: domain={}, flow={}, revision={} with {} payments",
-                data.getCodDominio(), data.getCodFlusso(), data.getRevisione(), data.getPayments().size());
+            log.info("Writing FDR: domain={}, flow={}, pspId={}, revision={} with {} payments",
+                data.getCodDominio(), data.getCodFlusso(), data.getCodPsp(), data.getRevisione(), data.getPayments().size());
 
             try {
                 // Check if FR already exists
@@ -85,6 +85,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
                     .dataOraPubblicazione(data.getDataOraPubblicazione())
                     .dataOraAggiornamento(data.getDataOraAggiornamento())
                     .revisione(data.getRevisione())
+                    .stato("ACCETTATA")
                     .build();
 
                 // Save FR
@@ -105,8 +106,8 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
                         .pagamento(pagamentoOpt.orElse(null))
                         .iuv(paymentData.getIuv())
                         .iur(paymentData.getIur())
-                        .indiceDati(paymentData.getIndiceDati())
-                        .importoPagamento(paymentData.getImportoPagato())
+                        .indiceDati(paymentData.getIndiceDati() != null ? paymentData.getIndiceDati().intValue() : null)
+                        .importoPagato(paymentData.getImportoPagato())
                         .esito(paymentData.getEsito())
                         .data(paymentData.getData())
                         .stato("ACQUISITO")

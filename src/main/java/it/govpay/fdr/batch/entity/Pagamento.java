@@ -1,13 +1,18 @@
 package it.govpay.fdr.batch.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
-import java.time.Instant;
 
 /**
  * Entity representing a payment
@@ -25,7 +30,7 @@ public class Pagamento {
     @Column(name = "id")
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_singolo_versamento")
     private SingoloVersamento singoloVersamento;
 
@@ -34,28 +39,17 @@ public class Pagamento {
 
     @Column(name = "iuv", length = 35)
     private String iuv;
-
-    @Column(name = "indice_dati")
-    private Long indiceDati;
-
-    @Column(name = "importo_pagato", precision = 19, scale = 2)
-    private BigDecimal importoPagato;
-
-    @Column(name = "data_acquisizione")
-    private Instant dataAcquisizione;
-
+    
     @Column(name = "iur", length = 35)
     private String iur;
 
-    @Column(name = "data_pagamento")
-    private Instant dataPagamento;
+    @Column(name = "indice_dati")
+    private Integer indiceDati;
 
-    @Version
-    @Column(name = "version")
-    private Long version;
-
-    @PrePersist
-    protected void onCreate() {
-        dataAcquisizione = Instant.now();
-    }
+    @Column(name = "importo_pagato")
+    private Double importoPagato;
+    
+    @Column(name = "importo_revocato")
+    private Double importoRevocato;
+    
 }

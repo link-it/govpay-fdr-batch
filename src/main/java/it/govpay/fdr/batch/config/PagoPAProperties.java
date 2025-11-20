@@ -46,4 +46,9 @@ public class PagoPAProperties {
      * Page size for paginated requests
      */
     private int pageSize = 1000;
+
+    /**
+     * Enable debug logging for API client (logs HTTP requests/responses)
+     */
+    private boolean debugging = false;
 }

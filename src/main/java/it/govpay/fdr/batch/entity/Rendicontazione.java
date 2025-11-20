@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -29,9 +28,13 @@ public class Rendicontazione {
     @JoinColumn(name = "id_fr", nullable = false)
     private Fr fr;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_pagamento")
     private Pagamento pagamento;
+    
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_singolo_versamento")
+    private SingoloVersamento singoloVersamento;
 
     @Column(name = "iuv", nullable = false, length = 35)
     private String iuv;
@@ -40,24 +43,20 @@ public class Rendicontazione {
     private String iur;
 
     @Column(name = "indice_dati")
-    private Long indiceDati;
+    private Integer indiceDati;
 
-    @Column(name = "importo_pagamento", nullable = false, precision = 19, scale = 2)
-    private BigDecimal importoPagamento;
+    @Column(name = "importo_pagato", nullable = false)
+    private Double importoPagato;
 
-    @Column(name = "esito", length = 35)
-    private String esito;
+    @Column(name = "esito")
+    private Integer esito;
 
     @Column(name = "data")
     private Instant data;
 
-    @Column(name = "stato", length = 35)
+    @Column(name = "stato", length = 35, nullable = false)
     private String stato;
 
-    @Column(name = "anomalie", length = 512)
+    @Column(name = "anomalie", columnDefinition = "TEXT")
     private String anomalie;
-
-    @Version
-    @Column(name = "version")
-    private Long version;
 }

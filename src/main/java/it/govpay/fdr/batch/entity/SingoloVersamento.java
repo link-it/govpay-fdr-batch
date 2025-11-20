@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
 /**
  * Entity representing a single payment position item
  */
@@ -24,19 +22,8 @@ public class SingoloVersamento {
     @Column(name = "id")
     private Long id;
 
-    @Column(name = "cod_dominio", length = 35)
-    private String codDominio;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_versamento")
+    private Versamento versamento;
 
-    @Column(name = "iuv", length = 35)
-    private String iuv;
-
-    @Column(name = "importo_singolo_versamento", precision = 19, scale = 2)
-    private BigDecimal importoSingoloVersamento;
-
-    @Column(name = "descrizione", length = 512)
-    private String descrizione;
-
-    @Version
-    @Column(name = "version")
-    private Long version;
 }

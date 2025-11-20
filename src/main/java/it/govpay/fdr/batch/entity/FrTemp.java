@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -55,8 +54,8 @@ public class FrTemp {
     @Column(name = "numero_pagamenti")
     private Long numeroPagamenti;
 
-    @Column(name = "importo_totale_pagamenti", precision = 19, scale = 2)
-    private BigDecimal importoTotalePagamenti;
+    @Column(name = "importo_totale_pagamenti")
+    private Double importoTotalePagamenti;
 
     @Column(name = "cod_bic_riversamento", length = 35)
     private String codBicRiversamento;

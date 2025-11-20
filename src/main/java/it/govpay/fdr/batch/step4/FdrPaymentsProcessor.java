@@ -11,7 +11,6 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -52,7 +51,7 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
 
             return FdrCompleteData.builder()
                 .frTempId(frTemp.getId())
-                .codPsp(frTemp.getCodPsp())
+                .codPsp(frTemp.getIdPsp())
                 .codDominio(frTemp.getCodDominio())
                 .codFlusso(frTemp.getCodFlusso())
                 .iur(frTemp.getIur())
@@ -81,10 +80,27 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
             .iuv(payment.getIuv())
             .iur(payment.getIur())
             .indiceDati(payment.getIndex())
-            .importoPagato(payment.getPay() != null ? BigDecimal.valueOf(payment.getPay()) : null)
-            .esito(payment.getPayStatus() != null ? payment.getPayStatus().getValue() : null)
+            .importoPagato(payment.getPay())
+            .esito(convertPayStatusToInteger(payment.getPayStatus()))
             .data(convertToInstant(payment.getPayDate()))
             .build();
+    }
+
+    /**
+     * Convert PayStatus enum to integer code as stored in database
+     * EXECUTED -> 0, REVOKED -> 3, STAND_IN -> 4, STAND_IN_NO_RPT -> 8, NO_RPT -> 9
+     */
+    private Integer convertPayStatusToInteger(Payment.PayStatusEnum payStatus) {
+        if (payStatus == null) {
+            return null;
+        }
+        return switch (payStatus) {
+            case EXECUTED -> 0;
+            case REVOKED -> 3;
+            case STAND_IN -> 4;
+            case STAND_IN_NO_RPT -> 8;
+            case NO_RPT -> 9;
+        };
     }
 
     private Instant convertToInstant(OffsetDateTime offsetDateTime) {
@@ -109,7 +125,7 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
         private Instant dataOraFlusso;
         private Instant dataRegolamento;
         private Long numeroPagamenti;
-        private BigDecimal importoTotalePagamenti;
+        private Double importoTotalePagamenti;
         private String codBicRiversamento;
         private String codPspMittente;
         private String ragioneSocialePsp;
@@ -129,8 +145,8 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
         private String iuv;
         private String iur;
         private Long indiceDati;
-        private BigDecimal importoPagato;
-        private String esito;
+        private Double importoPagato;
+        private Integer esito;
         private Instant data;
     }
 }

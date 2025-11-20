@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,19 +62,16 @@ public class Fr {
     @Column(name = "numero_pagamenti")
     private Long numeroPagamenti;
 
-    @Column(name = "importo_totale_pagamenti", precision = 19, scale = 2)
-    private BigDecimal importoTotalePagamenti;
+    @Column(name = "importo_totale_pagamenti")
+    private Double importoTotalePagamenti;
 
     @Column(name = "cod_bic_riversamento", length = 35)
     private String codBicRiversamento;
 
-    @Column(name = "xml", columnDefinition = "TEXT")
-    private String xml;
-
-    @Column(name = "ragione_sociale_psp", length = 255)
+    @Column(name = "ragione_sociale_psp", length = 70)
     private String ragioneSocialePsp;
 
-    @Column(name = "ragione_sociale_dominio", length = 255)
+    @Column(name = "ragione_sociale_dominio", length = 70)
     private String ragioneSocialeDominio;
 
     @Column(name = "data_ora_pubblicazione")

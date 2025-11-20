@@ -33,6 +33,7 @@ public class FdrApiService {
 
         ApiClient apiClient = new ApiClient(fdrApiRestTemplate);
         apiClient.setBasePath(pagoPAProperties.getBaseUrl());
+        apiClient.setDebugging(pagoPAProperties.isDebugging());
         this.organizationsApi = new OrganizationsApi(apiClient);
     }
 
@@ -53,6 +54,8 @@ public class FdrApiService {
 
         while (hasMorePages) {
             try {
+                log.debug("Calling API for organization {} page {}", organizationId, currentPage);
+
                 OffsetDateTime publishedGtOffset = publishedGt != null
                     ? OffsetDateTime.ofInstant(publishedGt, ZoneOffset.UTC)
                     : null;
@@ -66,10 +69,18 @@ public class FdrApiService {
                     (long) pagoPAProperties.getPageSize()  // size
                 );
 
+                log.info("API call completed for organization {}, response received", organizationId);
+                log.info("Response for organization {}: data={}, metadata={}",
+                    organizationId,
+                    response.getData() != null ? response.getData().size() + " flows" : "null",
+                    response.getMetadata());
+
                 if (response.getData() != null && !response.getData().isEmpty()) {
                     allFlows.addAll(response.getData());
-                    log.debug("Retrieved page {} with {} flows for organization {}",
+                    log.info("Retrieved page {} with {} flows for organization {}",
                         currentPage, response.getData().size(), organizationId);
+                } else {
+                    log.info("Page {} returned empty data for organization {}", currentPage, organizationId);
                 }
 
                 // Check if there are more pages
@@ -82,6 +93,16 @@ public class FdrApiService {
                     hasMorePages = false;
                 }
 
+            } catch (org.springframework.web.client.ResourceAccessException e) {
+                // Handle empty response (connection closed) - this is normal when no flows are available
+                if (e.getMessage() != null && e.getMessage().contains("closed")) {
+                    log.info("No flows available for organization {} (empty response)", organizationId);
+                    hasMorePages = false;
+                } else {
+                    log.error("I/O error fetching flows for organization {} at page {}: {}",
+                        organizationId, currentPage, e.getMessage());
+                    throw new RestClientException("Failed to fetch flows for organization " + organizationId, e);
+                }
             } catch (Exception e) {
                 log.error("Error fetching flows for organization {} at page {}: {}",
                     organizationId, currentPage, e.getMessage());
@@ -107,12 +128,16 @@ public class FdrApiService {
             organizationId, fdr, revision, pspId);
 
         try {
-            return organizationsApi.iOrganizationsControllerGetSinglePublishedFlow(
+            SingleFlowResponse response = organizationsApi.iOrganizationsControllerGetSinglePublishedFlow(
                 fdr,
                 organizationId,
                 pspId,
                 revision
             );
+
+            log.info("Retrieved flow details for fdr={}: {}", fdr, response);
+
+            return response;
         } catch (Exception e) {
             log.error("Error fetching flow details for fdr={}: {}", fdr, e.getMessage());
             throw new RestClientException("Failed to fetch flow details for " + fdr, e);

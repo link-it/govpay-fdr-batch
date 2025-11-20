@@ -22,12 +22,24 @@ public class FdrApiClientConfig {
 
     @Bean
     public RestTemplate fdrApiRestTemplate(RestTemplateBuilder builder) {
-        return builder
+        RestTemplate restTemplate = builder
             .rootUri(pagoPAProperties.getBaseUrl())
             .setConnectTimeout(Duration.ofMillis(pagoPAProperties.getConnectionTimeout()))
             .setReadTimeout(Duration.ofMillis(pagoPAProperties.getReadTimeout()))
             .additionalInterceptors(subscriptionKeyInterceptor())
             .build();
+
+        // Use BufferingClientHttpRequestFactory to allow reading response body multiple times
+        // This is needed when debugging is enabled because the ApiClient interceptor reads the body for logging
+        if (pagoPAProperties.isDebugging()) {
+            restTemplate.setRequestFactory(
+                new org.springframework.http.client.BufferingClientHttpRequestFactory(
+                    restTemplate.getRequestFactory()
+                )
+            );
+        }
+
+        return restTemplate;
     }
 
     /**
