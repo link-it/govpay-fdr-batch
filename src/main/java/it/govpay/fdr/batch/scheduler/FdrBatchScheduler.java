@@ -3,6 +3,7 @@ package it.govpay.fdr.batch.scheduler;
 import it.govpay.fdr.batch.config.BatchProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
@@ -36,21 +37,23 @@ public class FdrBatchScheduler {
      * Scheduled execution of FDR Acquisition Job
      */
     @Scheduled(cron = "${govpay.batch.cron}")
-    public void runFdrAcquisitionJob() {
+    public JobExecution runFdrAcquisitionJob() {
         log.info("Starting scheduled FDR Acquisition Job");
 
+        JobExecution res = null;
         try {
             JobParameters jobParameters = new JobParametersBuilder()
                 .addLong("timestamp", System.currentTimeMillis())
                 .toJobParameters();
 
-            jobLauncher.run(fdrAcquisitionJob, jobParameters);
+            res = jobLauncher.run(fdrAcquisitionJob, jobParameters);
 
             log.info("FDR Acquisition Job completed successfully");
 
         } catch (Exception e) {
             log.error("Error executing FDR Acquisition Job: {}", e.getMessage(), e);
         }
+        return res;
     }
 
     /**
