@@ -58,7 +58,7 @@ jobs:
           ${{ runner.os }}-owasp-
 
     - name: Build with Maven
-      run: mvn clean install -Dspring.profiles.active=test -Duser.timezone=Europe/Rome -DnvdApiKey=$NVD_API_KEY -DdataDirectory=.dependency-check/data -Dowasp.format=ALL -Dowasp.output.dir=./dependency-check-report
+      run: mvn clean install -Dspring.profiles.active=test -Duser.timezone=Europe/Rome -DnvdApiKey=$NVD_API_KEY -DossIndexUsername=$OSS_INDEX_USER -DossIndexPassword=$OSS_INDEX_PASSWORD' -DdataDirectory=.dependency-check/data -Dowasp.format=ALL -Dowasp.output.dir=./dependency-check-report
       env:
         NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
@@ -175,4 +175,3 @@ jobs:
           target/third-party-licenses.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-

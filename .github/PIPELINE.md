@@ -64,6 +64,7 @@ Eseguito solo quando viene creato un tag Git:
      - `jacoco-html-report.zip` (report coverage HTML)
      - `dependency-check-report.html` (report sicurezza)
      - `dependency-check-report.xml` (report sicurezza XML)
+     - `third-party-licenses.zip` (report licenze dipendenze)
 
 ## Secrets Richiesti
 
@@ -201,6 +202,82 @@ Utile quando il repository NIST ha problemi:
 ```xml
 <owasp.plugin.autoUpdate>false</owasp.plugin.autoUpdate>
 ```
+
+## License Analysis
+
+L'analisi delle licenze verifica automaticamente la compatibilità delle dipendenze con i requisiti di licenza del progetto.
+
+### Funzionalità
+
+Lo script Python (`analyze_licenses.py`) analizza:
+- **Compatibilità GPLv3**: Verifica che tutte le licenze siano compatibili con GPLv3
+- **Enterprise Safety**: Identifica licenze problematiche per uso enterprise
+- **Licenze Sconosciute**: Segnala dipendenze senza licenza o con licenze non riconosciute
+- **Report Dettagliati**: Genera CSV e JSON con dettagli completi
+
+### Licenze Supportate
+
+Il tool riconosce e valida:
+- Apache 2.0 (tutte le varianti)
+- MIT, BSD-2-Clause, BSD-3-Clause
+- Eclipse (EPL-1.0, EPL-2.0, EDL-1.0)
+- LGPL (2.1, 3.0)
+- MPL-2.0
+- GPL con eccezioni (Classpath Exception, FOSS Exception)
+
+### File di Eccezioni
+
+Le eccezioni sono configurate in `.github/workflows/scripts/license-exceptions.json`:
+
+```json
+{
+  "exceptions": [
+    {
+      "groupId": "org.example",
+      "artifactId": "some-artifact",
+      "reason": "Spiegazione del motivo dell'eccezione",
+      "exclude_from_reports": true
+    }
+  ]
+}
+```
+
+Campi disponibili:
+- `groupId`: Maven groupId (supporta wildcard `*`)
+- `artifactId`: Maven artifactId (supporta wildcard `*`)
+- `reason`: Motivazione dell'eccezione (obbligatorio)
+- `exclude_from_reports`: Se `true`, escluso completamente dai report
+
+### Report Generati
+
+La directory `third-party-licenses/` contiene:
+- `licenses-report.csv`: Report in formato CSV
+- `licenses-report.json`: Report in formato JSON
+- `LICENSES.txt`: Elenco testuale delle licenze
+- `licenses/`: Directory con i file delle licenze scaricate
+
+### Esecuzione Locale
+
+```bash
+# Download informazioni licenze
+mvn org.codehaus.mojo:license-maven-plugin:2.4.0:aggregate-download-licenses \
+  -DexcludeScopes=test,provided,system \
+  -DincludeTransitiveDependencies=true
+
+# Analisi licenze
+python3 .github/workflows/scripts/analyze_licenses.py \
+  --exceptions .github/workflows/scripts/license-exceptions.json
+```
+
+### Gestione Licenze Problematiche
+
+Se l'analisi identifica problemi:
+
+1. **Licenza sconosciuta**: Aggiorna il database licenze in `analyze_licenses.py`
+2. **Licenza incompatibile**:
+   - Trova un'alternativa alla dipendenza
+   - O aggiungi un'eccezione giustificata
+3. **Dipendenza senza licenza**: Contatta il maintainer o evita la dipendenza
 
 ## Troubleshooting
 
