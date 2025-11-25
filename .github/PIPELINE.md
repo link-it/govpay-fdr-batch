@@ -29,12 +29,20 @@ Il workflow principale (`.github/workflows/maven.yml`) esegue i seguenti passagg
    - Verifica qualità, bugs, vulnerabilità, code smells
    - Report di copertura del codice
 
-5. **Artifact Upload**
+5. **License Analysis**
+   - Download delle informazioni sulle licenze delle dipendenze
+   - Analisi automatica della compatibilità delle licenze
+   - Validazione contro le licenze approvate
+   - Generazione report dettagliato in formato CSV e JSON
+   - Gestione eccezioni tramite file di configurazione
+
+6. **Artifact Upload**
    - JAR dell'applicazione
    - Report JaCoCo (XML e ZIP HTML)
    - Report OWASP Dependency-Check (HTML e XML)
+   - Report License Analysis (third-party-licenses/)
 
-6. **Dependency Graph**
+7. **Dependency Graph**
    - Aggiornamento del grafo delle dipendenze GitHub
    - Migliora la qualità degli alert Dependabot
 

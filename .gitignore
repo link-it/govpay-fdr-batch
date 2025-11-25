@@ -13,6 +13,9 @@ buildNumber.properties
 # OWASP Dependency Check cache
 .dependency-check/
 
+# License analysis reports
+third-party-licenses/
+
 # IDEs and editors
 /.idea
 .project
