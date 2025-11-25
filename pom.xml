@@ -225,6 +225,8 @@
                             <format>ALL</format>
                             <nvdApiDelay>120000</nvdApiDelay><!-- 2 minuti -->
                             <nvdMaxRetryCount>3</nvdMaxRetryCount>
+                            <!-- Disable OSS Index analyzer to avoid rate limits and auth issues -->
+                            <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
                         </configuration>
                         <goals>
                             <goal>aggregate</goal>
