@@ -22,6 +22,9 @@ public class SingoloVersamento {
     @Column(name = "id")
     private Long id;
 
+    @Column(name = "indice_dati")
+    private Integer indiceDati;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_versamento")
     private Versamento versamento;
