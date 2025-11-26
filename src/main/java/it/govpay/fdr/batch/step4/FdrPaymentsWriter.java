@@ -244,22 +244,26 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
                 }
 
                 if (data.getPayments().size() != fr.getNumeroPagamenti()) {
-					log.info("Il numero di pagamenti rendicontati [{}] non corrisponde al totale indicato nella testata del flusso [{}]", data.getPayments().size(), fr.getNumeroPagamenti());
-					anomalieFr.add(MessageFormat.format("{0}#Il numero di pagamenti rendicontati [{1}] non corrisponde al totale indicato nella testata del flusso [{2}]", "007107", data.getPayments().size(), fr.getNumeroPagamenti()));
-				}
+                    log.info("Il numero di pagamenti rendicontati [{}] non corrisponde al totale indicato nella testata del flusso [{}]", data.getPayments().size(), fr.getNumeroPagamenti());
+                    anomalieFr.add(MessageFormat.format("{0}#Il numero di pagamenti rendicontati [{1}] non corrisponde al totale indicato nella testata del flusso [{2}]", "007107", data.getPayments().size(), fr.getNumeroPagamenti()));
+                }
 
-				// Decido lo stato del FR
-				if(anomalieFr.isEmpty()) {
-					fr.setStato(Costanti.FLUSSO_STATO_ACCETTATA);
-				} else {
+                // Decido lo stato del FR
+                if(anomalieFr.isEmpty()) {
+                    fr.setStato(Costanti.FLUSSO_STATO_ACCETTATA);
+                } else {
                     fr.setDescrizioneStato(String.join("|", anomalieFr));
-					fr.setStato(Costanti.FLUSSO_STATO_ANOMALA);
-				}
+                    fr.setStato(Costanti.FLUSSO_STATO_ANOMALA);
+                }
 
                 // Save FR
                 fr = frRepository.save(fr);
 
                 log.info("Saved FDR {} with {} payments and stato {}", data.getCodFlusso(), fr.getNumeroPagamenti(), fr.getStato());
+                if (fr.getDescrizioneStato() != null || fr.getRendicontazioni().stream().anyMatch(rnd -> rnd.getAnomalie() != null))
+                    log.info("Flusso di rendicontazione acquisito con anomalie.");
+                else
+                    log.info("Flusso di rendicontazione acquisito senza anomalie.");
 
                 // Mark FR_TEMP record as processed
                 markFrTempAsProcessed(data.getFrTempId());
