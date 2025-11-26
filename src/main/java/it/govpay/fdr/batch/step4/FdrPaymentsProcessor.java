@@ -1,5 +1,6 @@
 package it.govpay.fdr.batch.step4;
 
+import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.service.FdrApiService;
 import it.govpay.fdr.client.model.Payment;
@@ -95,11 +96,11 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
             return null;
         }
         return switch (payStatus) {
-            case EXECUTED -> 0;
-            case REVOKED -> 3;
-            case STAND_IN -> 4;
-            case STAND_IN_NO_RPT -> 8;
-            case NO_RPT -> 9;
+            case EXECUTED -> Costanti.PAYMENT_EXECUTED;
+            case REVOKED -> Costanti.PAYMENT_REVOKED;
+            case STAND_IN -> Costanti.PAYMENT_STAND_IN;
+            case STAND_IN_NO_RPT -> Costanti.PAYMENT_STAND_IN_NO_RPT;
+            case NO_RPT -> Costanti.PAYMENT_NO_RPT;
         };
     }
 

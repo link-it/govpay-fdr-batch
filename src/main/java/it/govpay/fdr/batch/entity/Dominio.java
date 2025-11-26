@@ -31,6 +31,12 @@ public class Dominio {
     @Builder.Default
     private Boolean scaricaFr = true;
 
+    @Column(name = "aux_digit")
+    private Integer auxDigit;
+
+    @Column(name = "segregation_code")
+    private Integer segregationCode;
+
     @OneToMany(mappedBy = "dominio")
     private List<Fr> frList;
 
