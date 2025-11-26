@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -50,8 +51,9 @@ class FdrApiServiceGdeIntegrationTest {
         pagoPAProperties.setPageSize(100);
         pagoPAProperties.setDebugging(false);
 
-        // Create service with mocked GDE
+        // Create service and inject mocked OrganizationsApi
         fdrApiService = new FdrApiService(restTemplate, pagoPAProperties, gdeService);
+        ReflectionTestUtils.setField(fdrApiService, "organizationsApi", organizationsApi);
     }
 
     @Test
@@ -69,8 +71,8 @@ class FdrApiServiceGdeIntegrationTest {
         response.setData(flows);
 
         Metadata metadata = new Metadata();
-        metadata.setPageNumber(1L);
-        metadata.setTotPage(1L);
+        metadata.setPageNumber(1);
+        metadata.setTotPage(1);
         response.setMetadata(metadata);
 
         when(organizationsApi.iOrganizationsControllerGetAllPublishedFlows(
@@ -104,12 +106,10 @@ class FdrApiServiceGdeIntegrationTest {
         String organizationId = "ORG123";
         Instant publishedGt = Instant.now().minusSeconds(3600);
 
-        RestClientException exception = new HttpClientErrorException(
-            org.springframework.http.HttpStatus.NOT_FOUND, "Organization not found");
-
         when(organizationsApi.iOrganizationsControllerGetAllPublishedFlows(
             eq(organizationId), isNull(), eq(1L), isNull(), any(OffsetDateTime.class), eq(100L)))
-            .thenThrow(exception);
+            .thenThrow(new HttpClientErrorException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Organization not found"));
 
         // When/Then
         assertThatThrownBy(() -> fdrApiService.getAllPublishedFlows(organizationId, publishedGt))
@@ -178,11 +178,9 @@ class FdrApiServiceGdeIntegrationTest {
         Long revision = 1L;
         String pspId = "PSP001";
 
-        RestClientException exception = new RestClientException("Flow not found");
-
         when(organizationsApi.iOrganizationsControllerGetSinglePublishedFlow(
             eq(fdr), eq(organizationId), eq(pspId), eq(revision)))
-            .thenThrow(exception);
+            .thenThrow(new RestClientException("Flow not found"));
 
         // When/Then
         assertThatThrownBy(() -> fdrApiService.getSinglePublishedFlow(
@@ -210,6 +208,7 @@ class FdrApiServiceGdeIntegrationTest {
         // Given - service without GDE
         FdrApiService serviceWithoutGde = new FdrApiService(
             restTemplate, pagoPAProperties, null);
+        ReflectionTestUtils.setField(serviceWithoutGde, "organizationsApi", organizationsApi);
 
         String organizationId = "ORG123";
 
@@ -217,8 +216,8 @@ class FdrApiServiceGdeIntegrationTest {
         response.setData(new ArrayList<>());
 
         Metadata metadata = new Metadata();
-        metadata.setPageNumber(1L);
-        metadata.setTotPage(1L);
+        metadata.setPageNumber(1);
+        metadata.setTotPage(1);
         response.setMetadata(metadata);
 
         when(organizationsApi.iOrganizationsControllerGetAllPublishedFlows(
