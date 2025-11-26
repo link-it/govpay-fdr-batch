@@ -1,0 +1,3 @@
+-- HSQLDB (H2) - Drop FR_TEMP table
+
+DROP TABLE IF EXISTS FR_TEMP;
