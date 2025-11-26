@@ -179,6 +179,32 @@
                             </configOptions>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>generate-gde-client</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/resources/gde/openapi.yaml</inputSpec>
+                            <generatorName>java</generatorName>
+                            <library>native</library>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
+                            <apiPackage>it.govpay.gde.client.api</apiPackage>
+                            <modelPackage>it.govpay.gde.client.model</modelPackage>
+                            <invokerPackage>it.govpay.gde.client</invokerPackage>
+                            <configOptions>
+                                <dateLibrary>java8</dateLibrary>
+                                <useJakartaEe>true</useJakartaEe>
+                                <hideGenerationTimestamp>true</hideGenerationTimestamp>
+                                <useBeanValidation>false</useBeanValidation>
+                                <serializableModel>true</serializableModel>
+                                <openApiNullable>false</openApiNullable>
+                                <async>true</async>
+                            </configOptions>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
 
