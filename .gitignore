@@ -10,6 +10,12 @@ buildNumber.properties
 # https://maven.apache.org/wrapper/#usage-without-binary-jar
 .mvn/wrapper/maven-wrapper.jar
 
+# OWASP Dependency Check cache
+.dependency-check/
+
+# License analysis reports
+third-party-licenses/
+
 # IDEs and editors
 /.idea
 .project

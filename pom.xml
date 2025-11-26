@@ -26,6 +26,20 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <openapi-generator.version>7.10.0</openapi-generator.version>
+
+        <!-- Code Coverage -->
+        <jacoco.version>0.8.13</jacoco.version>
+
+        <!-- OWASP Dependency Check -->
+        <owasp.falsePositives.dir>src/main/resources/owasp/falsePositives</owasp.falsePositives.dir>
+        <owasp>verify</owasp> <!-- owasp phase, use 'none' for disable -->
+        <owasp.plugin.version>12.1.9</owasp.plugin.version>
+        <owasp.plugin.autoUpdate>true</owasp.plugin.autoUpdate>
+	<owasp.plugin.failBuildOnCVSS>11</owasp.plugin.failBuildOnCVSS>
+	<owasp.ossindex.prevents429.sleep>5</owasp.ossindex.prevents429.sleep> <!-- https://github.com/sonatype/ossindex-maven/issues/17 -->
+
+        <!-- SonarCloud -->
+        <sonar.coverage.exclusions>**/test/**,**/*Test*.java</sonar.coverage.exclusions>
     </properties>
 
     <dependencies>
@@ -164,6 +178,59 @@
                                 <openApiNullable>false</openApiNullable>
                             </configOptions>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- JaCoCo Maven Plugin for Code Coverage -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>generate-code-coverage-report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/*Test*.class</exclude>
+                                <exclude>**/*Tests.class</exclude>
+                                <exclude>**/test/**</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- OWASP Dependency Check Plugin for Security Scanning -->
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>${owasp.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>check-owasp</id>
+                        <phase>${owasp}</phase>
+                        <configuration>
+                            <autoUpdate>${owasp.plugin.autoUpdate}</autoUpdate>
+                            <failBuildOnCVSS>${owasp.plugin.failBuildOnCVSS}</failBuildOnCVSS>
+                            <format>ALL</format>
+                            <nvdApiDelay>120000</nvdApiDelay><!-- 2 minuti -->
+                            <nvdMaxRetryCount>3</nvdMaxRetryCount>
+                            <!-- Disable OSS Index analyzer to avoid rate limits and auth issues -->
+                            <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
+                        </configuration>
+                        <goals>
+                            <goal>aggregate</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>
