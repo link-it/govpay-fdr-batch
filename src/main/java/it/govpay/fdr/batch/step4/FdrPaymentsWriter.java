@@ -94,7 +94,6 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    .dominio(dominio)
 		    .codDominio(dominio.getCodDominio())
 		    .codFlusso(data.getCodFlusso())
-		    .stato(data.getStato())
 		    .iur(data.getIur())
 		    .dataOraFlusso(data.getDataOraFlusso())
 		    .dataRegolamento(data.getDataRegolamento())
@@ -107,7 +106,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    .dataOraPubblicazione(data.getDataOraPubblicazione())
 		    .dataOraAggiornamento(data.getDataOraAggiornamento())
 		    .revisione(data.getRevisione())
-		    .stato("ACCETTATA")
+		    .stato(StatoFr.ACCETTATA)
 		    .build();
 
 		List<String> anomalieFr = new ArrayList<>();
@@ -129,7 +128,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		        .importoPagato(paymentData.getImportoPagato())
 		        .esito(paymentData.getEsito())
 		        .data(paymentData.getData())
-		        .stato("ACQUISITO")
+		        .stato(StatoRendicontazione.OK)
 		        .build();
 
 		    totaleImportiRendicontati += paymentData.getImportoPagato();
@@ -240,8 +239,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    versamento = associazioneVersamentoInternoLocale(fr, rendicontazione, versamentoOpt);
 		    // c'e' almeno una pendenza pagata nel flusso che non ha la RT associata
 		} else {
-		    // Non e' su sistema. Individuo l'applicativo gestore
-		    // TODO
+		    // Non e' su sistema. La posizione sara' sanata dal job preposto
 		    String erroreVerifica = null;
 		    log.info("Non e' stata trovata nessuna pendenza corrispondente alla rendicontazione [Dominio:{} Iuv:{} Iur:{} Indice:{}]: {}.", fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati(), erroreVerifica);
 		}

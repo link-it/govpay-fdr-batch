@@ -15,7 +15,7 @@ import java.util.List;
  */
 @Entity
 @Table(name = "FR", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"cod_flusso", "cod_psp", "revision"})
+    @UniqueConstraint(columnNames = {"cod_flusso", "cod_psp", "revisione"})
 })
 @Data
 @Builder
@@ -41,8 +41,9 @@ public class Fr {
     @Column(name = "cod_flusso", nullable = false, length = 35)
     private String codFlusso;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "stato", length = 35)
-    private String stato;
+    private StatoFr stato;
 
     @Column(name = "descrizione_stato", columnDefinition = "TEXT")
     private String descrizioneStato;
