@@ -1,8 +1,6 @@
 package it.govpay.fdr.batch.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -166,7 +164,7 @@ class FdrAnomaliesIntegrationTest {
 
         // Create TWO pagamenti with same IUV/IUR but different IDs
         // This simulates duplicate payments in the system
-        Pagamento pagamento1 = createPagamento(versamento, iur);
+        Pagamento pagamento1 = createPagamentoWithIndiceDati(versamento, iur, 1);
         Pagamento pagamento2 = Pagamento.builder()
             .iur(iur)
             .importoPagato(10.50)
@@ -174,7 +172,7 @@ class FdrAnomaliesIntegrationTest {
             .iuv(versamento.getIuvPagamento())
             .indiceDati(1)
             .build();
-        pagamento2 = pagamentoRepository.save(pagamento2);
+        pagamentoRepository.save(pagamento2);
 
         // Process FDR with DUPLICATE IUV/IUR within the same flow (2 payments with same IUV/IUR)
         SingleFlowResponse flowResponse = createMockFlowResponse(2, 21.0);  // 2 payments, total 21.0

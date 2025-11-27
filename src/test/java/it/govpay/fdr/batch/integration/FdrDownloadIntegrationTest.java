@@ -2,11 +2,9 @@ package it.govpay.fdr.batch.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -150,7 +148,7 @@ class FdrDownloadIntegrationTest {
             assertThat(rend.getIuv()).isEqualTo(String.format("RF%013d", i + 1));
             assertThat(rend.getIur()).isEqualTo(String.format("IUR%012d", i + 1));
             assertThat(rend.getImportoPagato()).isEqualTo(10.50);
-            assertThat(rend.getEsito()).isEqualTo(0); // EXECUTED
+            assertThat(rend.getEsito()).isZero(); // EXECUTED
             // Non-internal IUVs (alphanumeric) should be ALTRO_INTERMEDIARIO
             assertThat(rend.getStato()).isEqualTo(StatoRendicontazione.ALTRO_INTERMEDIARIO);
         }

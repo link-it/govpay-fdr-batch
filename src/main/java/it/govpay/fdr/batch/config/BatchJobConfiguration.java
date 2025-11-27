@@ -15,6 +15,7 @@ import it.govpay.fdr.batch.step4.FdrPaymentsWriter;
 import it.govpay.fdr.batch.tasklet.CleanupFrTempTasklet;
 import lombok.extern.slf4j.Slf4j;
 
+import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -137,7 +138,7 @@ public class BatchJobConfiguration {
             
             @Override
             public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
-                log.info("Retry headers attempt #" + context.getRetryCount() + " failed: " + throwable.getMessage());
+                log.info(MessageFormat.format("Retry headers attempt #{0} failed: {1}", context.getRetryCount(), throwable.getMessage()));
             }
         };
     }
@@ -201,7 +202,7 @@ public class BatchJobConfiguration {
             
             @Override
             public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
-                log.info("Retry metadata attempt #" + context.getRetryCount() + " failed: " + throwable.getMessage());
+                log.info(MessageFormat.format("Retry metadata attempt #{0} failed: {1}", context.getRetryCount(), throwable.getMessage()));
             }
         };
     }
@@ -258,7 +259,7 @@ public class BatchJobConfiguration {
             
             @Override
             public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
-                log.info("Retry payments attempt #" + context.getRetryCount() + " failed: " + throwable.getMessage());
+                log.info(MessageFormat.format("Retry payments attempt #{0} failed: {1}", context.getRetryCount(), throwable.getMessage()));
             }
         };
     }
