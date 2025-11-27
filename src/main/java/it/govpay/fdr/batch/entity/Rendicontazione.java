@@ -54,8 +54,9 @@ public class Rendicontazione {
     @Column(name = "data")
     private Instant data;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "stato", length = 35, nullable = false)
-    private String stato;
+    private StatoRendicontazione stato;
 
     @Column(name = "anomalie", columnDefinition = "TEXT")
     private String anomalie;

@@ -1,22 +1,22 @@
 package it.govpay.fdr.batch.gde.service;
 
-import it.govpay.fdr.batch.entity.Fr;
-import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
-import it.govpay.gde.client.api.EventiApi;
-import it.govpay.gde.client.model.Header;
-import it.govpay.gde.client.model.NuovoEvento;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClientException;
-
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
+
+import it.govpay.fdr.batch.Costanti;
+import it.govpay.fdr.batch.entity.Fr;
+import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
+import it.govpay.gde.client.api.EventiApi;
+import it.govpay.gde.client.model.NuovoEvento;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Service for sending FDR acquisition events to the GDE microservice.
@@ -25,9 +25,10 @@ import java.util.concurrent.CompletableFuture;
  * to GDE for monitoring, auditing, and debugging purposes.
  * <p>
  * Events include:
- * - GET_PUBLISHED_FLOWS: Fetching list of published flows
- * - GET_FLOW_DETAILS: Fetching single flow details
- * - PROCESS_FLOW: Processing flow data
+ * - IOrganizationsController_getAllPublishedFlows: Fetching list of published flows
+ * - IOrganizationsController_getSinglePublishedFlow: Fetching single flow details
+ * - PROCESS_FLOW: Processing flow data (internal operation)
+ * - SAVE_FLOW: Saving flow data (internal operation)
  */
 @Slf4j
 @Service
@@ -42,16 +43,6 @@ public class GdeService {
     private Boolean gdeEnabled;
 
     /**
-     * Event type constants for FDR operations.
-     */
-    public static class EventTypes {
-        public static final String GET_PUBLISHED_FLOWS = "GET_PUBLISHED_FLOWS";
-        public static final String GET_FLOW_DETAILS = "GET_FLOW_DETAILS";
-        public static final String PROCESS_FLOW = "PROCESS_FLOW";
-        public static final String SAVE_FLOW = "SAVE_FLOW";
-    }
-
-    /**
      * Sends an event to GDE asynchronously.
      * <p>
      * If GDE is disabled or the event fails to send, the error is logged
@@ -60,7 +51,7 @@ public class GdeService {
      * @param nuovoEvento Event to send
      */
     public void inviaEvento(NuovoEvento nuovoEvento) {
-        if (!gdeEnabled) {
+        if (Boolean.FALSE.equals(gdeEnabled)) {
             log.debug("GDE disabled, skipping event: {}", nuovoEvento.getTipoEvento());
             return;
         }
@@ -94,7 +85,7 @@ public class GdeService {
 
         // Create event without Fr entity (list operation)
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
-                null, EventTypes.GET_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd);
+                null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd);
 
         nuovoEvento.setSottotipoEvento(String.format("org=%s,psp=%s,date=%s",
                 organizationId, pspId != null ? pspId : "all", flowDate));
@@ -123,7 +114,7 @@ public class GdeService {
         String transactionId = UUID.randomUUID().toString();
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
-                null, EventTypes.GET_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd,
+                null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd,
                 null, exception);
 
         nuovoEvento.setSottotipoEvento(String.format("org=%s,psp=%s,date=%s",
@@ -149,7 +140,7 @@ public class GdeService {
         String transactionId = UUID.randomUUID().toString();
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
-                fr, EventTypes.GET_FLOW_DETAILS, transactionId, dataStart, dataEnd);
+                fr, Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW, transactionId, dataStart, dataEnd);
 
         nuovoEvento.setSottotipoEvento(String.format("fdr=%s,rev=%d",
                 fr.getCodFlusso(), fr.getRevisione() != null ? fr.getRevisione() : 0));
@@ -175,7 +166,7 @@ public class GdeService {
         String transactionId = UUID.randomUUID().toString();
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
-                fr, EventTypes.GET_FLOW_DETAILS, transactionId, dataStart, dataEnd,
+                fr, Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW, transactionId, dataStart, dataEnd,
                 null, exception);
 
         nuovoEvento.setSottotipoEvento(String.format("fdr=%s,rev=%d",
@@ -183,90 +174,6 @@ public class GdeService {
 
         eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
-
-        inviaEvento(nuovoEvento);
-    }
-
-    /**
-     * Records a successful PROCESS_FLOW operation.
-     *
-     * @param fr             Fr entity with flow data
-     * @param dataStart      Operation start time
-     * @param dataEnd        Operation end time
-     * @param processedCount Number of payments processed
-     */
-    public void saveProcessFlowOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                   int processedCount) {
-        String transactionId = UUID.randomUUID().toString();
-
-        NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
-                fr, EventTypes.PROCESS_FLOW, transactionId, dataStart, dataEnd);
-
-        nuovoEvento.setSottotipoEvento(String.format("fdr=%s", fr.getCodFlusso()));
-        nuovoEvento.setDettaglioEsito(String.format("Processed %d payments", processedCount));
-
-        inviaEvento(nuovoEvento);
-    }
-
-    /**
-     * Records a failed PROCESS_FLOW operation.
-     *
-     * @param fr             Fr entity with flow data
-     * @param dataStart      Operation start time
-     * @param dataEnd        Operation end time
-     * @param errorMessage   Error message
-     */
-    public void saveProcessFlowKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                   String errorMessage) {
-        String transactionId = UUID.randomUUID().toString();
-
-        NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
-                fr, EventTypes.PROCESS_FLOW, transactionId, dataStart, dataEnd,
-                null, null);
-
-        nuovoEvento.setSottotipoEvento(String.format("fdr=%s", fr.getCodFlusso()));
-        nuovoEvento.setDettaglioEsito(errorMessage);
-
-        inviaEvento(nuovoEvento);
-    }
-
-    /**
-     * Records a successful SAVE_FLOW operation.
-     *
-     * @param fr             Fr entity with flow data
-     * @param dataStart      Operation start time
-     * @param dataEnd        Operation end time
-     */
-    public void saveSaveFlowOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd) {
-        String transactionId = UUID.randomUUID().toString();
-
-        NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
-                fr, EventTypes.SAVE_FLOW, transactionId, dataStart, dataEnd);
-
-        nuovoEvento.setSottotipoEvento(String.format("fdr=%s", fr.getCodFlusso()));
-        nuovoEvento.setDettaglioEsito("Flow saved successfully");
-
-        inviaEvento(nuovoEvento);
-    }
-
-    /**
-     * Records a failed SAVE_FLOW operation.
-     *
-     * @param fr             Fr entity with flow data
-     * @param dataStart      Operation start time
-     * @param dataEnd        Operation end time
-     * @param errorMessage   Error message
-     */
-    public void saveSaveFlowKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                String errorMessage) {
-        String transactionId = UUID.randomUUID().toString();
-
-        NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
-                fr, EventTypes.SAVE_FLOW, transactionId, dataStart, dataEnd,
-                null, null);
-
-        nuovoEvento.setSottotipoEvento(String.format("fdr=%s", fr.getCodFlusso()));
-        nuovoEvento.setDettaglioEsito(errorMessage);
 
         inviaEvento(nuovoEvento);
     }

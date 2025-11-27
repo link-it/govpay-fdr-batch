@@ -1,5 +1,6 @@
 package it.govpay.fdr.batch.service;
 
+import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.config.PagoPAProperties;
 import it.govpay.fdr.batch.gde.service.GdeService;
 import it.govpay.fdr.client.ApiClient;
@@ -122,7 +123,8 @@ public class FdrApiService {
             // Send success event to GDE
             if (gdeService != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                String url = String.format("%s/organizations/%s/fdrs", pagoPAProperties.getBaseUrl(), organizationId);
+                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
+                    .replace("{organizationId}", organizationId);
                 gdeService.saveGetPublishedFlowsOk(organizationId, null,
                     publishedGt != null ? publishedGt.toString() : "all",
                     startTime, endTime, url, allFlows.size());
@@ -134,7 +136,8 @@ public class FdrApiService {
             // Send failure event to GDE
             if (gdeService != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                String url = String.format("%s/organizations/%s/fdrs", pagoPAProperties.getBaseUrl(), organizationId);
+                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
+                    .replace("{organizationId}", organizationId);
                 gdeService.saveGetPublishedFlowsKo(organizationId, null,
                     publishedGt != null ? publishedGt.toString() : "all",
                     startTime, endTime, url, e);
@@ -171,8 +174,11 @@ public class FdrApiService {
             // Send success event to GDE
             if (gdeService != null && response != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                String url = String.format("%s/organizations/%s/fdrs/%s/psps/%s/revisions/%d",
-                    pagoPAProperties.getBaseUrl(), organizationId, fdr, pspId, revision);
+                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
+                    .replace("{organizationId}", organizationId)
+                    .replace("{fdr}", fdr)
+                    .replace("{revision}", String.valueOf(revision))
+                    .replace("{pspId}", pspId);
 
                 // Create minimal Fr object for event tracking
                 it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
@@ -196,8 +202,11 @@ public class FdrApiService {
             // Send failure event to GDE
             if (gdeService != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                String url = String.format("%s/organizations/%s/fdrs/%s/psps/%s/revisions/%d",
-                    pagoPAProperties.getBaseUrl(), organizationId, fdr, pspId, revision);
+                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
+                    .replace("{organizationId}", organizationId)
+                    .replace("{fdr}", fdr)
+                    .replace("{revision}", String.valueOf(revision))
+                    .replace("{pspId}", pspId);
 
                 it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
                     .codFlusso(fdr)
