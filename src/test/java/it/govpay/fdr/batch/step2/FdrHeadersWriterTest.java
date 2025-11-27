@@ -1,0 +1,219 @@
+package it.govpay.fdr.batch.step2;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.batch.item.Chunk;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import it.govpay.fdr.batch.dto.FdrHeadersBatch;
+import it.govpay.fdr.batch.entity.FrTemp;
+import it.govpay.fdr.batch.repository.FrTempRepository;
+
+/**
+ * Unit tests for FdrHeadersWriter
+ */
+@ExtendWith(MockitoExtension.class)
+class FdrHeadersWriterTest {
+
+    @Mock
+    private FrTempRepository frTempRepository;
+
+    @Captor
+    private ArgumentCaptor<FrTemp> frTempCaptor;
+
+    private FdrHeadersWriter writer;
+
+    @BeforeEach
+    void setUp() {
+        writer = new FdrHeadersWriter(frTempRepository);
+    }
+
+    @Test
+    @DisplayName("Should write all headers to FR_TEMP")
+    void testWriteMultipleHeaders() throws Exception {
+        // Given: Batch with 3 headers (all new)
+        String codDominio = "12345678901";
+        List<FdrHeadersBatch.FdrHeader> headers = new ArrayList<>();
+        headers.add(createHeader("FDR-001", "PSP001", 1L));
+        headers.add(createHeader("FDR-002", "PSP001", 1L));
+        headers.add(createHeader("FDR-003", "PSP002", 1L));
+
+        FdrHeadersBatch batch = FdrHeadersBatch.builder()
+            .codDominio(codDominio)
+            .headers(headers)
+            .build();
+
+        Chunk<FdrHeadersBatch> chunk = new Chunk<>(List.of(batch));
+
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+
+        // When: Write
+        writer.write(chunk);
+
+        // Then: Should save all 3 headers
+        verify(frTempRepository, times(3)).save(any(FrTemp.class));
+        verify(frTempRepository, times(3)).existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Should skip duplicate headers")
+    void testWriteSkipsDuplicates() throws Exception {
+        // Given: Batch with 3 headers (2 new, 1 duplicate)
+        String codDominio = "12345678901";
+        List<FdrHeadersBatch.FdrHeader> headers = new ArrayList<>();
+        headers.add(createHeader("FDR-001", "PSP001", 1L));
+        headers.add(createHeader("FDR-002", "PSP001", 1L)); // Duplicate
+        headers.add(createHeader("FDR-003", "PSP002", 1L));
+
+        FdrHeadersBatch batch = FdrHeadersBatch.builder()
+            .codDominio(codDominio)
+            .headers(headers)
+            .build();
+
+        Chunk<FdrHeadersBatch> chunk = new Chunk<>(List.of(batch));
+
+        // FDR-002 already exists
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
+            eq(codDominio), eq("FDR-001"), eq("PSP001"), eq(1L))).thenReturn(false);
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
+            eq(codDominio), eq("FDR-002"), eq("PSP001"), eq(1L))).thenReturn(true); // Duplicate
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
+            eq(codDominio), eq("FDR-003"), eq("PSP002"), eq(1L))).thenReturn(false);
+
+        // When: Write
+        writer.write(chunk);
+
+        // Then: Should save only 2 headers (skip duplicate)
+        verify(frTempRepository, times(2)).save(any(FrTemp.class));
+    }
+
+    @Test
+    @DisplayName("Should write multiple batches in single chunk")
+    void testWriteMultipleBatches() throws Exception {
+        // Given: Chunk with 2 batches
+        FdrHeadersBatch batch1 = FdrHeadersBatch.builder()
+            .codDominio("12345678901")
+            .headers(List.of(createHeader("FDR-001", "PSP001", 1L)))
+            .build();
+
+        FdrHeadersBatch batch2 = FdrHeadersBatch.builder()
+            .codDominio("12345678902")
+            .headers(List.of(createHeader("FDR-002", "PSP002", 1L)))
+            .build();
+
+        Chunk<FdrHeadersBatch> chunk = new Chunk<>(List.of(batch1, batch2));
+
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+
+        // When: Write
+        writer.write(chunk);
+
+        // Then: Should save both batches
+        verify(frTempRepository, times(2)).save(any(FrTemp.class));
+    }
+
+    @Test
+    @DisplayName("Should correctly map header fields to FrTemp entity")
+    void testFieldMapping() throws Exception {
+        // Given: Single header with all fields
+        String codDominio = "12345678901";
+        String codFlusso = "FDR-001";
+        String idPsp = "PSP001";
+        Long revisione = 1L;
+        Instant dataOraFlusso = Instant.parse("2025-01-27T10:30:00Z");
+        Instant dataOraPubblicazione = Instant.parse("2025-01-27T11:00:00Z");
+
+        FdrHeadersBatch.FdrHeader header = FdrHeadersBatch.FdrHeader.builder()
+            .codFlusso(codFlusso)
+            .idPsp(idPsp)
+            .revision(revisione)
+            .dataOraFlusso(dataOraFlusso)
+            .dataOraPubblicazione(dataOraPubblicazione)
+            .build();
+
+        FdrHeadersBatch batch = FdrHeadersBatch.builder()
+            .codDominio(codDominio)
+            .headers(List.of(header))
+            .build();
+
+        Chunk<FdrHeadersBatch> chunk = new Chunk<>(List.of(batch));
+
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+
+        // When: Write
+        writer.write(chunk);
+
+        // Then: Verify field mapping
+        verify(frTempRepository).save(frTempCaptor.capture());
+        FrTemp saved = frTempCaptor.getValue();
+
+        assertThat(saved.getCodDominio()).isEqualTo(codDominio);
+        assertThat(saved.getCodFlusso()).isEqualTo(codFlusso);
+        assertThat(saved.getIdPsp()).isEqualTo(idPsp);
+        assertThat(saved.getRevisione()).isEqualTo(revisione);
+        assertThat(saved.getDataOraFlusso()).isEqualTo(dataOraFlusso);
+        assertThat(saved.getDataOraPubblicazione()).isEqualTo(dataOraPubblicazione);
+    }
+
+    @Test
+    @DisplayName("Should handle empty chunk gracefully")
+    void testWriteEmptyChunk() throws Exception {
+        // Given: Empty chunk
+        Chunk<FdrHeadersBatch> chunk = new Chunk<>();
+
+        // When: Write
+        writer.write(chunk);
+
+        // Then: Should not save anything
+        verify(frTempRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should handle batch with empty headers list")
+    void testWriteBatchWithEmptyHeaders() throws Exception {
+        // Given: Batch with empty headers list
+        FdrHeadersBatch batch = FdrHeadersBatch.builder()
+            .codDominio("12345678901")
+            .headers(new ArrayList<>())
+            .build();
+
+        Chunk<FdrHeadersBatch> chunk = new Chunk<>(List.of(batch));
+
+        // When: Write
+        writer.write(chunk);
+
+        // Then: Should not save anything
+        verify(frTempRepository, never()).save(any());
+    }
+
+    private FdrHeadersBatch.FdrHeader createHeader(String codFlusso, String idPsp, Long revision) {
+        return FdrHeadersBatch.FdrHeader.builder()
+            .codFlusso(codFlusso)
+            .idPsp(idPsp)
+            .revision(revision)
+            .dataOraFlusso(Instant.now())
+            .dataOraPubblicazione(Instant.now())
+            .build();
+    }
+}
