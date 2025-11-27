@@ -76,9 +76,9 @@ class FdrPaymentsReaderTest {
         // When: Read
         FrTemp result = reader.read();
 
-        // Then: Should return null immediately
+        // Then: Should return null (repository called twice: init + else-if check)
         assertThat(result).isNull();
-        verify(frTempRepository, times(1)).findByOrderByDataOraPubblicazioneAsc(any(Pageable.class));
+        verify(frTempRepository, times(2)).findByOrderByDataOraPubblicazioneAsc(any(Pageable.class));
     }
 
     @Test

@@ -54,9 +54,9 @@ class FdrHeadersProcessorTest {
             .build();
 
         List<FlowByPSP> flows = new ArrayList<>();
-        flows.add(createFlowByPSP("FDR-001", "PSP001", 1L, "2025-01-27T10:30:00Z", "2025-01-27T11:00:00Z"));
-        flows.add(createFlowByPSP("FDR-002", "PSP001", 1L, "2025-01-27T11:30:00Z", "2025-01-27T12:00:00Z"));
-        flows.add(createFlowByPSP("FDR-003", "PSP002", 1L, "2025-01-27T12:30:00Z", "2025-01-27T13:00:00Z"));
+        flows.add(createFlowByPSP("FDR-001", "PSP001", 1L, "2025-01-27T10:30:00", "2025-01-27T11:00:00"));
+        flows.add(createFlowByPSP("FDR-002", "PSP001", 1L, "2025-01-27T11:30:00", "2025-01-27T12:00:00"));
+        flows.add(createFlowByPSP("FDR-003", "PSP002", 1L, "2025-01-27T12:30:00", "2025-01-27T13:00:00"));
 
         when(fdrApiService.getAllPublishedFlows(eq(codDominio), eq(lastPubDate))).thenReturn(flows);
 
@@ -157,7 +157,7 @@ class FdrHeadersProcessorTest {
             .build();
 
         List<FlowByPSP> flows = new ArrayList<>();
-        flows.add(createFlowByPSP("FDR-001", "PSP001", 1L, "2025-01-27T10:30:00Z", "2025-01-27T11:00:00Z"));
+        flows.add(createFlowByPSP("FDR-001", "PSP001", 1L, "2025-01-27T10:30:00", "2025-01-27T11:00:00"));
 
         when(fdrApiService.getAllPublishedFlows(eq("12345678901"), eq(null))).thenReturn(flows);
 
