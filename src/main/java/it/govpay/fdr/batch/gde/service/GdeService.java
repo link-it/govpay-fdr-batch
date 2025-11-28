@@ -87,6 +87,15 @@ public class GdeService {
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd);
 
+        // Always set idDominio - it's always known
+        nuovoEvento.setIdDominio(organizationId);
+
+        // Always set datiPagoPA with idDominio and idPsp
+        it.govpay.gde.client.model.DatiPagoPA datiPagoPA = new it.govpay.gde.client.model.DatiPagoPA();
+        datiPagoPA.setIdDominio(organizationId);
+        datiPagoPA.setIdPsp(pspId);
+        nuovoEvento.setDatiPagoPA(datiPagoPA);
+
         nuovoEvento.setSottotipoEvento(String.format("org=%s,psp=%s,date=%s",
                 organizationId, pspId != null ? pspId : "all", flowDate));
         nuovoEvento.setDettaglioEsito(String.format("Retrieved %d flows", flowsCount));
@@ -116,6 +125,15 @@ public class GdeService {
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd,
                 null, exception);
+
+        // Always set idDominio - it's always known
+        nuovoEvento.setIdDominio(organizationId);
+
+        // Always set datiPagoPA with idDominio and idPsp
+        it.govpay.gde.client.model.DatiPagoPA datiPagoPA = new it.govpay.gde.client.model.DatiPagoPA();
+        datiPagoPA.setIdDominio(organizationId);
+        datiPagoPA.setIdPsp(pspId);
+        nuovoEvento.setDatiPagoPA(datiPagoPA);
 
         nuovoEvento.setSottotipoEvento(String.format("org=%s,psp=%s,date=%s",
                 organizationId, pspId != null ? pspId : "all", flowDate));
