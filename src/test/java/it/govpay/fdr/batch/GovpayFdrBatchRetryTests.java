@@ -10,6 +10,7 @@ import org.springframework.batch.item.Chunk;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.RestClientException;
@@ -44,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Integration tests for GovpayFdrBatchApplication
  */
 @SpringBootTest(classes = GovpayFdrBatchApplication.class)
+@ActiveProfiles("test")
 @TestPropertySource(properties = {
 		"spring.batch.job.enabled=false"
 })

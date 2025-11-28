@@ -44,4 +44,12 @@ public class Costanti {
 
 	// Pattern per serializzazione date alle API esterne (3 cifre millisecondi senza timezone)
 	public static final String PATTERN_DATA_JSON_YYYY_MM_DD_T_HH_MM_SS_SSS = "yyyy-MM-dd'T'HH:mm:ss.SSS";
+
+	// Job parameters per gestione multi-nodo
+	public static final String GOVPAY_BATCH_JOB_ID = "JobID";
+	public static final String GOVPAY_BATCH_JOB_PARAMETER_WHEN = "When";
+	public static final String GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID = "ClusterID";
+
+	// Nome job FDR acquisition
+	public static final String FDR_ACQUISITION_JOB_NAME = "fdrAcquisitionJob";
 }
