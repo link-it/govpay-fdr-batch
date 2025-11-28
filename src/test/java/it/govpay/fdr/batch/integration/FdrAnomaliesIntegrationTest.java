@@ -164,7 +164,7 @@ class FdrAnomaliesIntegrationTest {
 
         // Create TWO pagamenti with same IUV/IUR but different IDs
         // This simulates duplicate payments in the system
-        Pagamento pagamento1 = createPagamentoWithIndiceDati(versamento, iur, 1);
+        this.createPagamentoWithIndiceDati(versamento, iur, 1);
         Pagamento pagamento2 = Pagamento.builder()
             .iur(iur)
             .importoPagato(10.50)
@@ -318,10 +318,6 @@ class FdrAnomaliesIntegrationTest {
         return versamentoRepository.save(versamento);
     }
 
-    private Pagamento createPagamento(Versamento versamento, String iur) {
-        return createPagamentoWithIndiceDati(versamento, iur, 1);
-    }
-
     private Pagamento createPagamentoWithIndiceDati(Versamento versamento, String iur, int indiceDati) {
         // Create SingoloVersamento first
         SingoloVersamento singoloVersamento = SingoloVersamento.builder()
@@ -340,22 +336,6 @@ class FdrAnomaliesIntegrationTest {
             .indiceDati(indiceDati)
             .build();
         return pagamentoRepository.save(pagamento);
-    }
-
-    private Fr createExistingFr() {
-        return Fr.builder()
-            .codPsp(PSP_ID)
-            .dominio(testDominio)
-            .codDominio(ORG_ID)
-            .codFlusso("EXISTING-FDR")
-            .stato(StatoFr.ACCETTATA)
-            .dataOraFlusso(Instant.now())
-            .dataRegolamento(Instant.now())
-            .numeroPagamenti(1L)
-            .importoTotalePagamenti(10.50)
-            .revisione(1L)
-            .obsoleto(false)
-            .build();
     }
 
     private SingleFlowResponse createMockFlowResponse(int paymentCount, double totalAmount) {
@@ -402,35 +382,6 @@ class FdrAnomaliesIntegrationTest {
             payment.setIndex((long) i);
             // Use non-internal IUV format (alphanumeric) for ALTRO_INTERMEDIARIO tests
             payment.setIuv(String.format("RF%013d", i));
-            payment.setIur(String.format("IUR%012d", i));
-            payment.setIdTransfer(1L);
-            payment.setPay(10.50);
-            payment.setPayStatus(Payment.PayStatusEnum.EXECUTED);
-            payment.setPayDate(OffsetDateTime.now(ZoneOffset.UTC));
-            payments.add(payment);
-        }
-        response.setData(payments);
-
-        return response;
-    }
-
-    private PaginatedPaymentsResponse createMockPaymentsResponseInternal(int count) {
-        PaginatedPaymentsResponse response = new PaginatedPaymentsResponse();
-
-        Metadata metadata = new Metadata();
-        metadata.setPageSize(count);
-        metadata.setPageNumber(1);
-        metadata.setTotPage(1);
-        response.setMetadata(metadata);
-
-        response.setCount((long) count);
-
-        List<Payment> payments = new ArrayList<>();
-        for (int i = 1; i <= count; i++) {
-            Payment payment = new Payment();
-            payment.setIndex((long) i);
-            // Internal IUV format: 15-digit numeric
-            payment.setIuv(String.format("%015d", i));
             payment.setIur(String.format("IUR%012d", i));
             payment.setIdTransfer(1L);
             payment.setPay(10.50);

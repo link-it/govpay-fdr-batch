@@ -144,6 +144,14 @@ class GdeServiceTest {
                 anyString(), eq(start), eq(end));
             verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento), eq(url), eq("GET"), anyList());
         });
+
+        // Verify idDominio is always set (it's always known)
+        assertThat(mockEvento.getIdDominio()).isEqualTo(organizationId);
+
+        // Verify datiPagoPA is always set with idDominio and idPsp
+        assertThat(mockEvento.getDatiPagoPA()).isNotNull();
+        assertThat(mockEvento.getDatiPagoPA().getIdDominio()).isEqualTo(organizationId);
+        assertThat(mockEvento.getDatiPagoPA().getIdPsp()).isEqualTo(pspId);
     }
 
     @Test
@@ -172,6 +180,11 @@ class GdeServiceTest {
             verify(eventoFdrMapper).createEventoKo(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
                 anyString(), eq(start), eq(end), isNull(), eq(exception));
         });
+
+        // Verify datiPagoPA is always set with idDominio and idPsp
+        assertThat(mockEvento.getDatiPagoPA()).isNotNull();
+        assertThat(mockEvento.getDatiPagoPA().getIdDominio()).isEqualTo(organizationId);
+        assertThat(mockEvento.getDatiPagoPA().getIdPsp()).isNull(); // pspId was null in this test
     }
 
     @Test
