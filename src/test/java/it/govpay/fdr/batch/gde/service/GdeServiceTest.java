@@ -198,6 +198,7 @@ class GdeServiceTest {
         NuovoEvento mockEvento = new NuovoEvento();
         mockEvento.setTipoEvento(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW);
         mockEvento.setEsito(EsitoEvento.OK);
+        mockEvento.setSottotipoEvento("fdr=" + testFr.getCodFlusso());
 
         when(eventoFdrMapper.createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
             anyString(), eq(start), eq(end))).thenReturn(mockEvento);

@@ -96,8 +96,6 @@ public class GdeService {
         datiPagoPA.setIdPsp(pspId);
         nuovoEvento.setDatiPagoPA(datiPagoPA);
 
-        nuovoEvento.setSottotipoEvento(String.format("org=%s,psp=%s,date=%s",
-                organizationId, pspId != null ? pspId : "all", flowDate));
         nuovoEvento.setDettaglioEsito(String.format("Retrieved %d flows", flowsCount));
 
         eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
@@ -135,8 +133,6 @@ public class GdeService {
         datiPagoPA.setIdPsp(pspId);
         nuovoEvento.setDatiPagoPA(datiPagoPA);
 
-        nuovoEvento.setSottotipoEvento(String.format("org=%s,psp=%s,date=%s",
-                organizationId, pspId != null ? pspId : "all", flowDate));
 
         eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
@@ -160,8 +156,6 @@ public class GdeService {
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 fr, Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW, transactionId, dataStart, dataEnd);
 
-        nuovoEvento.setSottotipoEvento(String.format("fdr=%s,rev=%d",
-                fr.getCodFlusso(), fr.getRevisione() != null ? fr.getRevisione() : 0));
         nuovoEvento.setDettaglioEsito(String.format("Retrieved flow with %d payments", paymentsCount));
 
         eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
@@ -187,8 +181,6 @@ public class GdeService {
                 fr, Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW, transactionId, dataStart, dataEnd,
                 null, exception);
 
-        nuovoEvento.setSottotipoEvento(String.format("fdr=%s,rev=%d",
-                fr.getCodFlusso(), fr.getRevisione() != null ? fr.getRevisione() : 0));
 
         eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);

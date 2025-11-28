@@ -114,6 +114,7 @@ public class FdrApiService {
                 } catch (Exception e) {
                     log.error("Error fetching flows for organization {} at page {}: {}",
                         organizationId, currentPage, e.getMessage());
+                    log.error(e.getMessage(), e);
                     throw new RestClientException("Failed to fetch flows for organization " + organizationId, e);
                 }
             }

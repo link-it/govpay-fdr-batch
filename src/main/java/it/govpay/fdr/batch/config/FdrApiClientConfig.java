@@ -13,11 +13,13 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import it.govpay.fdr.batch.Costanti;
+import it.govpay.fdr.batch.utils.LocalDateFlexibleDeserializer;
 import it.govpay.fdr.batch.utils.OffsetDateTimeDeserializer;
 import it.govpay.fdr.batch.utils.OffsetDateTimeSerializer;
 
 import java.text.SimpleDateFormat;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 /**
@@ -52,8 +54,10 @@ public class FdrApiClientConfig {
         }
 
         // Configure custom ObjectMapper for secure date handling from pagoPA API
+        // Remove default Jackson converter and add our custom one
         ObjectMapper objectMapper = createPagoPAObjectMapper();
         MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter(objectMapper);
+        restTemplate.getMessageConverters().removeIf(c -> c instanceof MappingJackson2HttpMessageConverter);
         restTemplate.getMessageConverters().add(0, converter);
 
         return restTemplate;
@@ -88,7 +92,12 @@ public class FdrApiClientConfig {
         );
         javaTimeModule.addDeserializer(
             OffsetDateTime.class,
-            new OffsetDateTimeDeserializer(Costanti.PATTERN_YYYY_MM_DD_T_HH_MM_SS_MILLIS_VARIABILI)
+            new OffsetDateTimeDeserializer(Costanti.PATTERN_YYYY_MM_DD_T_HH_MM_SS_MILLIS_VARIABILI_XXX)
+        );
+        // LocalDate deserializer: handles both date and datetime formats from pagoPA
+        javaTimeModule.addDeserializer(
+            LocalDate.class,
+            new LocalDateFlexibleDeserializer()
         );
 
         objectMapper.registerModule(javaTimeModule);
