@@ -12,7 +12,12 @@ import java.time.Instant;
  * Temporary entity for storing FDR headers during batch processing
  */
 @Entity
-@Table(name = "FR_TEMP")
+@Table(name = "FR_TEMP",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_fr_temp_flusso",
+        columnNames = {"cod_dominio", "cod_flusso", "id_psp", "revisione"}
+    )
+)
 @Data
 @Builder
 @NoArgsConstructor

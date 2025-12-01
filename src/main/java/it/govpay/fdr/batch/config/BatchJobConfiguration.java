@@ -162,7 +162,7 @@ public class BatchJobConfiguration {
         FdrHeadersWriter fdrHeadersWriter
     ) {
         return new StepBuilder("fdrHeadersAcquisitionStep", jobRepository)
-            .<DominioProcessingContext, FdrHeadersBatch>chunk(1, transactionManager)
+            .<DominioProcessingContext, FdrHeadersBatch>chunk(batchProperties.getHeadersChunkSize(), transactionManager)
             .reader(fdrHeadersReader)
             .processor(fdrHeadersProcessor)
             .writer(fdrHeadersWriter)
@@ -220,7 +220,7 @@ public class BatchJobConfiguration {
         FdrMetadataWriter fdrMetadataWriter
     ) {
         return new StepBuilder("fdrMetadataAcquisitionStep", jobRepository)
-            .<FrTemp, FdrMetadataProcessor.FdrCompleteData>chunk(batchProperties.getChunkSize(), transactionManager)
+            .<FrTemp, FdrMetadataProcessor.FdrCompleteData>chunk(batchProperties.getMetadataChunkSize(), transactionManager)
             .reader(fdrMetadataReader)
             .processor(fdrMetadataProcessor)
             .writer(fdrMetadataWriter)
@@ -277,7 +277,7 @@ public class BatchJobConfiguration {
         FdrPaymentsWriter fdrPaymentsWriter
     ) {
         return new StepBuilder("fdrPaymentsAcquisitionStep", jobRepository)
-            .<FrTemp, FdrPaymentsProcessor.FdrCompleteData>chunk(batchProperties.getChunkSize(), transactionManager)
+            .<FrTemp, FdrPaymentsProcessor.FdrCompleteData>chunk(batchProperties.getPaymentsChunkSize(), transactionManager)
             .reader(fdrPaymentsReader)
             .processor(fdrPaymentsProcessor)
             .writer(fdrPaymentsWriter)

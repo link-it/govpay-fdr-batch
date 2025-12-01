@@ -70,7 +70,7 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
                 .payments(paymentDataList)
                 .build();
 
-            log.info("FdrCompleteData creato - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, Payments in lista: {}",
+            log.debug("FdrCompleteData creato - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, Payments in lista: {}",
                 result.getCodFlusso(),
                 result.getIur(),
                 result.getCodDominio(),

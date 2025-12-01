@@ -38,8 +38,8 @@ public class FdrApiClientConfig {
     public RestTemplate fdrApiRestTemplate(RestTemplateBuilder builder) {
         RestTemplate restTemplate = builder
             .rootUri(pagoPAProperties.getBaseUrl())
-            .setConnectTimeout(Duration.ofMillis(pagoPAProperties.getConnectionTimeout()))
-            .setReadTimeout(Duration.ofMillis(pagoPAProperties.getReadTimeout()))
+            .connectTimeout(Duration.ofMillis(pagoPAProperties.getConnectionTimeout()))
+            .readTimeout(Duration.ofMillis(pagoPAProperties.getReadTimeout()))
             .additionalInterceptors(subscriptionKeyInterceptor())
             .build();
 
@@ -57,7 +57,7 @@ public class FdrApiClientConfig {
         // Remove default Jackson converter and add our custom one
         ObjectMapper objectMapper = createPagoPAObjectMapper();
         MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter(objectMapper);
-        restTemplate.getMessageConverters().removeIf(c -> c instanceof MappingJackson2HttpMessageConverter);
+        restTemplate.getMessageConverters().removeIf(MappingJackson2HttpMessageConverter.class::isInstance);
         restTemplate.getMessageConverters().add(0, converter);
 
         return restTemplate;

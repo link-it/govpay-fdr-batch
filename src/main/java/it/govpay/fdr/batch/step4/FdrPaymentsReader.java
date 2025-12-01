@@ -1,5 +1,6 @@
 package it.govpay.fdr.batch.step4;
 
+import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -19,13 +20,14 @@ import java.util.Iterator;
 public class FdrPaymentsReader implements ItemReader<FrTemp> {
 
     private final FrTempRepository frTempRepository;
+    private final int pageSize;
     private Iterator<FrTemp> currentPageIterator;
     private int currentPage = 0;
-    private final int pageSize = 50;
     private boolean initialized = false;
 
-    public FdrPaymentsReader(FrTempRepository frTempRepository) {
+    public FdrPaymentsReader(FrTempRepository frTempRepository, BatchProperties batchProperties) {
         this.frTempRepository = frTempRepository;
+        this.pageSize = batchProperties.getPaymentsChunkSize();
     }
 
     @Override

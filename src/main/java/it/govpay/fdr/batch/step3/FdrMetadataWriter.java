@@ -53,9 +53,19 @@ public class FdrMetadataWriter implements ItemWriter<FdrMetadataProcessor.FdrCom
                 frTemp.setDataOraPubblicazione(data.getDataOraPubblicazione());
                 frTemp.setDataOraAggiornamento(data.getDataOraAggiornamento());
                 frTemp.setStato(data.getStato());
+                
+                log.debug("Scrittura FR_TEMP dal DB - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, DataPubblicazione: {}",
+                        frTemp.getCodFlusso(),
+                        frTemp.getIur(),
+                        frTemp.getCodDominio(),
+                        frTemp.getCodPsp(),
+                        frTemp.getRevisione(),
+                        frTemp.getNumeroPagamenti(),
+                        frTemp.getImportoTotalePagamenti(),
+                        frTemp.getDataOraPubblicazione());
 
                 // Save FR Temp
-                frTemp = frTempRepository.save(frTemp);
+                frTempRepository.save(frTemp);
 
                 log.info("Saved FDR Temp {}", data.getCodFlusso());
             } catch (Exception e) {
