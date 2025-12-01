@@ -33,6 +33,8 @@ class FdrHeadersReaderTest {
 
     @BeforeEach
     void setUp() {
+        // Reset static queue before each test
+        FdrHeadersReader.resetQueue();
         reader = new FdrHeadersReader(dominioRepository);
     }
 

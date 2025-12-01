@@ -29,7 +29,7 @@ public class FdrMetadataWriter implements ItemWriter<FdrMetadataProcessor.FdrCom
     @Transactional
     public void write(Chunk<? extends FdrMetadataProcessor.FdrCompleteData> chunk) {
         for (FdrMetadataProcessor.FdrCompleteData data : chunk) {
-            log.info("Writing metadata FDR: domain={}, flow={}, revision={}",
+            log.info("Scrittura metadata FDR: Dominio={}, Flusso={}, Revisione={}",
                 data.getCodDominio(), data.getCodFlusso(), data.getRevisione());
 
             try {
@@ -54,7 +54,7 @@ public class FdrMetadataWriter implements ItemWriter<FdrMetadataProcessor.FdrCom
                 frTemp.setDataOraAggiornamento(data.getDataOraAggiornamento());
                 frTemp.setStato(data.getStato());
                 
-                log.debug("Scrittura FR_TEMP dal DB - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, DataPubblicazione: {}",
+                log.debug("Scrittura FR_TEMP sul DB - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, DataPubblicazione: {}",
                         frTemp.getCodFlusso(),
                         frTemp.getIur(),
                         frTemp.getCodDominio(),
@@ -67,7 +67,7 @@ public class FdrMetadataWriter implements ItemWriter<FdrMetadataProcessor.FdrCom
                 // Save FR Temp
                 frTempRepository.save(frTemp);
 
-                log.info("Saved FDR Temp {}", data.getCodFlusso());
+                log.info("Salvato FDR Temp {}", data.getCodFlusso());
             } catch (Exception e) {
                 log.error("Errore nella scrittura dell'FDR Temp {}: {}", data.getCodFlusso(), e.getMessage(), e);
                 throw e;

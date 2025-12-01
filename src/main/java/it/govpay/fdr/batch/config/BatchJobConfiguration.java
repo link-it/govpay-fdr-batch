@@ -169,9 +169,10 @@ public class BatchJobConfiguration {
             .faultTolerant()
             .retryPolicy(fdrHeadersRetryPolicy)
             .backOffPolicy(fdrHeadersBackOffPolicy)
-            .listener(fdrHeadersRetryListener)
             .retry(RestClientException.class)
             .skipPolicy(fdrHeadersSkipPolicy)
+            .listener(fdrHeadersRetryListener)
+            .listener(fdrHeadersReader) // Register reader as step listener for queue reset
             .taskExecutor(taskExecutor())
             .build();
     }

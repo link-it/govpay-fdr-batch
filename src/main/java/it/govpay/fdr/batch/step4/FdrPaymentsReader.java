@@ -40,7 +40,7 @@ public class FdrPaymentsReader implements ItemReader<FrTemp> {
 
         if (currentPageIterator != null && currentPageIterator.hasNext()) {
             FrTemp frTemp = currentPageIterator.next();
-            log.info("Lettura FR_TEMP dal DB - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, DataPubblicazione: {}",
+            log.debug("Lettura FR_TEMP dal DB - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, DataPubblicazione: {}",
                 frTemp.getCodFlusso(),
                 frTemp.getIur(),
                 frTemp.getCodDominio(),
