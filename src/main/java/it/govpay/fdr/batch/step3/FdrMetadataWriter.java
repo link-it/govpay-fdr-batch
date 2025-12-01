@@ -59,7 +59,7 @@ public class FdrMetadataWriter implements ItemWriter<FdrMetadataProcessor.FdrCom
 
                 log.info("Saved FDR Temp {}", data.getCodFlusso());
             } catch (Exception e) {
-                log.error("Error writing FDR Temp {}: {}", data.getCodFlusso(), e.getMessage(), e);
+                log.error("Errore nella scrittura dell'FDR Temp {}: {}", data.getCodFlusso(), e.getMessage(), e);
                 throw e;
             }
         }

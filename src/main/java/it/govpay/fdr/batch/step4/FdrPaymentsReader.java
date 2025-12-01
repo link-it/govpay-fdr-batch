@@ -38,14 +38,21 @@ public class FdrPaymentsReader implements ItemReader<FrTemp> {
 
         if (currentPageIterator != null && currentPageIterator.hasNext()) {
             FrTemp frTemp = currentPageIterator.next();
-            log.debug("Reading FR_TEMP record: {} - {} - revision {}",
-                frTemp.getCodDominio(), frTemp.getCodFlusso(), frTemp.getRevisione());
+            log.info("Lettura FR_TEMP dal DB - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, DataPubblicazione: {}",
+                frTemp.getCodFlusso(),
+                frTemp.getIur(),
+                frTemp.getCodDominio(),
+                frTemp.getCodPsp(),
+                frTemp.getRevisione(),
+                frTemp.getNumeroPagamenti(),
+                frTemp.getImportoTotalePagamenti(),
+                frTemp.getDataOraPubblicazione());
             return frTemp;
         } else if (loadNextPage()) {
             return read();
         }
 
-        log.info("No more FR_TEMP records to process");
+        log.info("Nessun altro record FR_TEMP da processare");
         return null; // End of data
     }
 
@@ -56,7 +63,7 @@ public class FdrPaymentsReader implements ItemReader<FrTemp> {
         if (!page.isEmpty()) {
             currentPageIterator = page.getContent().iterator();
             currentPage++;
-            log.debug("Loaded page {} with {} records", currentPage, page.getContent().size());
+            log.debug("Caricata pagina {} con {} record", currentPage, page.getContent().size());
             return true;
         }
 

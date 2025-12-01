@@ -35,6 +35,8 @@ import it.govpay.gde.client.api.EventiApi;
 import it.govpay.gde.client.model.EsitoEvento;
 import it.govpay.gde.client.model.NuovoEvento;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
  * Test class for GdeService.
  */
@@ -47,6 +49,9 @@ class GdeServiceTest {
     @Mock
     private EventoFdrMapper eventoFdrMapper;
 
+    @Mock
+    private ObjectMapper objectMapper;
+
     @Captor
     private ArgumentCaptor<NuovoEvento> eventoCaptor;
 
@@ -55,7 +60,7 @@ class GdeServiceTest {
 
     @BeforeEach
     void setUp() {
-        gdeService = new GdeService(eventiApi, eventoFdrMapper);
+        gdeService = new GdeService(eventiApi, eventoFdrMapper, objectMapper);
         ReflectionTestUtils.setField(gdeService, "gdeEnabled", true);
 
         testFr = Fr.builder()
@@ -136,7 +141,7 @@ class GdeServiceTest {
         doNothing().when(eventoFdrMapper).setParametriRisposta(any(), any(), any(), any());
 
         // When
-        gdeService.saveGetPublishedFlowsOk(organizationId, pspId, flowDate, start, end, url, flowsCount);
+        gdeService.saveGetPublishedFlowsOk(organizationId, pspId, flowDate, start, end, url, flowsCount, null);
 
         // Then
         await().untilAsserted(() -> {
@@ -173,7 +178,7 @@ class GdeServiceTest {
             anyString(), eq(start), eq(end), isNull(), eq(exception))).thenReturn(mockEvento);
 
         // When
-        gdeService.saveGetPublishedFlowsKo(organizationId, pspId, flowDate, start, end, url, exception);
+        gdeService.saveGetPublishedFlowsKo(organizationId, pspId, flowDate, start, end, url, null, exception);
 
         // Then
         await().untilAsserted(() -> {
@@ -204,7 +209,7 @@ class GdeServiceTest {
             anyString(), eq(start), eq(end))).thenReturn(mockEvento);
 
         // When
-        gdeService.saveGetFlowDetailsOk(testFr, start, end, url, paymentsCount);
+        gdeService.saveGetFlowDetailsOk(testFr, start, end, url, paymentsCount, null);
 
         // Then
         await().untilAsserted(() -> {
@@ -232,7 +237,7 @@ class GdeServiceTest {
             anyString(), eq(start), eq(end), isNull(), eq(exception))).thenReturn(mockEvento);
 
         // When
-        gdeService.saveGetFlowDetailsKo(testFr, start, end, url, exception);
+        gdeService.saveGetFlowDetailsKo(testFr, start, end, url, null, exception);
 
         // Then
         await().untilAsserted(() -> {

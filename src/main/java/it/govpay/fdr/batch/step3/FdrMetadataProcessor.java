@@ -66,7 +66,7 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
                 .build();
 
         } catch (RestClientException e) {
-            log.error("Error processing FDR {}: {}", frTemp.getCodFlusso(), e.getMessage());
+            log.error("Errore nell'elaborazione dell'FDR {}: {}", frTemp.getCodFlusso(), e.getMessage());
             throw e;
         }
     }

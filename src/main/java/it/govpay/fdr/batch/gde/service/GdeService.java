@@ -7,12 +7,16 @@ import java.util.concurrent.CompletableFuture;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
+import it.govpay.fdr.batch.gde.utils.GdeUtils;
 import it.govpay.gde.client.api.EventiApi;
 import it.govpay.gde.client.model.NuovoEvento;
 import lombok.RequiredArgsConstructor;
@@ -38,10 +42,11 @@ public class GdeService {
 
     private final EventiApi eventiApi;
     private final EventoFdrMapper eventoFdrMapper;
-
+    private final ObjectMapper objectMapper;
+    
     @Value("${govpay.gde.enabled:false}")
     private Boolean gdeEnabled;
-
+    
     /**
      * Sends an event to GDE asynchronously.
      * <p>
@@ -52,16 +57,16 @@ public class GdeService {
      */
     public void inviaEvento(NuovoEvento nuovoEvento) {
         if (Boolean.FALSE.equals(gdeEnabled)) {
-            log.debug("GDE disabled, skipping event: {}", nuovoEvento.getTipoEvento());
+            log.debug("GDE disabilitato, salto evento: {}", nuovoEvento.getTipoEvento());
             return;
         }
 
         CompletableFuture.runAsync(() -> {
             try {
                 eventiApi.addEvento(nuovoEvento);
-                log.info("Event {} sent successfully to GDE", nuovoEvento.getTipoEvento());
+                log.info("Evento {} inviato con successo al GDE", nuovoEvento.getTipoEvento());
             } catch (Exception ex) {
-                log.error("Failed to send event {} to GDE: {}",
+                log.error("Fallito l'invio dell'evento {} al GDE: {}",
                         nuovoEvento.getTipoEvento(), ex.getMessage(), ex);
             }
         });
@@ -80,7 +85,7 @@ public class GdeService {
      */
     public void saveGetPublishedFlowsOk(String organizationId, String pspId, String flowDate,
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                         String url, int flowsCount) {
+                                         String url, int flowsCount, ResponseEntity<?> responseEntity) {
         String transactionId = UUID.randomUUID().toString();
 
         // Create event without Fr entity (list operation)
@@ -99,7 +104,9 @@ public class GdeService {
         nuovoEvento.setDettaglioEsito(String.format("Retrieved %d flows", flowsCount));
 
         eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
-        eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, null);
+        eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, responseEntity, null);
+        
+        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
 
         inviaEvento(nuovoEvento);
     }
@@ -117,7 +124,7 @@ public class GdeService {
      */
     public void saveGetPublishedFlowsKo(String organizationId, String pspId, String flowDate,
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                         String url, RestClientException exception) {
+                                         String url, ResponseEntity<?> responseEntity, RestClientException exception) {
         String transactionId = UUID.randomUUID().toString();
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
@@ -136,6 +143,8 @@ public class GdeService {
 
         eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
+        
+        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
 
         inviaEvento(nuovoEvento);
     }
@@ -148,9 +157,10 @@ public class GdeService {
      * @param dataEnd        Operation end time
      * @param url            Request URL
      * @param paymentsCount  Number of payments in flow
+     * @param responseEntity HTTP response entity with payload
      */
     public void saveGetFlowDetailsOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                      String url, int paymentsCount) {
+                                      String url, int paymentsCount, ResponseEntity<?> responseEntity) {
         String transactionId = UUID.randomUUID().toString();
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
@@ -159,7 +169,9 @@ public class GdeService {
         nuovoEvento.setDettaglioEsito(String.format("Retrieved flow with %d payments", paymentsCount));
 
         eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
-        eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, null);
+        eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, responseEntity, null);
+        
+        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
 
         inviaEvento(nuovoEvento);
     }
@@ -174,7 +186,7 @@ public class GdeService {
      * @param exception      Exception that occurred
      */
     public void saveGetFlowDetailsKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                      String url, RestClientException exception) {
+                                      String url, ResponseEntity<?> responseEntity, RestClientException exception) {
         String transactionId = UUID.randomUUID().toString();
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
@@ -184,6 +196,61 @@ public class GdeService {
 
         eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
+
+        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
+
+        inviaEvento(nuovoEvento);
+    }
+
+    /**
+     * Records a successful GET_PAYMENTS_FROM_PUBLISHED_FLOW operation.
+     *
+     * @param fr             Fr entity with flow data
+     * @param dataStart      Operation start time
+     * @param dataEnd        Operation end time
+     * @param url            Request URL
+     * @param paymentsCount  Number of payments retrieved
+     * @param responseEntity HTTP response entity with payload
+     */
+    public void saveGetPaymentsOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
+                                   String url, int paymentsCount, ResponseEntity<?> responseEntity) {
+        String transactionId = UUID.randomUUID().toString();
+
+        NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
+                fr, Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW, transactionId, dataStart, dataEnd);
+
+        nuovoEvento.setDettaglioEsito(String.format("Retrieved %d payments", paymentsCount));
+
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
+        eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, responseEntity, null);
+
+        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
+
+        inviaEvento(nuovoEvento);
+    }
+
+    /**
+     * Records a failed GET_PAYMENTS_FROM_PUBLISHED_FLOW operation.
+     *
+     * @param fr             Fr entity with flow data
+     * @param dataStart      Operation start time
+     * @param dataEnd        Operation end time
+     * @param url            Request URL
+     * @param responseEntity HTTP response entity with payload
+     * @param exception      Exception that occurred
+     */
+    public void saveGetPaymentsKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
+                                   String url, ResponseEntity<?> responseEntity, RestClientException exception) {
+        String transactionId = UUID.randomUUID().toString();
+
+        NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
+                fr, Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW, transactionId, dataStart, dataEnd,
+                null, exception);
+
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
+        eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
+
+        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
 
         inviaEvento(nuovoEvento);
     }

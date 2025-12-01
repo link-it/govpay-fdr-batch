@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
@@ -75,9 +76,9 @@ class FdrApiServiceGdeIntegrationTest {
         metadata.setTotPage(1);
         response.setMetadata(metadata);
 
-        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlows(
+        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
             eq(organizationId), isNull(), eq(1L), isNull(), any(OffsetDateTime.class), eq(100L)))
-            .thenReturn(response);
+            .thenReturn(ResponseEntity.ok(response));
 
         // When
         List<FlowByPSP> result = fdrApiService.getAllPublishedFlows(organizationId, publishedGt);
@@ -95,7 +96,8 @@ class FdrApiServiceGdeIntegrationTest {
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 contains("/organizations/" + organizationId + "/fdrs"),
-                eq(1)
+                eq(1),
+                any()
             )
         );
     }
@@ -106,7 +108,7 @@ class FdrApiServiceGdeIntegrationTest {
         String organizationId = "ORG123";
         Instant publishedGt = Instant.now().minusSeconds(3600);
 
-        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlows(
+        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
             eq(organizationId), isNull(), eq(1L), isNull(), any(OffsetDateTime.class), eq(100L)))
             .thenThrow(new HttpClientErrorException(
                 org.springframework.http.HttpStatus.NOT_FOUND, "Organization not found"));
@@ -114,7 +116,7 @@ class FdrApiServiceGdeIntegrationTest {
         // When/Then
         assertThatThrownBy(() -> fdrApiService.getAllPublishedFlows(organizationId, publishedGt))
             .isInstanceOf(RestClientException.class)
-            .hasMessageContaining("Failed to fetch flows");
+            .hasMessageContaining("Fallito il recupero dei flussi");
 
         // Verify GDE error event was sent
         await().untilAsserted(() ->
@@ -125,6 +127,7 @@ class FdrApiServiceGdeIntegrationTest {
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 contains("/organizations/" + organizationId + "/fdrs"),
+                any(),
                 any(RestClientException.class)
             )
         );
@@ -143,9 +146,9 @@ class FdrApiServiceGdeIntegrationTest {
         response.setRevision(revision);
         response.setTotPayments(42L);
 
-        when(organizationsApi.iOrganizationsControllerGetSinglePublishedFlow(
+        when(organizationsApi.iOrganizationsControllerGetSinglePublishedFlowWithHttpInfo(
             eq(fdr), eq(organizationId), eq(pspId), eq(revision)))
-            .thenReturn(response);
+            .thenReturn(ResponseEntity.ok(response));
 
         // When
         SingleFlowResponse result = fdrApiService.getSinglePublishedFlow(
@@ -165,7 +168,8 @@ class FdrApiServiceGdeIntegrationTest {
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 contains("/organizations/" + organizationId + "/fdrs/" + fdr),
-                eq(42)
+                eq(42),
+                any()
             )
         );
     }
@@ -178,7 +182,7 @@ class FdrApiServiceGdeIntegrationTest {
         Long revision = 1L;
         String pspId = "PSP001";
 
-        when(organizationsApi.iOrganizationsControllerGetSinglePublishedFlow(
+        when(organizationsApi.iOrganizationsControllerGetSinglePublishedFlowWithHttpInfo(
             eq(fdr), eq(organizationId), eq(pspId), eq(revision)))
             .thenThrow(new RestClientException("Flow not found"));
 
@@ -186,7 +190,7 @@ class FdrApiServiceGdeIntegrationTest {
         assertThatThrownBy(() -> fdrApiService.getSinglePublishedFlow(
             organizationId, fdr, revision, pspId))
             .isInstanceOf(RestClientException.class)
-            .hasMessageContaining("Failed to fetch flow details");
+            .hasMessageContaining("Fallito il recupero dei dettagli del flusso");
 
         // Verify GDE error event was sent
         await().untilAsserted(() ->
@@ -198,6 +202,7 @@ class FdrApiServiceGdeIntegrationTest {
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 contains("/organizations/" + organizationId + "/fdrs/" + fdr),
+                any(),
                 any(RestClientException.class)
             )
         );
@@ -220,9 +225,9 @@ class FdrApiServiceGdeIntegrationTest {
         metadata.setTotPage(1);
         response.setMetadata(metadata);
 
-        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlows(
+        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
             eq(organizationId), isNull(), eq(1L), isNull(), isNull(), eq(100L)))
-            .thenReturn(response);
+            .thenReturn(ResponseEntity.ok(response));
 
         // When
         List<FlowByPSP> result = serviceWithoutGde.getAllPublishedFlows(organizationId, null);
@@ -247,9 +252,9 @@ class FdrApiServiceGdeIntegrationTest {
         response.setRevision(revision);
         response.setTotPayments(null); // No totPayments
 
-        when(organizationsApi.iOrganizationsControllerGetSinglePublishedFlow(
+        when(organizationsApi.iOrganizationsControllerGetSinglePublishedFlowWithHttpInfo(
             eq(fdr), eq(organizationId), eq(pspId), eq(revision)))
-            .thenReturn(response);
+            .thenReturn(ResponseEntity.ok(response));
 
         // When
         SingleFlowResponse result = fdrApiService.getSinglePublishedFlow(
@@ -265,7 +270,8 @@ class FdrApiServiceGdeIntegrationTest {
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 anyString(),
-                eq(0) // Should default to 0 when totPayments is null
+                eq(0), // Should default to 0 when totPayments is null
+                any()
             )
         );
     }

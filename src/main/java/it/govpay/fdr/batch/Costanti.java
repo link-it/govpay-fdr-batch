@@ -1,5 +1,7 @@
 package it.govpay.fdr.batch;
 
+import org.springframework.http.MediaType;
+
 import it.govpay.fdr.batch.entity.StatoFr;
 import it.govpay.fdr.batch.entity.StatoRendicontazione;
 
@@ -49,6 +51,12 @@ public class Costanti {
 	public static final String GOVPAY_BATCH_JOB_ID = "JobID";
 	public static final String GOVPAY_BATCH_JOB_PARAMETER_WHEN = "When";
 	public static final String GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID = "ClusterID";
+	
+	public static final String HEADER_X_REQUEST_ID = "X-Request-Id";
+	public static final String GOVPAY_GDE_HEADER_ACCEPT = MediaType.APPLICATION_JSON_VALUE;
+	public static final String GOVPAY_GDE_HEADER_CONTENT_TYPE = MediaType.APPLICATION_JSON_VALUE;
+	
+	public static final String MSG_PAYLOAD_NON_SERIALIZZABILE = "Payload non serializzabile";
 
 	// Nome job FDR acquisition
 	public static final String FDR_ACQUISITION_JOB_NAME = "fdrAcquisitionJob";

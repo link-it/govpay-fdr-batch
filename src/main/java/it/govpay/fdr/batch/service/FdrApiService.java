@@ -11,6 +11,7 @@ import it.govpay.fdr.client.model.PaginatedPaymentsResponse;
 import it.govpay.fdr.client.model.SingleFlowResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -46,29 +47,27 @@ public class FdrApiService {
     /**
      * Get all published flows for a domain with pagination
      */
-    public List<FlowByPSP> getAllPublishedFlows(
-        String organizationId,
-        Instant publishedGt
-    ) throws RestClientException {
+    public List<FlowByPSP> getAllPublishedFlows(String organizationId, Instant publishedGt) throws RestClientException {
 
-        log.debug("Fetching published flows for organization {} with publishedGt {}",
+        log.debug("Recupero dei flussi pubblicati per l'organizzazione {} con publishedGt {}",
             organizationId, publishedGt);
 
         OffsetDateTime startTime = OffsetDateTime.now(ZoneOffset.UTC);
         List<FlowByPSP> allFlows = new ArrayList<>();
         Long currentPage = 1L;
         boolean hasMorePages = true;
+        ResponseEntity<PaginatedFlowsResponse> lastResponseEntity = null;
 
         try {
             while (hasMorePages) {
                 try {
-                    log.debug("Calling API for organization {} page {}", organizationId, currentPage);
+                    log.debug("Chiamata API per l'organizzazione {} pagina {}", organizationId, currentPage);
 
                     OffsetDateTime publishedGtOffset = publishedGt != null
                         ? OffsetDateTime.ofInstant(publishedGt, ZoneOffset.UTC)
                         : null;
 
-                    PaginatedFlowsResponse response = organizationsApi.iOrganizationsControllerGetAllPublishedFlows(
+                    lastResponseEntity = organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
                         organizationId,
                         null,           // flowDate
                         currentPage,    // page
@@ -77,18 +76,20 @@ public class FdrApiService {
                         (long) pagoPAProperties.getPageSize()  // size
                     );
 
-                    log.info("API call completed for organization {}, response received", organizationId);
-                    log.info("Response for organization {}: data={}, metadata={}",
+                    PaginatedFlowsResponse response = lastResponseEntity.getBody();
+
+                    log.info("Chiamata API completata per l'organizzazione {}, risposta ricevuta", organizationId);
+                    log.info("Risposta per l'organizzazione {}: data={}, metadata={}",
                         organizationId,
-                        response.getData() != null ? response.getData().size() + " flows" : "null",
+                        response.getData() != null ? response.getData().size() + " flussi" : "null",
                         response.getMetadata());
 
                     if (response.getData() != null && !response.getData().isEmpty()) {
                         allFlows.addAll(response.getData());
-                        log.info("Retrieved page {} with {} flows for organization {}",
+                        log.info("Recuperata pagina {} con {} flussi per l'organizzazione {}",
                             currentPage, response.getData().size(), organizationId);
                     } else {
-                        log.info("Page {} returned empty data for organization {}", currentPage, organizationId);
+                        log.info("Pagina {} ha restituito dati vuoti per l'organizzazione {}", currentPage, organizationId);
                     }
 
                     // Check if there are more pages
@@ -102,24 +103,24 @@ public class FdrApiService {
                     }
 
                 } catch (org.springframework.web.client.ResourceAccessException e) {
-                    // Handle empty response (connection closed) - this is normal when no flows are available
+                    // Gestione risposta vuota (connessione chiusa) - normale quando non ci sono flussi disponibili
                     if (e.getMessage() != null && e.getMessage().contains("closed")) {
-                        log.info("No flows available for organization {} (empty response)", organizationId);
+                        log.info("Nessun flusso disponibile per l'organizzazione {} (risposta vuota)", organizationId);
                         hasMorePages = false;
                     } else {
-                        log.error("I/O error fetching flows for organization {} at page {}: {}",
+                        log.error("Errore I/O nel recupero dei flussi per l'organizzazione {} alla pagina {}: {}",
                             organizationId, currentPage, e.getMessage());
-                        throw new RestClientException("Failed to fetch flows for organization " + organizationId, e);
+                        throw new RestClientException("Fallito il recupero dei flussi per l'organizzazione " + organizationId, e);
                     }
                 } catch (Exception e) {
-                    log.error("Error fetching flows for organization {} at page {}: {}",
+                    log.error("Errore nel recupero dei flussi per l'organizzazione {} alla pagina {}: {}",
                         organizationId, currentPage, e.getMessage());
                     log.error(e.getMessage(), e);
-                    throw new RestClientException("Failed to fetch flows for organization " + organizationId, e);
+                    throw new RestClientException("Fallito il recupero dei flussi per l'organizzazione " + organizationId, e);
                 }
             }
 
-            log.info("Retrieved total of {} flows for organization {}", allFlows.size(), organizationId);
+            log.info("Recuperati in totale {} flussi per l'organizzazione {}", allFlows.size(), organizationId);
 
             // Send success event to GDE
             if (gdeService != null) {
@@ -128,7 +129,7 @@ public class FdrApiService {
                     .replace("{organizationId}", organizationId);
                 gdeService.saveGetPublishedFlowsOk(organizationId, null,
                     publishedGt != null ? publishedGt.toString() : "all",
-                    startTime, endTime, url, allFlows.size());
+                    startTime, endTime, url, allFlows.size(), lastResponseEntity);
             }
 
             return allFlows;
@@ -141,7 +142,7 @@ public class FdrApiService {
                     .replace("{organizationId}", organizationId);
                 gdeService.saveGetPublishedFlowsKo(organizationId, null,
                     publishedGt != null ? publishedGt.toString() : "all",
-                    startTime, endTime, url, e);
+                    startTime, endTime, url, lastResponseEntity, e);
             }
             throw e;
         }
@@ -150,27 +151,22 @@ public class FdrApiService {
     /**
      * Get single published flow details
      */
-    public SingleFlowResponse getSinglePublishedFlow(
-        String organizationId,
-        String fdr,
-        Long revision,
-        String pspId
-    ) throws RestClientException {
+    public SingleFlowResponse getSinglePublishedFlow(String organizationId, String fdr, Long revision, String pspId) throws RestClientException {
 
-        log.debug("Fetching flow details for organization={}, fdr={}, revision={}, pspId={}",
-            organizationId, fdr, revision, pspId);
+        log.debug("Recupero dettagli flusso per organization={}, fdr={}, revision={}, pspId={}", organizationId, fdr, revision, pspId);
 
         OffsetDateTime startTime = OffsetDateTime.now(ZoneOffset.UTC);
-
+        ResponseEntity<SingleFlowResponse> responseEntity = null;
         try {
-            SingleFlowResponse response = organizationsApi.iOrganizationsControllerGetSinglePublishedFlow(
+            responseEntity = organizationsApi.iOrganizationsControllerGetSinglePublishedFlowWithHttpInfo(
                 fdr,
                 organizationId,
                 pspId,
                 revision
             );
 
-            log.info("Retrieved flow details for fdr={}: {}", fdr, response);
+            SingleFlowResponse response = responseEntity.getBody();
+            log.info("Recuperati dettagli flusso per fdr={}: {}", fdr, response);
 
             // Send success event to GDE
             if (gdeService != null && response != null) {
@@ -192,13 +188,13 @@ public class FdrApiService {
                 int paymentsCount = (response.getTotPayments() != null)
                     ? response.getTotPayments().intValue() : 0;
 
-                gdeService.saveGetFlowDetailsOk(frForEvent, startTime, endTime, url, paymentsCount);
+                gdeService.saveGetFlowDetailsOk(frForEvent, startTime, endTime, url, paymentsCount, responseEntity);
             }
 
             return response;
 
         } catch (Exception e) {
-            log.error("Error fetching flow details for fdr={}: {}", fdr, e.getMessage());
+            log.error("Errore nel recupero dei dettagli del flusso per fdr={}: {}", fdr, e.getMessage());
 
             // Send failure event to GDE
             if (gdeService != null) {
@@ -216,11 +212,11 @@ public class FdrApiService {
                     .revisione(revision)
                     .build();
 
-                gdeService.saveGetFlowDetailsKo(frForEvent, startTime, endTime, url,
-                    e instanceof RestClientException ? (RestClientException) e : new RestClientException(e.getMessage(), e));
+                gdeService.saveGetFlowDetailsKo(frForEvent, startTime, endTime, url, responseEntity,
+                    e instanceof RestClientException restClientException ? restClientException : new RestClientException(e.getMessage(), e));
             }
 
-            throw new RestClientException("Failed to fetch flow details for " + fdr, e);
+            throw new RestClientException("Fallito il recupero dei dettagli del flusso per " + fdr, e);
         }
     }
 
@@ -234,48 +230,96 @@ public class FdrApiService {
         String pspId
     ) throws RestClientException {
 
-        log.debug("Fetching payments for flow: organization={}, fdr={}, revision={}, pspId={}",
+        log.debug("Recupero pagamenti per il flusso: organization={}, fdr={}, revision={}, pspId={}",
             organizationId, fdr, revision, pspId);
 
+        OffsetDateTime startTime = OffsetDateTime.now(ZoneOffset.UTC);
         List<it.govpay.fdr.client.model.Payment> allPayments = new ArrayList<>();
         Long currentPage = 1L;
         boolean hasMorePages = true;
+        ResponseEntity<PaginatedPaymentsResponse> lastResponseEntity = null;
 
-        while (hasMorePages) {
-            try {
-                PaginatedPaymentsResponse response = organizationsApi.iOrganizationsControllerGetPaymentsFromPublishedFlow(
-                    fdr,
-                    organizationId,
-                    pspId,
-                    revision,
-                    currentPage,
-                    (long) pagoPAProperties.getPageSize()
-                );
+        try {
+            while (hasMorePages) {
+                try {
+                    lastResponseEntity = organizationsApi.iOrganizationsControllerGetPaymentsFromPublishedFlowWithHttpInfo(
+                        fdr,
+                        organizationId,
+                        pspId,
+                        revision,
+                        currentPage,
+                        (long) pagoPAProperties.getPageSize()
+                    );
 
-                if (response.getData() != null && !response.getData().isEmpty()) {
-                    allPayments.addAll(response.getData());
-                    log.debug("Retrieved page {} with {} payments for fdr {}",
-                        currentPage, response.getData().size(), fdr);
+                    PaginatedPaymentsResponse response = lastResponseEntity.getBody();
+
+                    if (response != null && response.getData() != null && !response.getData().isEmpty()) {
+                        allPayments.addAll(response.getData());
+                        log.debug("Recuperata pagina {} con {} pagamenti per fdr {}",
+                            currentPage, response.getData().size(), fdr);
+                    }
+
+                    // Check if there are more pages
+                    if (response != null && response.getMetadata() != null &&
+                        response.getMetadata().getPageNumber() != null &&
+                        response.getMetadata().getTotPage() != null) {
+                        hasMorePages = response.getMetadata().getPageNumber() < response.getMetadata().getTotPage();
+                        currentPage++;
+                    } else {
+                        hasMorePages = false;
+                    }
+
+                } catch (Exception e) {
+                    log.error("Errore nel recupero dei pagamenti per fdr {} alla pagina {}: {}",
+                        fdr, currentPage, e.getMessage());
+                    throw new RestClientException("Fallito il recupero dei pagamenti per il flusso " + fdr, e);
                 }
-
-                // Check if there are more pages
-                if (response.getMetadata() != null &&
-                    response.getMetadata().getPageNumber() != null &&
-                    response.getMetadata().getTotPage() != null) {
-                    hasMorePages = response.getMetadata().getPageNumber() < response.getMetadata().getTotPage();
-                    currentPage++;
-                } else {
-                    hasMorePages = false;
-                }
-
-            } catch (Exception e) {
-                log.error("Error fetching payments for fdr {} at page {}: {}",
-                    fdr, currentPage, e.getMessage());
-                throw new RestClientException("Failed to fetch payments for flow " + fdr, e);
             }
-        }
 
-        log.info("Retrieved total of {} payments for fdr {}", allPayments.size(), fdr);
-        return allPayments;
+            log.info("Recuperati in totale {} pagamenti per fdr {}", allPayments.size(), fdr);
+
+            // Send success event to GDE
+            if (gdeService != null) {
+                OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
+                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
+                    .replace("{organizationId}", organizationId)
+                    .replace("{fdr}", fdr)
+                    .replace("{revision}", String.valueOf(revision))
+                    .replace("{pspId}", pspId);
+
+                // Create minimal Fr object for event tracking
+                it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
+                    .codFlusso(fdr)
+                    .codPsp(pspId)
+                    .codDominio(organizationId)
+                    .revisione(revision)
+                    .build();
+
+                gdeService.saveGetPaymentsOk(frForEvent, startTime, endTime, url, allPayments.size(), lastResponseEntity);
+            }
+
+            return allPayments;
+
+        } catch (RestClientException e) {
+            // Send failure event to GDE
+            if (gdeService != null) {
+                OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
+                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
+                    .replace("{organizationId}", organizationId)
+                    .replace("{fdr}", fdr)
+                    .replace("{revision}", String.valueOf(revision))
+                    .replace("{pspId}", pspId);
+
+                it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
+                    .codFlusso(fdr)
+                    .codPsp(pspId)
+                    .codDominio(organizationId)
+                    .revisione(revision)
+                    .build();
+
+                gdeService.saveGetPaymentsKo(frForEvent, startTime, endTime, url, lastResponseEntity, e);
+            }
+            throw e;
+        }
     }
 }

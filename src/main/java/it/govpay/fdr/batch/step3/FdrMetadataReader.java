@@ -45,7 +45,7 @@ public class FdrMetadataReader implements ItemReader<FrTemp> {
             return read();
         }
 
-        log.info("No more FR_TEMP records to process");
+        log.info("Nessun altro record FR_TEMP da processare");
         return null; // End of data
     }
 
@@ -56,7 +56,7 @@ public class FdrMetadataReader implements ItemReader<FrTemp> {
         if (!page.isEmpty()) {
             currentPageIterator = page.getContent().iterator();
             currentPage++;
-            log.debug("Loaded page {} with {} records", currentPage, page.getContent().size());
+            log.debug("Caricata pagina {} con {} record", currentPage, page.getContent().size());
             return true;
         }
 

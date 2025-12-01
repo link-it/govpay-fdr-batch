@@ -47,7 +47,7 @@ public class FdrHeadersReader implements ItemReader<DominioProcessingContext> {
                 .build();
         }
 
-        log.info("No more domains to process");
+        log.info("Nessun altro dominio da processare");
         return null; // End of data
     }
 }

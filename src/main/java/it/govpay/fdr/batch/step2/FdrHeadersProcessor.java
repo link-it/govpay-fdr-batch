@@ -48,7 +48,7 @@ public class FdrHeadersProcessor implements ItemProcessor<DominioProcessingConte
             );
 
             if (flows.isEmpty()) {
-                log.info("No new flows found for domain {}", context.getCodDominio());
+                log.info("Nessun nuovo flusso trovato per il dominio {}", context.getCodDominio());
                 return null; // Skip this domain
             }
 
@@ -62,7 +62,7 @@ public class FdrHeadersProcessor implements ItemProcessor<DominioProcessingConte
                 .build();
 
         } catch (RestClientException e) {
-            log.error("Error processing domain {}: {}", context.getCodDominio(), e.getMessage());
+            log.error("Errore nell'elaborazione del dominio {}: {}", context.getCodDominio(), e.getMessage());
             // Allow retry mechanism to handle this
             throw e;
         }
