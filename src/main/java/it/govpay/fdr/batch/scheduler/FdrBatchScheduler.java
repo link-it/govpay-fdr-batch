@@ -51,7 +51,7 @@ public class FdrBatchScheduler {
             log.info("FDR Acquisition Job completed successfully");
 
         } catch (Exception e) {
-            log.error("Error executing FDR Acquisition Job: {}", e.getMessage(), e);
+            log.error("Errore nell'esecuzione del Job di Acquisizione FDR: {}", e.getMessage(), e);
         }
         return res;
     }

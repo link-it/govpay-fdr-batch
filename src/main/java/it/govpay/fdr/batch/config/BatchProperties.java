@@ -23,9 +23,19 @@ public class BatchProperties {
     private int threadPoolSize = 5;
 
     /**
-     * Chunk size for batch processing
+     * Chunk size for Step 2 - Headers Acquisition
      */
-    private int chunkSize = 100;
+    private int headersChunkSize = 1;
+
+    /**
+     * Chunk size for Step 3 - Metadata Acquisition
+     */
+    private int metadataChunkSize = 100;
+
+    /**
+     * Chunk size for Step 4 - Payments Acquisition
+     */
+    private int paymentsChunkSize = 50;
 
     /**
      * Skip limit for failed items

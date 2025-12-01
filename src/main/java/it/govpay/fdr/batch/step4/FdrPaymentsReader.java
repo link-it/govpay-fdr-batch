@@ -1,5 +1,6 @@
 package it.govpay.fdr.batch.step4;
 
+import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -19,13 +20,14 @@ import java.util.Iterator;
 public class FdrPaymentsReader implements ItemReader<FrTemp> {
 
     private final FrTempRepository frTempRepository;
+    private final int pageSize;
     private Iterator<FrTemp> currentPageIterator;
     private int currentPage = 0;
-    private final int pageSize = 50;
     private boolean initialized = false;
 
-    public FdrPaymentsReader(FrTempRepository frTempRepository) {
+    public FdrPaymentsReader(FrTempRepository frTempRepository, BatchProperties batchProperties) {
         this.frTempRepository = frTempRepository;
+        this.pageSize = batchProperties.getPaymentsChunkSize();
     }
 
     @Override
@@ -38,14 +40,21 @@ public class FdrPaymentsReader implements ItemReader<FrTemp> {
 
         if (currentPageIterator != null && currentPageIterator.hasNext()) {
             FrTemp frTemp = currentPageIterator.next();
-            log.debug("Reading FR_TEMP record: {} - {} - revision {}",
-                frTemp.getCodDominio(), frTemp.getCodFlusso(), frTemp.getRevisione());
+            log.info("Lettura FR_TEMP dal DB - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, DataPubblicazione: {}",
+                frTemp.getCodFlusso(),
+                frTemp.getIur(),
+                frTemp.getCodDominio(),
+                frTemp.getCodPsp(),
+                frTemp.getRevisione(),
+                frTemp.getNumeroPagamenti(),
+                frTemp.getImportoTotalePagamenti(),
+                frTemp.getDataOraPubblicazione());
             return frTemp;
         } else if (loadNextPage()) {
             return read();
         }
 
-        log.info("No more FR_TEMP records to process");
+        log.info("Nessun altro record FR_TEMP da processare");
         return null; // End of data
     }
 
@@ -56,7 +65,7 @@ public class FdrPaymentsReader implements ItemReader<FrTemp> {
         if (!page.isEmpty()) {
             currentPageIterator = page.getContent().iterator();
             currentPage++;
-            log.debug("Loaded page {} with {} records", currentPage, page.getContent().size());
+            log.debug("Caricata pagina {} con {} record", currentPage, page.getContent().size());
             return true;
         }
 

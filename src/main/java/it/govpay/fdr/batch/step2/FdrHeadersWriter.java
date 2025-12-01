@@ -52,8 +52,7 @@ public class FdrHeadersWriter implements ItemWriter<FdrHeadersBatch> {
                 }
             }
 
-            log.info("Saved {} new FDR headers for domain {} (skipped {} duplicates)",
-                savedCount, batch.getCodDominio(), batch.getHeaders().size() - savedCount);
+            log.info("Saved {} new FDR headers for domain {} (skipped {} duplicates)", savedCount, batch.getCodDominio(), batch.getHeaders().size() - savedCount);
         }
     }
 }

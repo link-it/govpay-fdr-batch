@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
+import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 
@@ -32,11 +33,15 @@ class FdrMetadataReaderTest {
     @Mock
     private FrTempRepository frTempRepository;
 
+    @Mock
+    private BatchProperties batchProperties;
+
     private FdrMetadataReader reader;
 
     @BeforeEach
     void setUp() {
-        reader = new FdrMetadataReader(frTempRepository);
+        when(batchProperties.getMetadataChunkSize()).thenReturn(50);
+        reader = new FdrMetadataReader(frTempRepository, batchProperties);
     }
 
     @Test

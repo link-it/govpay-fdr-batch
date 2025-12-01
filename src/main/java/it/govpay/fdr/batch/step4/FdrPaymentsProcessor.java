@@ -43,14 +43,14 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
                 frTemp.getIdPsp()
             );
 
-            log.info("Retrieved {} payments for FDR {}", payments.size(), frTemp.getCodFlusso());
+            log.info("Recuperati {} pagamenti per FDR {}", payments.size(), frTemp.getCodFlusso());
 
             // Convert to internal model
             List<PaymentData> paymentDataList = payments.stream()
                 .map(this::convertPayment)
                 .toList();
 
-            return FdrCompleteData.builder()
+            FdrCompleteData result = FdrCompleteData.builder()
                 .frTempId(frTemp.getId())
                 .codPsp(frTemp.getIdPsp())
                 .codDominio(frTemp.getCodDominio())
@@ -70,8 +70,20 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
                 .payments(paymentDataList)
                 .build();
 
+            log.debug("FdrCompleteData creato - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, Payments in lista: {}",
+                result.getCodFlusso(),
+                result.getIur(),
+                result.getCodDominio(),
+                result.getCodPsp(),
+                result.getRevisione(),
+                result.getNumeroPagamenti(),
+                result.getImportoTotalePagamenti(),
+                result.getPayments() != null ? result.getPayments().size() : 0);
+
+            return result;
+
         } catch (RestClientException e) {
-            log.error("Error processing FDR {}: {}", frTemp.getCodFlusso(), e.getMessage());
+            log.error("Errore nell'elaborazione dell'FDR {}: {}", frTemp.getCodFlusso(), e.getMessage());
             throw e;
         }
     }

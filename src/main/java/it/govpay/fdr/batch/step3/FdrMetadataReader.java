@@ -1,15 +1,17 @@
 package it.govpay.fdr.batch.step3;
 
-import it.govpay.fdr.batch.entity.FrTemp;
-import it.govpay.fdr.batch.repository.FrTempRepository;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Iterator;
+
 import org.springframework.batch.item.ItemReader;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
-import java.util.Iterator;
+import it.govpay.fdr.batch.config.BatchProperties;
+import it.govpay.fdr.batch.entity.FrTemp;
+import it.govpay.fdr.batch.repository.FrTempRepository;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Reader for FDR headers from FR_TEMP table
@@ -19,13 +21,16 @@ import java.util.Iterator;
 public class FdrMetadataReader implements ItemReader<FrTemp> {
 
     private final FrTempRepository frTempRepository;
+    private final BatchProperties batchProperties;
     private Iterator<FrTemp> currentPageIterator;
     private int currentPage = 0;
-    private final int pageSize = 50;
+    private int pageSize = 50;
     private boolean initialized = false;
 
-    public FdrMetadataReader(FrTempRepository frTempRepository) {
+    public FdrMetadataReader(FrTempRepository frTempRepository, BatchProperties batchProperties) {
         this.frTempRepository = frTempRepository;
+        this.batchProperties = batchProperties;
+        this.pageSize = this.batchProperties.getMetadataChunkSize();
     }
 
     @Override
@@ -45,7 +50,7 @@ public class FdrMetadataReader implements ItemReader<FrTemp> {
             return read();
         }
 
-        log.info("No more FR_TEMP records to process");
+        log.info("Nessun altro record FR_TEMP da processare");
         return null; // End of data
     }
 
@@ -56,7 +61,7 @@ public class FdrMetadataReader implements ItemReader<FrTemp> {
         if (!page.isEmpty()) {
             currentPageIterator = page.getContent().iterator();
             currentPage++;
-            log.debug("Loaded page {} with {} records", currentPage, page.getContent().size());
+            log.debug("Caricata pagina {} con {} record", currentPage, page.getContent().size());
             return true;
         }
 

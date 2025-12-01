@@ -63,7 +63,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
                 );
 
                 if (existingFr.isPresent()) {
-                    log.warn("FDR {} already exists, skipping", data.getCodFlusso());
+                    log.warn("FDR {} esiste già, salto", data.getCodFlusso());
                     markFrTempAsProcessed(data.getFrTempId());
                 } else {
 	                // Find domain
@@ -74,18 +74,30 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 	                    // Mark FR_TEMP record as processed
 	                    markFrTempAsProcessed(data.getFrTempId());
 	                } else {
-	                    log.error("Domain {} not found, skipping FDR {}", data.getCodDominio(), data.getCodFlusso());
+	                    log.error("Dominio {} non trovato, salto FDR {}", data.getCodDominio(), data.getCodFlusso());
 	                }
                 }
 
             } catch (Exception e) {
-                log.error("Error writing FDR {}: {}", data.getCodFlusso(), e.getMessage(), e);
+                log.error("Errore nella scrittura dell'FDR {}: {}", data.getCodFlusso(), e.getMessage(), e);
                 throw e;
             }
         }
     }
 
 	private void writeProcessedData(FdrPaymentsProcessor.FdrCompleteData data, Optional<Dominio> dominioOpt) {
+		log.info("Inizio scrittura FdrCompleteData sul DB - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, DataRegolamento: {}, DataPubblicazione: {}, Payments da salvare: {}",
+		    data.getCodFlusso(),
+		    data.getIur(),
+		    data.getCodDominio(),
+		    data.getCodPsp(),
+		    data.getRevisione(),
+		    data.getNumeroPagamenti(),
+		    data.getImportoTotalePagamenti(),
+		    data.getDataRegolamento(),
+		    data.getDataOraPubblicazione(),
+		    data.getPayments() != null ? data.getPayments().size() : 0);
+
 		Dominio dominio = dominioOpt.get();
 
 		// Create FR entity
@@ -164,7 +176,15 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		// Save FR
 		fr = frRepository.save(fr);
 
-		log.info("Saved FDR {} with {} payments and stato {}", data.getCodFlusso(), fr.getNumeroPagamenti(), fr.getStato());
+		log.info("FDR salvato sul DB - Flusso: {}, IUR: {}, ID: {}, NumPagamenti: {}, ImportoTotale: {}, Stato: {}, Rendicontazioni salvate: {}, Anomalie: {}",
+		    data.getCodFlusso(),
+		    fr.getIur(),
+		    fr.getId(),
+		    fr.getNumeroPagamenti(),
+		    fr.getImportoTotalePagamenti(),
+		    fr.getStato(),
+		    fr.getRendicontazioni() != null ? fr.getRendicontazioni().size() : 0,
+		    fr.getDescrizioneStato() != null ? "SI" : "NO");
 		if (fr.getDescrizioneStato() != null || fr.getRendicontazioni().stream().anyMatch(rnd -> rnd.getAnomalie() != null))
 		    log.info("Flusso di rendicontazione acquisito con anomalie.");
 		else
@@ -183,14 +203,20 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 	}
 
 	private void controlliQuadraturaGenerali(Fr fr, FdrPaymentsProcessor.FdrCompleteData data, double totaleImportiRendicontati, List<String> anomalieFr) {
-		if (totaleImportiRendicontati != fr.getImportoTotalePagamenti().doubleValue()) {
+		// Check amount consistency only if importoTotalePagamenti is not null
+		if (fr.getImportoTotalePagamenti() != null && totaleImportiRendicontati != fr.getImportoTotalePagamenti().doubleValue()) {
 		    log.info("La somma degli importi rendicontati [{}] non corrisponde al totale indicato nella testata del flusso [{}]", totaleImportiRendicontati, fr.getImportoTotalePagamenti());
 		    anomalieFr.add(MessageFormat.format("{0}#La somma degli importi rendicontati [{1}] non corrisponde al totale indicato nella testata del flusso [{2}]", "007106", totaleImportiRendicontati, fr.getImportoTotalePagamenti()));
+		} else if (fr.getImportoTotalePagamenti() == null) {
+		    log.warn("Importo totale pagamenti è null per FDR {}, salto controllo importo", fr.getCodFlusso());
 		}
 
-		if (data.getPayments().size() != fr.getNumeroPagamenti()) {
+		// Check payment count consistency only if numeroPagamenti is not null
+		if (fr.getNumeroPagamenti() != null && data.getPayments().size() != fr.getNumeroPagamenti().longValue()) {
 		    log.info("Il numero di pagamenti rendicontati [{}] non corrisponde al totale indicato nella testata del flusso [{}]", data.getPayments().size(), fr.getNumeroPagamenti());
 		    anomalieFr.add(MessageFormat.format("{0}#Il numero di pagamenti rendicontati [{1}] non corrisponde al totale indicato nella testata del flusso [{2}]", "007107", data.getPayments().size(), fr.getNumeroPagamenti()));
+		} else if (fr.getNumeroPagamenti() == null) {
+		    log.warn("Numero pagamenti è null per FDR {}, salto controllo numero pagamenti", fr.getCodFlusso());
 		}
 	}
 
