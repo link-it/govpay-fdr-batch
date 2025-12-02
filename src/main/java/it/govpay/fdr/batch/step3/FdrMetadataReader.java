@@ -1,70 +1,86 @@
 package it.govpay.fdr.batch.step3;
 
 import java.util.Iterator;
+import java.util.List;
 
+import org.springframework.batch.core.configuration.annotation.StepScope;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemReader;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.batch.item.ItemStream;
+import org.springframework.batch.item.ItemStreamException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Reader for FDR headers from FR_TEMP table
+ * Reader per flussi FR_TEMP di una specifica partizione (dominio).
+ * Legge TUTTI i flussi del dominio assegnato alla partizione.
  */
 @Component
+@StepScope
 @Slf4j
-public class FdrMetadataReader implements ItemReader<FrTemp> {
+public class FdrMetadataReader implements ItemReader<FrTemp>, ItemStream {
 
     private final FrTempRepository frTempRepository;
-    private final BatchProperties batchProperties;
-    private Iterator<FrTemp> currentPageIterator;
-    private int currentPage = 0;
-    private int pageSize = 50;
+
+    @Value("#{stepExecutionContext['codDominio']}")
+    private String codDominio;
+
+    @Value("#{stepExecutionContext['partitionNumber']}")
+    private Integer partitionNumber;
+
+    @Value("#{stepExecutionContext['totalPartitions']}")
+    private Integer totalPartitions;
+
+    private Iterator<FrTemp> flussiIterator;
     private boolean initialized = false;
 
-    public FdrMetadataReader(FrTempRepository frTempRepository, BatchProperties batchProperties) {
+    public FdrMetadataReader(FrTempRepository frTempRepository) {
         this.frTempRepository = frTempRepository;
-        this.batchProperties = batchProperties;
-        this.pageSize = this.batchProperties.getMetadataChunkSize();
+    }
+
+    @Override
+    public void open(ExecutionContext executionContext) throws ItemStreamException {
+        if (!initialized) {
+            log.info("Inizializzazione partizione {}/{} per dominio: {}",
+                partitionNumber, totalPartitions, codDominio);
+
+            // Carica TUTTI i flussi di questo dominio
+            List<FrTemp> flussi = frTempRepository.findByCodDominioOrderByDataOraPubblicazioneAsc(codDominio);
+
+            log.info("Partizione {} (dominio {}): trovati {} flussi da processare",
+                partitionNumber, codDominio, flussi.size());
+
+            flussiIterator = flussi.iterator();
+            initialized = true;
+        }
     }
 
     @Override
     public FrTemp read() {
-        if (!initialized) {
-            log.info("Initializing FdrMetadataReader");
-            initialized = true;
-            loadNextPage();
-        }
-
-        if (currentPageIterator != null && currentPageIterator.hasNext()) {
-            FrTemp frTemp = currentPageIterator.next();
-            log.debug("Reading FR_TEMP record: {} - {} - revision {}",
-                frTemp.getCodDominio(), frTemp.getCodFlusso(), frTemp.getRevisione());
+        if (flussiIterator != null && flussiIterator.hasNext()) {
+            FrTemp frTemp = flussiIterator.next();
+            log.debug("Lettura flusso per dominio {}: {} (revisione {})",
+                codDominio, frTemp.getCodFlusso(), frTemp.getRevisione());
             return frTemp;
-        } else if (loadNextPage()) {
-            return read();
         }
 
-        log.info("Nessun altro record FR_TEMP da processare");
-        return null; // End of data
+        log.info("Partizione {} (dominio {}): completata lettura di tutti i flussi",
+            partitionNumber, codDominio);
+        return null; // End of partition data
     }
 
-    private boolean loadNextPage() {
-        Pageable pageable = PageRequest.of(currentPage, pageSize);
-        Page<FrTemp> page = frTempRepository.findByOrderByDataOraPubblicazioneAsc(pageable);
+    @Override
+    public void update(ExecutionContext executionContext) throws ItemStreamException {
+        // Niente da salvare nello stato
+    }
 
-        if (!page.isEmpty()) {
-            currentPageIterator = page.getContent().iterator();
-            currentPage++;
-            log.debug("Caricata pagina {} con {} record", currentPage, page.getContent().size());
-            return true;
-        }
-
-        return false;
+    @Override
+    public void close() throws ItemStreamException {
+        // Cleanup se necessario
+        flussiIterator = null;
     }
 }

@@ -1,18 +1,18 @@
 package it.govpay.fdr.batch.step2;
 
-import it.govpay.fdr.batch.dto.DominioProcessingContext;
-import it.govpay.fdr.batch.entity.Dominio;
-import it.govpay.fdr.batch.repository.DominioRepository;
-import lombok.extern.slf4j.Slf4j;
+import java.time.Instant;
+import java.util.List;
+
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-import java.util.Iterator;
-import java.util.List;
+import it.govpay.fdr.batch.dto.DominioProcessingContext;
+import it.govpay.fdr.batch.entity.Dominio;
+import it.govpay.fdr.batch.repository.DominioRepository;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Reader for enabled domains to fetch FDR headers.

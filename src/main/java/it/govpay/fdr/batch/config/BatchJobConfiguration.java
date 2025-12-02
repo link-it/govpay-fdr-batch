@@ -209,10 +209,26 @@ public class BatchJobConfiguration {
     }
 
     /**
-     * Step 3: Acquire FDR payment metadata
+     * Step 3: Acquire FDR payment metadata (PARTITIONED by domain)
      */
     @Bean
     public Step fdrMetadataAcquisitionStep(
+        it.govpay.fdr.batch.partitioner.DominioPartitioner dominioPartitioner,
+        Step fdrMetadataWorkerStep
+    ) {
+        return new StepBuilder("fdrMetadataAcquisitionStep", jobRepository)
+            .partitioner("fdrMetadataWorkerStep", dominioPartitioner)
+            .step(fdrMetadataWorkerStep)
+            .gridSize(batchProperties.getThreadPoolSize()) // Numero di partizioni parallele
+            .taskExecutor(taskExecutor())
+            .build();
+    }
+
+    /**
+     * Worker step for Step 3: processes all flows of a single domain
+     */
+    @Bean
+    public Step fdrMetadataWorkerStep(
         FdrMetadataReader fdrMetadataReader,
         RetryPolicy fdrMetadataRetryPolicy,
         BackOffPolicy fdrMetadataBackOffPolicy,
@@ -220,7 +236,7 @@ public class BatchJobConfiguration {
         FdrMetadataProcessor fdrMetadataProcessor,
         FdrMetadataWriter fdrMetadataWriter
     ) {
-        return new StepBuilder("fdrMetadataAcquisitionStep", jobRepository)
+        return new StepBuilder("fdrMetadataWorkerStep", jobRepository)
             .<FrTemp, FdrMetadataProcessor.FdrCompleteData>chunk(batchProperties.getMetadataChunkSize(), transactionManager)
             .reader(fdrMetadataReader)
             .processor(fdrMetadataProcessor)
@@ -228,9 +244,8 @@ public class BatchJobConfiguration {
             .faultTolerant()
             .retryPolicy(fdrMetadataRetryPolicy)
             .backOffPolicy(fdrMetadataBackOffPolicy)
-            .listener(fdrMetadataRetryListener)
             .retry(RestClientException.class)
-            .retryLimit(pagoPAProperties.getMaxRetries())
+            .listener(fdrMetadataRetryListener)
             .build();
     }
 
@@ -266,10 +281,26 @@ public class BatchJobConfiguration {
     }
 
     /**
-     * Step 4: Acquire FDR payment details
+     * Step 4: Acquire FDR payment details (PARTITIONED by domain)
      */
     @Bean
     public Step fdrPaymentsAcquisitionStep(
+        it.govpay.fdr.batch.partitioner.DominioPartitioner dominioPartitioner,
+        Step fdrPaymentsWorkerStep
+    ) {
+        return new StepBuilder("fdrPaymentsAcquisitionStep", jobRepository)
+            .partitioner("fdrPaymentsWorkerStep", dominioPartitioner)
+            .step(fdrPaymentsWorkerStep)
+            .gridSize(batchProperties.getThreadPoolSize()) // Numero di partizioni parallele
+            .taskExecutor(taskExecutor())
+            .build();
+    }
+
+    /**
+     * Worker step for Step 4: processes all flows of a single domain
+     */
+    @Bean
+    public Step fdrPaymentsWorkerStep(
         FdrPaymentsReader fdrPaymentsReader,
         RetryPolicy fdrPaymentsRetryPolicy,
         BackOffPolicy fdrPaymentsBackOffPolicy,
@@ -277,7 +308,7 @@ public class BatchJobConfiguration {
         FdrPaymentsProcessor fdrPaymentsProcessor,
         FdrPaymentsWriter fdrPaymentsWriter
     ) {
-        return new StepBuilder("fdrPaymentsAcquisitionStep", jobRepository)
+        return new StepBuilder("fdrPaymentsWorkerStep", jobRepository)
             .<FrTemp, FdrPaymentsProcessor.FdrCompleteData>chunk(batchProperties.getPaymentsChunkSize(), transactionManager)
             .reader(fdrPaymentsReader)
             .processor(fdrPaymentsProcessor)
@@ -285,8 +316,8 @@ public class BatchJobConfiguration {
             .faultTolerant()
             .retryPolicy(fdrPaymentsRetryPolicy)
             .backOffPolicy(fdrPaymentsBackOffPolicy)
-            .listener(fdrPaymentsRetryListener)
             .retry(RestClientException.class)
+            .listener(fdrPaymentsRetryListener)
             .build();
     }
 

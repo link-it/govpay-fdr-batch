@@ -18,6 +18,7 @@ import org.springframework.web.client.RestClientException;
 import it.govpay.fdr.batch.dto.DominioProcessingContext;
 import it.govpay.fdr.batch.dto.FdrHeadersBatch;
 import it.govpay.fdr.batch.entity.FrTemp;
+import it.govpay.fdr.batch.repository.FrTempRepository;
 import it.govpay.fdr.batch.scheduler.FdrBatchScheduler;
 import it.govpay.fdr.batch.step2.FdrHeadersProcessor;
 import it.govpay.fdr.batch.step2.FdrHeadersReader;
@@ -30,6 +31,7 @@ import it.govpay.fdr.batch.step4.FdrPaymentsReader;
 import it.govpay.fdr.batch.step4.FdrPaymentsWriter;
 import it.govpay.fdr.batch.tasklet.CleanupFrTempTasklet;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -37,6 +39,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -81,9 +84,12 @@ class GovpayFdrBatchRetryTests {
 	private FdrPaymentsProcessor paymentsProcessor = mock(FdrPaymentsProcessor.class);
 	@MockitoBean
 	private FdrPaymentsWriter paymentsWriter = mock(FdrPaymentsWriter.class);
+	@MockitoBean
+	private FrTempRepository frTempRepository = mock(FrTempRepository.class);
 
 	private FrTemp frTempReaderFun() {
-		if (headerQueue.peek() != null)
+		// poll() rimuove e ritorna l'elemento dalla coda (o null se vuota)
+		if (headerQueue.poll() != null)
 			return new FrTemp();
 		return null;
 	}
@@ -94,6 +100,9 @@ class GovpayFdrBatchRetryTests {
 		metadataProcessorCounter.set(0);
 		paymentsProcessorCounter.set(0);
 		headerQueue.clear();
+
+		// Mock FrTempRepository per supportare il partitioning
+		when(frTempRepository.findDistinctCodDominio()).thenReturn(Arrays.asList("12345678901"));
 
 		when(cleanupFrTemp.execute(any(), any())).thenReturn(RepeatStatus.FINISHED);
 
@@ -108,11 +117,21 @@ class GovpayFdrBatchRetryTests {
 								 return null;
 							   }).when(headersWriter).write(any());
 
-		when(metadataReader.read()).thenAnswer(invocation -> frTempReaderFun()).thenReturn(null);
-		
-		doNothing().when(metadataWriter).write(any());
-		
-		when(paymentsReader.read()).thenAnswer(invocation -> frTempReaderFun()).thenReturn(null);
+		// Con partitioning, ogni reader viene chiamato più volte fino a quando non ritorna null
+		// Quindi il mock deve continuare a chiamare frTempReaderFun() ogni volta
+		when(metadataReader.read()).thenAnswer(invocation -> frTempReaderFun());
+
+		// Metadata writer deve ri-aggiungere items alla coda per renderli disponibili allo Step 4 (payments)
+		doAnswer(invocation -> {
+			Chunk<? extends FdrMetadataProcessor.FdrCompleteData> chunk = invocation.getArgument(0);
+			// Per ogni item processato in metadata, aggiungi un marker alla coda per payments
+			for (int i = 0; i < chunk.size(); i++) {
+				headerQueue.add(FdrHeadersBatch.builder().build());
+			}
+			return null;
+		}).when(metadataWriter).write(any());
+
+		when(paymentsReader.read()).thenAnswer(invocation -> frTempReaderFun());
 
 		FdrPaymentsProcessor.FdrCompleteData paymentsCompleteData = FdrPaymentsProcessor.FdrCompleteData.builder().build();
 		when(paymentsProcessor.process(any())).thenAnswer(invocation -> {
@@ -217,5 +236,118 @@ class GovpayFdrBatchRetryTests {
 		execution = batchScheduler.runFdrAcquisitionJob();
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
 		assertEquals(0, metadataProcessorCounter.get());
+	}
+
+	/**
+	 * Test partizionamento con multipli domini.
+	 * Verifica che il partizionamento crei una partizione per ogni dominio
+	 * e che ogni partizione processi i suoi dati.
+	 */
+	@Test
+	void multiDomainPartitioning() throws Exception {
+		// Setup: 3 domini nel sistema
+		Mockito.reset(frTempRepository);
+		Mockito.reset(headersReader);
+		when(frTempRepository.findDistinctCodDominio()).thenReturn(Arrays.asList("DOM001", "DOM002", "DOM003"));
+
+		// Headers reader deve restituire 3 DominioProcessingContext (uno per ogni dominio)
+		DominioProcessingContext dom1 = DominioProcessingContext.builder().dominioId(1L).build();
+		DominioProcessingContext dom2 = DominioProcessingContext.builder().dominioId(2L).build();
+		DominioProcessingContext dom3 = DominioProcessingContext.builder().dominioId(3L).build();
+		when(headersReader.read()).thenReturn(dom1, dom2, dom3, null);
+
+		when(headersProcessor.process(any())).thenReturn(
+			FdrHeadersBatch.builder().codDominio("DOM001").build(),
+			FdrHeadersBatch.builder().codDominio("DOM002").build(),
+			FdrHeadersBatch.builder().codDominio("DOM003").build()
+		).thenThrow(new RuntimeException("No more domains"));
+
+		// Tutti i processing hanno successo (no retry, no failure)
+		FdrMetadataProcessor.FdrCompleteData metadataCompleteData = FdrMetadataProcessor.FdrCompleteData.builder().build();
+		when(metadataProcessor.process(any())).thenAnswer(invocation -> {
+			metadataProcessorCounter.addAndGet(1);
+			return metadataCompleteData;
+		});
+
+		JobExecution execution = batchScheduler.runFdrAcquisitionJob();
+
+		// Il job completa con successo
+		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
+		// Verifica che tutti i 3 domini siano stati processati
+		assertEquals(3, metadataProcessorCounter.get());
+		// E tutti hanno completato anche lo step payments
+		assertEquals(3, paymentsProcessorCounter.get());
+	}
+
+	/**
+	 * Test con multipli flussi per un singolo dominio.
+	 * Verifica che una partizione possa processare multipli flussi dello stesso dominio.
+	 */
+	@Test
+	void singleDomainMultipleFlows() throws Exception {
+		// Setup: 1 dominio con 3 flussi (headers reader deve restituire 3 DominioProcessingContext)
+		Mockito.reset(headersReader);
+		DominioProcessingContext dom1 = DominioProcessingContext.builder().dominioId(1L).build();
+		DominioProcessingContext dom2 = DominioProcessingContext.builder().dominioId(1L).build();
+		DominioProcessingContext dom3 = DominioProcessingContext.builder().dominioId(1L).build();
+		when(headersReader.read()).thenReturn(dom1, dom2, dom3, null);
+
+		when(headersProcessor.process(any())).thenReturn(
+			FdrHeadersBatch.builder().codDominio("DOM001").build(),
+			FdrHeadersBatch.builder().codDominio("DOM001").build(),
+			FdrHeadersBatch.builder().codDominio("DOM001").build()
+		).thenThrow(new RuntimeException("No more flows"));
+
+		// Tutti i processing hanno successo
+		FdrMetadataProcessor.FdrCompleteData metadataCompleteData = FdrMetadataProcessor.FdrCompleteData.builder().build();
+		when(metadataProcessor.process(any())).thenAnswer(invocation -> {
+			metadataProcessorCounter.addAndGet(1);
+			return metadataCompleteData;
+		});
+
+		JobExecution execution = batchScheduler.runFdrAcquisitionJob();
+
+		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
+		// Verifica che tutti e 3 i flussi siano stati processati
+		assertEquals(3, metadataProcessorCounter.get());
+		// E tutti e 3 i flussi sono stati completati nel payments step
+		assertEquals(3, paymentsProcessorCounter.get());
+	}
+
+	/**
+	 * Test che verifica il comportamento del partizionamento quando tutti i domini hanno successo.
+	 * Questo è il caso ideale dove non ci sono errori.
+	 */
+	@Test
+	void allPartitionsSucceed() throws Exception {
+		// Setup: 2 domini
+		Mockito.reset(frTempRepository);
+		Mockito.reset(headersReader);
+		when(frTempRepository.findDistinctCodDominio()).thenReturn(Arrays.asList("DOM001", "DOM002"));
+
+		// Headers reader deve restituire 2 DominioProcessingContext
+		DominioProcessingContext dom1 = DominioProcessingContext.builder().dominioId(1L).build();
+		DominioProcessingContext dom2 = DominioProcessingContext.builder().dominioId(2L).build();
+		when(headersReader.read()).thenReturn(dom1, dom2, null);
+
+		when(headersProcessor.process(any())).thenReturn(
+			FdrHeadersBatch.builder().codDominio("DOM001").build(),
+			FdrHeadersBatch.builder().codDominio("DOM002").build()
+		).thenThrow(new RuntimeException("No more domains"));
+
+		// Tutti i processing hanno successo
+		FdrMetadataProcessor.FdrCompleteData metadataCompleteData = FdrMetadataProcessor.FdrCompleteData.builder().build();
+		when(metadataProcessor.process(any())).thenAnswer(invocation -> {
+			metadataProcessorCounter.addAndGet(1);
+			return metadataCompleteData;
+		});
+
+		JobExecution execution = batchScheduler.runFdrAcquisitionJob();
+
+		// Il job completa con successo
+		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
+		// Entrambi i domini sono stati processati
+		assertEquals(2, metadataProcessorCounter.get());
+		assertEquals(2, paymentsProcessorCounter.get());
 	}
 }
