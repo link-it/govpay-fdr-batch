@@ -91,10 +91,12 @@ public class BatchJobConfiguration {
         Step cleanupStep,
         Step fdrHeadersAcquisitionStep,
         Step fdrMetadataAcquisitionStep,
-        Step fdrPaymentsAcquisitionStep
+        Step fdrPaymentsAcquisitionStep,
+        it.govpay.fdr.batch.listener.BatchExecutionRecapListener batchExecutionRecapListener
     ) {
         return new JobBuilder("fdrAcquisitionJob", jobRepository)
             .incrementer(new RunIdIncrementer())
+            .listener(batchExecutionRecapListener)
             .start(cleanupStep)
             .next(fdrHeadersAcquisitionStep)
             .next(fdrMetadataAcquisitionStep)
