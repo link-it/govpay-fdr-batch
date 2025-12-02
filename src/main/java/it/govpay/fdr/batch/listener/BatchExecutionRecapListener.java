@@ -154,7 +154,7 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
         log.info("Flussi processati: {}", totalWritten);
         log.info("Flussi skippati: {}", totalSkipped);
         log.info("Errori: {}", totalErrors);
-        log.info("Durata totale: {} ms", totalDuration);
+        log.info("Durata totale: {} secondi", totalDuration / 1000);
         log.info("");
 
         // Dettaglio per dominio
@@ -162,18 +162,18 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
             log.info("Dettaglio per dominio:");
             log.info("-".repeat(80));
             log.info(String.format("%-20s %-10s %-10s %-10s %-10s %-15s %-10s",
-                "DOMINIO", "LETTI", "PROCESSATI", "SKIPPATI", "ERRORI", "STATUS", "DURATA(ms)"));
+                "DOMINIO", "LETTI", "PROCESSATI", "SKIPPATI", "ERRORI", "STATUS", "DURATA(s)"));
             log.info("-".repeat(80));
 
             domainStats.values().forEach(stats -> {
-                log.info(String.format("%-20s %-10d %-10d %-10d %-10d %-15s %-10d",
+                log.info(String.format("%-20s %-10d %-10d %-10d %-10d %-15s %-10.1f",
                     stats.codDominio,
                     stats.readCount,
                     stats.writeCount,
                     stats.skipCount,
                     stats.errorCount,
                     stats.status,
-                    stats.durationMs
+                    stats.durationMs / 1000.0
                 ));
             });
             log.info("-".repeat(80));
