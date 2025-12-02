@@ -248,6 +248,7 @@ class GovpayFdrBatchRetryTests {
 		// Setup: 3 domini nel sistema
 		Mockito.reset(frTempRepository);
 		Mockito.reset(headersReader);
+		Mockito.reset(metadataReader);
 		when(frTempRepository.findDistinctCodDominio()).thenReturn(Arrays.asList("DOM001", "DOM002", "DOM003"));
 
 		// Headers reader deve restituire 3 DominioProcessingContext (uno per ogni dominio)
@@ -261,6 +262,15 @@ class GovpayFdrBatchRetryTests {
 			FdrHeadersBatch.builder().codDominio("DOM002").build(),
 			FdrHeadersBatch.builder().codDominio("DOM003").build()
 		).thenThrow(new RuntimeException("No more domains"));
+
+		// Metadata reader: limita a 3 letture totali per evitare cicli (3 domini)
+		AtomicInteger metadataReadCount = new AtomicInteger(0);
+		when(metadataReader.read()).thenAnswer(invocation -> {
+			if (metadataReadCount.incrementAndGet() <= 3) {
+				return frTempReaderFun();
+			}
+			return null; // Stop after 3 reads
+		});
 
 		// Tutti i processing hanno successo (no retry, no failure)
 		FdrMetadataProcessor.FdrCompleteData metadataCompleteData = FdrMetadataProcessor.FdrCompleteData.builder().build();

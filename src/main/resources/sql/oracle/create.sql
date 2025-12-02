@@ -46,6 +46,13 @@ CREATE INDEX idx_fr_temp_cod_dominio ON FR_TEMP(cod_dominio);
 CREATE INDEX idx_fr_temp_cod_psp ON FR_TEMP(cod_psp);
 CREATE INDEX idx_fr_temp_stato ON FR_TEMP(stato);
 
+-- Optimized composite indexes for batch processing queries
+-- For findByCodDominioOrderByDataOraPubblicazioneAsc() in Step 3 & 4
+CREATE INDEX idx_fr_temp_dominio_publ ON FR_TEMP(cod_dominio, data_ora_pubblicazione);
+
+-- For existsByCodDominioAndCodFlussoAndIdPspAndRevisione() in Step 2 writer
+CREATE INDEX idx_fr_temp_exists_check ON FR_TEMP(cod_dominio, cod_flusso, id_psp, revisione);
+
 -- Add comments
 COMMENT ON TABLE FR_TEMP IS 'Temporary table for storing FDR headers during batch processing';
 COMMENT ON COLUMN FR_TEMP.id IS 'Primary key';
