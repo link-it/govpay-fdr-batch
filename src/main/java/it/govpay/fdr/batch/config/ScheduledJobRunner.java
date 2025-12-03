@@ -1,11 +1,9 @@
 package it.govpay.fdr.batch.config;
 
 import java.time.OffsetDateTime;
-import java.util.Map;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.JobParameter;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.JobParametersInvalidException;
@@ -100,10 +98,7 @@ public class ScheduledJobRunner {
 
         if (currentRunningJobExecution != null) {
             // Estrai il clusterid dell'esecuzione corrente
-            Map<String, JobParameter<?>> runningParams = currentRunningJobExecution.getJobParameters().getParameters();
-            String runningClusterId = runningParams.containsKey(Costanti.GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID)
-                    ? runningParams.get(Costanti.GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID).getValue().toString()
-                    : null;
+            String runningClusterId = this.preventConcurrentJobLauncher.getClusterIdFromExecution(currentRunningJobExecution);
 
             // VERIFICA SE IL JOB È STALE (bloccato o in stato anomalo)
             boolean isStale = this.preventConcurrentJobLauncher.isJobExecutionStale(currentRunningJobExecution);

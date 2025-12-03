@@ -162,4 +162,26 @@ public class PreventConcurrentJobLauncher {
             return false;
         }
     }
+
+    /**
+     * Estrae il cluster ID da un'esecuzione di job.
+     * <p>
+     * Il cluster ID identifica il nodo che ha avviato l'esecuzione.
+     *
+     * @param jobExecution L'esecuzione del job
+     * @return il cluster ID oppure null se non presente o se jobExecution è null
+     */
+    public String getClusterIdFromExecution(JobExecution jobExecution) {
+        if (jobExecution == null) {
+            return null;
+        }
+
+        var params = jobExecution.getJobParameters().getParameters();
+        if (params.containsKey(it.govpay.fdr.batch.Costanti.GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID)) {
+            return params.get(it.govpay.fdr.batch.Costanti.GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID)
+                .getValue().toString();
+        }
+
+        return null;
+    }
 }
