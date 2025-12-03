@@ -15,7 +15,13 @@ public interface FrRepository extends JpaRepository<Fr, Long> {
     Optional<Fr> findByCodFlussoAndCodPspAndRevisione(String codFlusso, String codPsp, Long revision);
 
     /**
-     * Check if FDR already exists
+     * Check if FDR already exists (without domain filter)
      */
     boolean existsByCodFlussoAndCodPspAndRevisione(String codFlusso, String codPsp, Long revision);
+
+    /**
+     * Check if FDR already exists for specific domain
+     */
+    boolean existsByCodDominioAndCodFlussoAndCodPspAndRevisione(
+        String codDominio, String codFlusso, String codPsp, Long revision);
 }

@@ -1,11 +1,10 @@
 package it.govpay.fdr.batch.step3;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,16 +15,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+import org.springframework.batch.item.ExecutionContext;
 
-import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 
 /**
- * Unit tests for FdrMetadataReader
+ * Unit tests for FdrMetadataReader (partitioner-based)
  */
 @ExtendWith(MockitoExtension.class)
 class FdrMetadataReaderTest {
@@ -33,119 +29,81 @@ class FdrMetadataReaderTest {
     @Mock
     private FrTempRepository frTempRepository;
 
-    @Mock
-    private BatchProperties batchProperties;
-
     private FdrMetadataReader reader;
 
+    private static final String TEST_COD_DOMINIO = "12345678901";
+    private static final int TEST_PARTITION_NUMBER = 1;
+    private static final int TEST_TOTAL_PARTITIONS = 5;
+
     @BeforeEach
-    void setUp() {
-        when(batchProperties.getMetadataChunkSize()).thenReturn(50);
-        reader = new FdrMetadataReader(frTempRepository, batchProperties);
+    void setUp() throws Exception {
+        reader = new FdrMetadataReader(frTempRepository);
+
+        // Simula l'iniezione di @Value da ExecutionContext usando reflection
+        setField(reader, "codDominio", TEST_COD_DOMINIO);
+        setField(reader, "partitionNumber", TEST_PARTITION_NUMBER);
+        setField(reader, "totalPartitions", TEST_TOTAL_PARTITIONS);
     }
 
     @Test
-    @DisplayName("Should read all FrTemp records with pagination")
-    void testReadWithPagination() throws Exception {
-        // Given: 3 pages of records (50 + 50 + 20 = 120 total)
-        List<FrTemp> page1 = createFrTempList(50, 0);
-        List<FrTemp> page2 = createFrTempList(50, 50);
-        List<FrTemp> page3 = createFrTempList(20, 100);
+    @DisplayName("Should read all flows for assigned domain")
+    void testReadAllFlowsForDomain() throws Exception {
+        // Given: 10 flows for the domain
+        List<FrTemp> flussi = createFrTempList(10, TEST_COD_DOMINIO);
+        when(frTempRepository.findByCodDominioOrderByDataOraPubblicazioneAsc(TEST_COD_DOMINIO))
+            .thenReturn(flussi);
 
-        when(frTempRepository.findByOrderByDataOraPubblicazioneAsc(any(Pageable.class)))
-            .thenReturn(new PageImpl<>(page1))
-            .thenReturn(new PageImpl<>(page2))
-            .thenReturn(new PageImpl<>(page3))
-            .thenReturn(Page.empty());
+        // When: Open reader and read all
+        reader.open(new ExecutionContext());
 
-        // When: Read all records
-        int count = 0;
+        List<FrTemp> results = new ArrayList<>();
         FrTemp record;
         while ((record = reader.read()) != null) {
-            count++;
-            assertThat(record).isNotNull();
+            results.add(record);
         }
 
-        // Then: Should read all 120 records
-        assertThat(count).isEqualTo(120);
-        verify(frTempRepository, times(4)).findByOrderByDataOraPubblicazioneAsc(any(Pageable.class));
+        // Then: Should read all 10 flows
+        assertThat(results).hasSize(10);
+        verify(frTempRepository).findByCodDominioOrderByDataOraPubblicazioneAsc(TEST_COD_DOMINIO);
     }
 
     @Test
-    @DisplayName("Should return null when no records found")
-    void testReadNoRecords() throws Exception {
-        // Given: Empty repository
-        when(frTempRepository.findByOrderByDataOraPubblicazioneAsc(any(Pageable.class)))
-            .thenReturn(Page.empty());
+    @DisplayName("Should return null when domain has no flows")
+    void testReadNoFlows() throws Exception {
+        // Given: Empty list for domain
+        when(frTempRepository.findByCodDominioOrderByDataOraPubblicazioneAsc(TEST_COD_DOMINIO))
+            .thenReturn(new ArrayList<>());
 
-        // When: Read
+        // When: Open and read
+        reader.open(new ExecutionContext());
         FrTemp result = reader.read();
 
-        // Then: Should return null (repository called twice: init + else-if check)
+        // Then: Should return null immediately
         assertThat(result).isNull();
-        verify(frTempRepository, times(2)).findByOrderByDataOraPubblicazioneAsc(any(Pageable.class));
     }
 
     @Test
-    @DisplayName("Should handle single page with records less than page size")
-    void testReadSinglePartialPage() throws Exception {
-        // Given: Single page with 10 records (less than pageSize=50)
-        List<FrTemp> page = createFrTempList(10, 0);
-
-        when(frTempRepository.findByOrderByDataOraPubblicazioneAsc(any(Pageable.class)))
-            .thenReturn(new PageImpl<>(page))
-            .thenReturn(Page.empty());
-
-        // When: Read all
-        int count = 0;
-        while (reader.read() != null) {
-            count++;
-        }
-
-        // Then: Should read all 10 records
-        assertThat(count).isEqualTo(10);
-    }
-
-    @Test
-    @DisplayName("Should initialize only once on first read")
-    void testInitializeOnce() throws Exception {
-        // Given
-        List<FrTemp> page = createFrTempList(3, 0);
-        when(frTempRepository.findByOrderByDataOraPubblicazioneAsc(any(Pageable.class)))
-            .thenReturn(new PageImpl<>(page))
-            .thenReturn(Page.empty());
-
-        // When: Read multiple times
-        reader.read(); // First read initializes
-        reader.read();
-        reader.read();
-        reader.read(); // Should return null
-
-        // Then: Repository called for page 0 and page 1
-        verify(frTempRepository, times(2)).findByOrderByDataOraPubblicazioneAsc(any(Pageable.class));
-    }
-
-    @Test
-    @DisplayName("Should read records in correct order")
+    @DisplayName("Should read flows in correct order")
     void testReadInOrder() throws Exception {
-        // Given: Records with sequential IDs
-        List<FrTemp> page = new ArrayList<>();
+        // Given: Flows with sequential codes
+        List<FrTemp> flussi = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             FrTemp frTemp = FrTemp.builder()
                 .id((long) i)
-                .codDominio("DOM" + i)
+                .codDominio(TEST_COD_DOMINIO)
                 .codFlusso("FDR-" + String.format("%03d", i))
                 .idPsp("PSP001")
                 .revisione(1L)
+                .dataOraPubblicazione(Instant.now())
                 .build();
-            page.add(frTemp);
+            flussi.add(frTemp);
         }
 
-        when(frTempRepository.findByOrderByDataOraPubblicazioneAsc(any(Pageable.class)))
-            .thenReturn(new PageImpl<>(page))
-            .thenReturn(Page.empty());
+        when(frTempRepository.findByCodDominioOrderByDataOraPubblicazioneAsc(TEST_COD_DOMINIO))
+            .thenReturn(flussi);
 
         // When: Read all
+        reader.open(new ExecutionContext());
         List<FrTemp> results = new ArrayList<>();
         FrTemp record;
         while ((record = reader.read()) != null) {
@@ -155,38 +113,71 @@ class FdrMetadataReaderTest {
         // Then: Should maintain order
         assertThat(results).hasSize(5);
         for (int i = 0; i < 5; i++) {
-            assertThat(results.get(i).getId()).isEqualTo((long) i);
             assertThat(results.get(i).getCodFlusso()).isEqualTo("FDR-" + String.format("%03d", i));
         }
     }
 
     @Test
-    @DisplayName("Should handle exactly pageSize records")
-    void testReadExactlyPageSize() throws Exception {
-        // Given: Exactly 50 records (pageSize)
-        List<FrTemp> page = createFrTempList(50, 0);
+    @DisplayName("Should handle single flow")
+    void testReadSingleFlow() throws Exception {
+        // Given: Single flow
+        List<FrTemp> flussi = createFrTempList(1, TEST_COD_DOMINIO);
+        when(frTempRepository.findByCodDominioOrderByDataOraPubblicazioneAsc(TEST_COD_DOMINIO))
+            .thenReturn(flussi);
 
-        when(frTempRepository.findByOrderByDataOraPubblicazioneAsc(any(Pageable.class)))
-            .thenReturn(new PageImpl<>(page))
-            .thenReturn(Page.empty());
+        // When: Read
+        reader.open(new ExecutionContext());
+        FrTemp first = reader.read();
+        FrTemp second = reader.read();
 
-        // When: Read all
-        int count = 0;
-        while (reader.read() != null) {
-            count++;
-        }
-
-        // Then: Should read all 50 records
-        assertThat(count).isEqualTo(50);
+        // Then: First should have value, second should be null
+        assertThat(first).isNotNull();
+        assertThat(second).isNull();
     }
 
-    private List<FrTemp> createFrTempList(int size, int startIndex) {
+    @Test
+    @DisplayName("Should only initialize once on open")
+    void testInitializeOnce() throws Exception {
+        // Given
+        List<FrTemp> flussi = createFrTempList(3, TEST_COD_DOMINIO);
+        when(frTempRepository.findByCodDominioOrderByDataOraPubblicazioneAsc(TEST_COD_DOMINIO))
+            .thenReturn(flussi);
+
+        // When: Open and read multiple times
+        reader.open(new ExecutionContext());
+        reader.read();
+        reader.read();
+        reader.read();
+        reader.read(); // Should return null
+
+        // Then: Repository should be called only once
+        verify(frTempRepository).findByCodDominioOrderByDataOraPubblicazioneAsc(TEST_COD_DOMINIO);
+    }
+
+    @Test
+    @DisplayName("Should handle close properly")
+    void testClose() throws Exception {
+        // Given
+        List<FrTemp> flussi = createFrTempList(5, TEST_COD_DOMINIO);
+        when(frTempRepository.findByCodDominioOrderByDataOraPubblicazioneAsc(TEST_COD_DOMINIO))
+            .thenReturn(flussi);
+
+        // When: Open, read some, then close
+        reader.open(new ExecutionContext());
+        reader.read();
+        reader.close();
+
+        // Then: Should not throw exception
+        // Further reads after close would require reopen
+    }
+
+    private List<FrTemp> createFrTempList(int size, String codDominio) {
         List<FrTemp> list = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             FrTemp frTemp = FrTemp.builder()
-                .id((long) (startIndex + i))
-                .codDominio("12345678901")
-                .codFlusso("FDR-" + String.format("%05d", startIndex + i))
+                .id((long) i)
+                .codDominio(codDominio)
+                .codFlusso("FDR-" + String.format("%05d", i))
                 .idPsp("PSP001")
                 .revisione(1L)
                 .dataOraPubblicazione(Instant.now())
@@ -194,5 +185,11 @@ class FdrMetadataReaderTest {
             list.add(frTemp);
         }
         return list;
+    }
+
+    private void setField(Object target, String fieldName, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 }

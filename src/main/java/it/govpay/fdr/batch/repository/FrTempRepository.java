@@ -36,4 +36,10 @@ public interface FrTempRepository extends JpaRepository<FrTemp, Long> {
     boolean existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
         String codDominio, String codFlusso, String idPsp, Long revision
     );
+
+    /**
+     * Find all distinct cod_dominio in FR_TEMP table (for partitioning)
+     */
+    @Query("SELECT DISTINCT f.codDominio FROM FrTemp f ORDER BY f.codDominio")
+    List<String> findDistinctCodDominio();
 }

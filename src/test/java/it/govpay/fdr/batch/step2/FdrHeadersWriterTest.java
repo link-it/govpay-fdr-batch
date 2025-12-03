@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import it.govpay.fdr.batch.dto.FdrHeadersBatch;
 import it.govpay.fdr.batch.entity.FrTemp;
+import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 
 /**
@@ -36,6 +37,9 @@ class FdrHeadersWriterTest {
     @Mock
     private FrTempRepository frTempRepository;
 
+    @Mock
+    private FrRepository frRepository;
+
     @Captor
     private ArgumentCaptor<FrTemp> frTempCaptor;
 
@@ -43,7 +47,7 @@ class FdrHeadersWriterTest {
 
     @BeforeEach
     void setUp() {
-        writer = new FdrHeadersWriter(frTempRepository);
+        writer = new FdrHeadersWriter(frTempRepository, frRepository);
     }
 
     @Test
@@ -63,6 +67,8 @@ class FdrHeadersWriterTest {
 
         Chunk<FdrHeadersBatch> chunk = new Chunk<>(List.of(batch));
 
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
         when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any()))
             .thenReturn(false);
 
@@ -71,6 +77,7 @@ class FdrHeadersWriterTest {
 
         // Then: Should save all 3 headers
         verify(frTempRepository, times(3)).save(any(FrTemp.class));
+        verify(frRepository, times(3)).existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any());
         verify(frTempRepository, times(3)).existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any());
     }
 
@@ -91,7 +98,11 @@ class FdrHeadersWriterTest {
 
         Chunk<FdrHeadersBatch> chunk = new Chunk<>(List.of(batch));
 
-        // FDR-002 already exists
+        // None already in FR
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+
+        // FDR-002 already exists in FR_TEMP
         when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
             eq(codDominio), eq("FDR-001"), eq("PSP001"), eq(1L))).thenReturn(false);
         when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
@@ -102,7 +113,7 @@ class FdrHeadersWriterTest {
         // When: Write
         writer.write(chunk);
 
-        // Then: Should save only 2 headers (skip duplicate)
+        // Then: Should save only 2 headers (skip duplicate in FR_TEMP)
         verify(frTempRepository, times(2)).save(any(FrTemp.class));
     }
 
@@ -122,6 +133,8 @@ class FdrHeadersWriterTest {
 
         Chunk<FdrHeadersBatch> chunk = new Chunk<>(List.of(batch1, batch2));
 
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
         when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any()))
             .thenReturn(false);
 
@@ -158,6 +171,8 @@ class FdrHeadersWriterTest {
 
         Chunk<FdrHeadersBatch> chunk = new Chunk<>(List.of(batch));
 
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
         when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any()))
             .thenReturn(false);
 
@@ -205,6 +220,54 @@ class FdrHeadersWriterTest {
 
         // Then: Should not save anything
         verify(frTempRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should skip headers already present in FR table")
+    void testWriteSkipsHeadersAlreadyInFr() throws Exception {
+        // Given: Batch with 3 headers (1 new, 1 already in FR, 1 already in FR_TEMP)
+        String codDominio = "12345678901";
+        List<FdrHeadersBatch.FdrHeader> headers = new ArrayList<>();
+        headers.add(createHeader("FDR-001", "PSP001", 1L)); // New
+        headers.add(createHeader("FDR-002", "PSP001", 1L)); // Already in FR
+        headers.add(createHeader("FDR-003", "PSP002", 1L)); // Already in FR_TEMP
+
+        FdrHeadersBatch batch = FdrHeadersBatch.builder()
+            .codDominio(codDominio)
+            .headers(headers)
+            .build();
+
+        Chunk<FdrHeadersBatch> chunk = new Chunk<>(List.of(batch));
+
+        // FDR-002 already in FR (should be skipped, no FR_TEMP check needed)
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(
+            eq(codDominio), eq("FDR-001"), eq("PSP001"), eq(1L))).thenReturn(false);
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(
+            eq(codDominio), eq("FDR-002"), eq("PSP001"), eq(1L))).thenReturn(true); // Already in FR
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(
+            eq(codDominio), eq("FDR-003"), eq("PSP002"), eq(1L))).thenReturn(false);
+
+        // FDR-003 already in FR_TEMP
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
+            eq(codDominio), eq("FDR-001"), eq("PSP001"), eq(1L))).thenReturn(false);
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
+            eq(codDominio), eq("FDR-003"), eq("PSP002"), eq(1L))).thenReturn(true);
+
+        // When: Write
+        writer.write(chunk);
+
+        // Then: Should save only 1 header (FDR-001)
+        verify(frTempRepository, times(1)).save(any(FrTemp.class));
+
+        // Verify FR was checked for all 3 headers (with codDominio)
+        verify(frRepository, times(3)).existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any());
+
+        // Verify FR_TEMP was checked only for headers not in FR (FDR-001, FDR-003)
+        verify(frTempRepository, times(2)).existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any());
+
+        // Verify FDR-002 was never checked in FR_TEMP (skipped because already in FR)
+        verify(frTempRepository, never()).existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
+            eq(codDominio), eq("FDR-002"), eq("PSP001"), eq(1L));
     }
 
     private FdrHeadersBatch.FdrHeader createHeader(String codFlusso, String idPsp, Long revision) {
