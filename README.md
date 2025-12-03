@@ -1,8 +1,17 @@
-# GovPay FDR Batch - Implementazione Issue #1
+<p align="center">
+<img src="https://www.link.it/wp-content/uploads/2025/01/logo-govpay.svg" alt="GovPay Logo" width="200"/>
+</p>
+
+# GovPay - Porta di accesso al sistema pagoPA - FDR Batch
+
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=link-it_govpay-fdr-batch&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=link-it_govpay-fdr-batch)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.6-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://raw.githubusercontent.com/link-it/govpay-fdr-batch/main/LICENSE)
 
 ## Sommario
 
-Questo documento descrive l'implementazione completa del batch di acquisizione FDR REST come richiesto nell'issue #1.
+Batch Spring Boot per l'acquisizione automatica dei Flussi di Rendicontazione (FDR) da pagoPA tramite API REST.
+Il sistema scarica, processa e riconcilia i flussi di rendicontazione con i pagamenti esistenti nel database GovPay.
 
 ## Architettura Implementata
 
@@ -19,17 +28,28 @@ Questo documento descrive l'implementazione completa del batch di acquisizione F
 - **Writer**: `FdrHeadersWriter` - Salva gli headers in `FR_TEMP` e aggiorna la data ultima acquisizione del dominio
 - **Parallelizzazione**: Configurabile tramite `govpay.batch.thread-pool-size` (default: 5 thread)
 
-### Step 3: Acquisizione Dettagli Pagamenti
-- **Reader**: `FdrPaymentsReader` - Legge i record da `FR_TEMP` ordinati per data pubblicazione
+### Step 3: Acquisizione Metadata FDR (PARTIZIONATO per dominio)
+- **Partitioner**: `DominioPartitioner` - Crea una partizione per ogni dominio presente in `FR_TEMP`
+- **Reader**: `FdrMetadataReader` - Legge i flussi di un singolo dominio da `FR_TEMP` ordinati per data pubblicazione
+- **Processor**: `FdrMetadataProcessor` - Per ogni FDR:
+  - Chiama `/organizations/{organizationId}/fdrs/{fdr}/revisions/{revision}/psps/{pspId}` per ottenere i metadati
+  - Gestisce retry (3 tentativi) in caso di errore
+- **Writer**: `FdrMetadataWriter` - Aggiorna i record in `FR_TEMP` con i metadati scaricati
+- **Parallelizzazione**: Ogni dominio viene processato in una partizione separata in parallelo
+
+### Step 4: Acquisizione Pagamenti (PARTIZIONATO per dominio)
+- **Partitioner**: `DominioPartitioner` - Crea una partizione per ogni dominio presente in `FR_TEMP`
+- **Reader**: `FdrPaymentsReader` - Legge i flussi di un singolo dominio da `FR_TEMP`
 - **Processor**: `FdrPaymentsProcessor` - Per ogni FDR:
-  1. Chiama `/organizations/{organizationId}/fdrs/{fdr}/revisions/{revision}/psps/{pspId}` per ottenere i dettagli
-  2. Chiama `/organizations/{organizationId}/fdrs/{fdr}/revisions/{revision}/psps/{pspId}/payments` per ottenere i pagamenti
+  - Chiama `/organizations/{organizationId}/fdrs/{fdr}/revisions/{revision}/psps/{pspId}/payments` per ottenere i pagamenti
   - Gestisce retry (3 tentativi) in caso di errore
 - **Writer**: `FdrPaymentsWriter` - Salva i dati in:
   - Tabella `FR` (header del flusso)
   - Tabella `RENDICONTAZIONI` (singoli pagamenti)
-  - Tenta di linkare i pagamenti esistenti nella tabella `PAGAMENTI`
-  - Marca il record in `FR_TEMP` come processato
+  - Riconcilia con pagamenti esistenti nella tabella `PAGAMENTI`
+  - Esegue verifiche semantiche e gestione anomalie
+  - Marca il record in `FR_TEMP` come processato (delete)
+- **Parallelizzazione**: Ogni dominio viene processato in una partizione separata in parallelo
 
 ## Entità Database
 
@@ -58,6 +78,29 @@ Questo documento descrive l'implementazione completa del batch di acquisizione F
 
 ### SINGOLI_VERSAMENTI
 - Tabella pre-esistente per le posizioni debitorie
+
+## Script Database
+
+Il progetto include script SQL per tutti i DBMS supportati da GovPay:
+
+### Script disponibili (per ogni DBMS)
+```
+src/main/resources/sql/{dbms}/
+├── create.sql           # Creazione tabelle (FR_TEMP e indici)
+├── drop.sql            # Drop tabelle
+├── delete.sql          # Pulizia dati
+├── add-indexes.sql     # Aggiunta indici su tabelle esistenti
+└── spring-batch/       # Script per tabelle Spring Batch
+    ├── schema-{dbms}.sql
+    └── drop-{dbms}.sql
+```
+
+### DBMS supportati
+- `postgresql` - PostgreSQL 9.6+
+- `mysql` - MySQL 5.7+ / MariaDB 10.3+
+- `oracle` - Oracle 11g+
+- `sqlserver` - SQL Server 2016+
+- `hsqldb` - HSQLDB/H2 (per sviluppo e test)
 
 ## Configurazione
 
@@ -146,19 +189,21 @@ Il job può essere eseguito manualmente invocando il metodo `FdrBatchScheduler.t
 
 ### ✅ Paginazione
 - Gestione automatica della paginazione per:
-  - Lista flussi pubblicati
-  - Lista pagamenti di un flusso
+  - Lista flussi pubblicati (Step 2)
+  - Lista pagamenti di un flusso (Step 4)
 - Itera tutte le pagine fino al completamento
 
 ### ✅ Retry e Fault Tolerance
-- 3 tentativi automatici per chiamate API fallite
+- 3 tentativi automatici per chiamate API fallite con backoff esponenziale (2s, 4s, 8s)
 - Skip di record problematici fino a un limite configurabile
 - Log dettagliati per troubleshooting
+- Circuit breaker per protezione API pagoPA
 
-### ✅ Multi-threading (Step 2)
-- Elaborazione parallela dei domini
-- Numero thread configurabile
-- Throttling per evitare sovraccarico API
+### ✅ Elaborazione Parallela
+- **Step 2 (Headers)**: Multi-threading configurabile per domini
+- **Step 3 (Metadata)**: Partizionamento per dominio
+- **Step 4 (Payments)**: Partizionamento per dominio
+- Isolamento errori per dominio
 
 ### ✅ Query Incrementali
 - Ogni dominio traccia l'ultima data di acquisizione
@@ -166,14 +211,33 @@ Il job può essere eseguito manualmente invocando il metodo `FdrBatchScheduler.t
 - Evita ri-acquisizione di dati già processati
 
 ### ✅ Deduplicazione
-- Controllo esistenza in `FR_TEMP` prima dell'inserimento
-- Controllo esistenza in `FR` prima del salvataggio finale
+- Controllo esistenza in `FR_TEMP` prima dell'inserimento (Step 2)
+- Controllo esistenza in `FR` prima del download metadata (Step 3)
+- Controllo esistenza in `FR` prima del salvataggio finale (Step 4)
 - Vincoli unique sul database
 
-### ✅ Consistency Checks
-- Tentativo di linking con tabelle `PAGAMENTI` e `SINGOLI_VERSAMENTI`
-- Tracciamento stato elaborazione in `FR_TEMP`
-- Transazioni per garantire consistenza
+### ✅ Riconciliazione e Verifiche
+- Riconciliazione automatica con tabelle `PAGAMENTI` e `SINGOLI_VERSAMENTI`
+- Verifiche semantiche (importi, numero pagamenti, ecc.)
+- Gestione anomalie con classificazione
+- Stati FR: ACCETTATA, ANOMALA
+- Stati Rendicontazione: OK, ANOMALA, ALTRO_INTERMEDIARIO
+
+### ✅ Multi-nodo e Recovery
+- Gestione esecuzioni su cluster multi-nodo
+- Lock distribuito su tabelle Spring Batch
+- Recovery automatico job bloccati (timeout: 24h configurabile)
+- Prevenzione esecuzioni concorrenti
+
+### ✅ Integrazione GDE
+- Tracciamento eventi nel Giornale Degli Eventi (GDE)
+- Payload completo delle richieste/risposte API
+- Tracciabilità completa del flusso di elaborazione
+
+### ✅ Ottimizzazione Database
+- Indici compositi per query critiche
+- Script di creazione/aggiornamento per tutti i DBMS
+- Update statistics per ottimizzatore query
 
 ## Logging
 
@@ -196,19 +260,63 @@ Il contesto Spring Boot si carica correttamente con:
 mvn test
 ```
 
-## Prossimi Passi
+## Roadmap
 
-1. **Test Integrazione**: Configurare un ambiente di test con credenziali pagoPA valide
-2. **Monitoring**: Aggiungere metriche (Spring Actuator) per monitorare le esecuzioni
-3. **Notifiche**: Implementare notifiche in caso di errori critici
-4. **Dashboard**: Creare endpoint REST per visualizzare lo stato delle esecuzioni
-5. **Performance Tuning**: Ottimizzare parametri di threading e chunk size in base al carico
+Per la lista completa delle migliorie previste, vedere la sezione [Lista Migliorie](#) nella documentazione del progetto.
+
+### Alta Priorità
+1. **Monitoring & Metriche**: Spring Boot Actuator + metriche custom (FDR processati, tempi, errori)
+2. **Notifiche**: Sistema alerting per errori critici (email/Slack)
+3. **Dashboard**: Endpoint REST per visualizzare stato job e anomalie
+4. **Performance Tuning**: Ottimizzazione parametri in base al carico reale
+
+### Media Priorità
+5. **Circuit Breaker**: Resilience4j per protezione avanzata API pagoPA
+6. **Containerizzazione**: Docker + Kubernetes manifests
+7. **CI/CD Enhancement**: Code quality checks automatici, security scanning
+8. **Documentazione Operativa**: Runbook troubleshooting, deployment guide
+
+### Bassa Priorità
+9. **Analytics & BI**: Report statistiche per business
+10. **Batch Management UI**: Web UI per gestione job e anomalie
 
 ## Note Tecniche
 
 - **Java Version**: 21 (richiesto da Spring Boot 3.5.6)
 - **Spring Boot**: 3.5.6
-- **Spring Batch**: Incluso in Spring Boot Starter
+- **Spring Batch**: 5.2.4 (incluso in Spring Boot Starter)
 - **OpenAPI Generator**: 7.10.0
-- **Database**: H2 (dev) / PostgreSQL (prod)
+- **Database**: PostgreSQL (prod), MySQL, Oracle, SQL Server, H2/HSQLDB (dev)
 - **Build Tool**: Maven 3.6.3+
+
+## Documentazione
+
+- **[ChangeLog](ChangeLog)** - Storia completa delle modifiche e release
+
+## Contribuire
+
+Per contribuire al progetto:
+1. Fork del repository
+2. Creare un branch per la feature (`git checkout -b feature/AmazingFeature`)
+3. Commit delle modifiche (`git commit -m 'Add some AmazingFeature'`)
+4. Push del branch (`git push origin feature/AmazingFeature`)
+5. Aprire una Pull Request
+
+Assicurarsi di:
+- Seguire lo stile di codifica del progetto
+- Aggiungere test per nuove funzionalità
+- Aggiornare il ChangeLog seguendo il formato esistente
+- Documentare le modifiche nel README se necessario
+
+## License
+
+Questo progetto è distribuito sotto licenza GPL v3. Vedere il file [LICENSE](LICENSE) per i dettagli.
+
+## Contatti
+
+- **Progetto**: [GovPay FDR Batch](https://github.com/link-it/govpay-fdr-batch)
+- **Organizzazione**: [Link.it](https://www.link.it)
+
+## Riconoscimenti
+
+Questo progetto è parte dell'ecosistema [GovPay](https://www.govpay.it) per la gestione dei pagamenti della Pubblica Amministrazione italiana tramite pagoPA.
