@@ -1,0 +1,300 @@
+2025-12-03  Giuliano Pintori <pintori@link.it>
+
+	* [Database]
+	Aggiunta funzionalità - Ottimizzazione performance database
+	Aggiunti indici ottimizzati per tutte le piattaforme database supportate (PostgreSQL, MySQL, Oracle, SQL Server, HSQLDB/H2).
+	Creati script 'add-indexes.sql' per l'aggiunta di indici su database esistenti:
+	- Indici compositi su tabella FR per query di esistenza (cod_dominio, cod_flusso, cod_psp, revisione)
+	- Indici compositi su tabella PAGAMENTI per riconciliazione pagamenti (cod_dominio, iuv, iur, indice_dati)
+	- Indici su tabella RENDICONTAZIONI per query di ricerca (iuv, iur, indice_dati, id_fr)
+	- Indici su tabella DOMINI per filtri su domini abilitati (scarica_fr, cod_dominio)
+	- Indici compositi su tabella FR_TEMP per query di staging (cod_dominio, data_ora_pubblicazione)
+	Gli script includono anche aggiornamento delle statistiche per l'ottimizzatore di query (ANALYZE per PostgreSQL/Oracle, UPDATE STATISTICS per SQL Server).
+
+2025-12-02  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Risolto Bug #5 - Errori nei test
+	Corretti errori nei test di integrazione.
+	Aggiunti indici alla tabella FR_TEMP per migliorare le performance delle query di staging:
+	- idx_fr_temp_dominio_publ su (cod_dominio, data_ora_pubblicazione) per ordinamento flussi
+	- idx_fr_temp_exists_check su (cod_dominio, cod_flusso, id_psp, revisione) per controlli di duplicazione
+
+2025-12-02  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #5 - Log recap flussi elaborati
+	Aggiunto log di riepilogo al termine di ogni esecuzione batch con statistiche sui flussi elaborati.
+
+2025-12-02  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #5 - Dump statistiche esecuzione
+	Aggiunto dump dettagliato delle statistiche sull'esecuzione corrente del batch,
+	inclusi contatori per domini processati, flussi scaricati, errori e tempi di elaborazione.
+
+2025-12-02  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #5 - Partizionamento per dominio
+	Implementata gestione del flusso per dominio tramite partizioni Spring Batch.
+	Modificata l'architettura per processare flussi di domini diversi in parallelo:
+	- Step 3 (Metadata): partizionato per dominio
+	- Step 4 (Payments): partizionato per dominio
+	Ogni partizione processa tutti i flussi di un singolo dominio in modo isolato,
+	migliorando il throughput e la gestione degli errori per dominio.
+
+2025-12-01  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #5 - Sincronizzazione lettura domini
+	Introdotta sincronizzazione nella lettura dei domini dal database per evitare
+	race conditions in ambienti multi-thread.
+
+2025-12-01  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #5 - Check esistenza flusso
+	Aggiunto controllo per verificare la presenza di un flusso già acquisito prima di
+	scaricare metadati e dettaglio pagamenti da pagoPA, evitando chiamate API non necessarie
+	e riducendo il carico sul sistema.
+
+2025-12-01  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Risolto Bug - Errori lettura e salvataggio
+	Corretti errori di lettura multipla dei record.
+	Corretti errori di salvataggio per campi non nullable.
+	Corretta dimensione delle pagine del reader in base al chunk size del writer
+	per ottimizzare l'utilizzo della memoria.
+
+2025-12-01  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore][GDE]
+	Aggiunta funzionalità #5 - Integrazione GDE
+	Aggiunta spedizione al Giornale Degli Eventi (GDE) degli eventi di lettura delle rendicontazioni.
+	Aggiunte informazioni mancanti nel payload delle risposte (payload completo delle API pagoPA).
+	Impostati messaggi di log in italiano per migliorare la leggibilità degli operatori.
+
+2025-11-28  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Risolto Bug - Deserializzazione date
+	Aggiunto deserializer custom per LocalDate per gestire correttamente le date
+	ricevute dalle API pagoPA in formato ISO-8601.
+
+2025-11-28  Giuliano Pintori <pintori@link.it>
+
+	* [Testing]
+	Risolto Bug - Esecuzione test
+	Corretti test di integrazione che fallivano a causa di configurazioni mancanti.
+
+2025-11-28  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #5 - Gestione multi-nodo e recovery
+	Implementata gestione del recovery per esecuzioni andate in timeout o in stati sconosciuti.
+	Aggiunta gestione multi-nodo per permettere l'esecuzione del batch su cluster:
+	- Lock distribuito su tabelle Spring Batch
+	- Timeout configurabile per rilevare nodi morti (default: 24 ore)
+	- Recovery automatico di job bloccati
+	- Verifica stato job prima di avviare nuova esecuzione
+
+2025-11-28  Giuliano Pintori <pintori@link.it>
+
+	* [CodeQuality]
+	Risoluzione segnalazioni SonarQube
+	Risolte segnalazioni di code smell e bug potenziali identificati da SonarQube:
+	- Ridotta complessità ciclomatica di metodi complessi
+	- Corretti pattern di gestione eccezioni
+	- Migliorata leggibilità del codice
+
+2025-11-28  Giuliano Pintori <pintori@link.it>
+
+	* [Testing]
+	Risolto Bug - Test falliti
+	Corretti test di integrazione che fallivano a causa di mock non configurati correttamente.
+
+2025-11-28  Giuliano Pintori <pintori@link.it>
+
+	* [Testing]
+	Aggiunta funzionalità - Aumento copertura test
+	Aumentata la copertura del codice con test unitari e di integrazione,
+	raggiungendo una copertura superiore al 70% per i componenti core del batch.
+
+2025-11-27  Giuliano Pintori <pintori@link.it>
+
+	* [Testing]
+	Aggiunta funzionalità - Test ObjectMapper
+	Aggiunti test per verifica della configurazione di ObjectMapper e corretta
+	serializzazione/deserializzazione degli oggetti JSON dalle API pagoPA.
+
+2025-11-27  Giuliano Pintori <pintori@link.it>
+
+	* [CI/CD]
+	Risolto Bug #2 - Fix variabili OSS
+	Corretta configurazione delle variabili per il deploy su OSS (Open Source Sonatype).
+
+2025-11-27  Giuliano Pintori <pintori@link.it>
+
+	* [Testing]
+	Risolto Bug #5 - Errori test
+	Corretti test che fallivano a causa di dipendenze non inizializzate correttamente.
+
+2025-11-27  Giuliano Pintori <pintori@link.it>
+
+	* [Testing]
+	Aggiunta funzionalità #5 - Aumento copertura test
+	Aumentata la copertura dei test per i componenti core del batch processor,
+	aggiungendo test per scenari di errore e edge cases.
+
+2025-11-27  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #5 - Gestione stati FR e Rendicontazione
+	Aggiunta gestione dello stato di FR e Rendicontazione tramite enum (StatoFr, StatoRendicontazione).
+	Corretta query di ricerca versamento per utilizzare gli indici corretti e migliorare le performance.
+
+2025-11-26  Luigi Buoncristiani <buoncristiani@link.it>
+
+	* [BatchCore]
+	Risolto Bug #5 - Test in errore
+	Corretti test di integrazione che fallivano a causa di mock incompleti.
+
+2025-11-26  Luigi Buoncristiani <buoncristiani@link.it>
+
+	* [BatchCore]
+	Refactoring - Riorganizzazione codice
+	Riorganizzato il codice per riduzione della complessità e miglioramento della leggibilità:
+	- Estratti metodi privati per operazioni complesse
+	- Migliorata separazione delle responsabilità
+	- Aggiunta documentazione JavaDoc
+
+2025-11-26  Luigi Buoncristiani <buoncristiani@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità - Log finale
+	Aggiunto log di riepilogo al termine dell'esecuzione batch con statistiche aggregate.
+
+2025-11-26  Luigi Buoncristiani <buoncristiani@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità - Registrazione flusso
+	Aggiunte funzionalità di registrazione completa del flusso di rendicontazione:
+	- Salvataggio su tabella FR (flusso di rendicontazione)
+	- Salvataggio su tabella RENDICONTAZIONI (singoli pagamenti)
+	- Riconciliazione automatica con tabella PAGAMENTI
+	- Gestione anomalie e verifiche semantiche
+
+2025-11-26  Giuliano Pintori <pintori@link.it>
+
+	* [GDE]
+	Aggiunta funzionalità #5 - Codice invocazione GDE
+	Aggiunto codice per l'invocazione del Giornale Degli Eventi (GDE) per tracciare
+	tutte le operazioni di acquisizione FDR e rendicontazioni.
+
+2025-11-26  Giuliano Pintori <pintori@link.it>
+
+	* [CI/CD]
+	Risolto Bug #2 - Fix pipeline
+	Corretta configurazione della pipeline GitHub Actions per l'esecuzione dei test
+	e la build automatica del progetto.
+
+2025-11-25  Giuliano Pintori <pintori@link.it>
+
+	* [CI/CD]
+	Risolto Bug #2 - Fix configurazione
+	Corretti errori di configurazione nella pipeline di CI/CD.
+
+2025-11-25  Giuliano Pintori <pintori@link.it>
+
+	* [CI/CD]
+	Aggiunta funzionalità #2 - Aggiornamento plugin OWASP
+	Aggiornata versione del plugin OWASP Dependency Check per vulnerability scanning.
+
+2025-11-25  Giuliano Pintori <pintori@link.it>
+
+	* [CI/CD]
+	Risolto Bug #2 - Fix comando
+	Corretto comando di esecuzione nella pipeline GitHub Actions.
+
+2025-11-25  Giuliano Pintori <pintori@link.it>
+
+	* [CI/CD]
+	Aggiunta funzionalità #2 - Credenziali OSS
+	Aggiunte credenziali per il deploy su OSS (Open Source Sonatype) nella pipeline CI/CD.
+
+2025-11-25  Giuliano Pintori <pintori@link.it>
+
+	* [CI/CD]
+	Aggiunta funzionalità #2 - Work in progress
+	Implementazione in corso della pipeline di validazione GitHub Actions.
+
+2025-11-24  Giuliano Pintori <pintori@link.it>
+
+	* [CI/CD]
+	Aggiunta funzionalità #2 - Pipeline di validazione
+	Aggiunta prima versione della pipeline di validazione GitHub Actions:
+	- Build automatico con Maven
+	- Esecuzione test automatici
+	- Code quality check con SonarQube
+	- Security scanning con OWASP Dependency Check
+
+2025-11-20  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore][Database]
+	Aggiunta funzionalità #1 - Entities e script database
+	Corrette differenze tra i tipi di dati presenti sul database GovPay e quelli generati per le entities (date, double, ecc.).
+	Eseguite verifiche su database locale scaricando i flussi dal simulatore GovPay.
+	Aggiunti nuovi campi per le entities necessari per la fase di verifiche semantiche e riconciliazione pagamenti.
+	Aggiunti script SQL per creazione, drop e delete delle tabelle del batch per tutti i DBMS gestiti da GovPay:
+	- PostgreSQL
+	- MySQL
+	- Oracle
+	- SQL Server
+	- HSQLDB (per sviluppo e test)
+	Aggiunti script per la creazione delle tabelle Spring Batch per tutti i DBMS supportati.
+
+2025-11-19  Luigi Buoncristiani <buoncristiani@link.it>
+
+	* [Testing]
+	Aggiunta funzionalità #1 - Test retry, skip e failure
+	Aggiunti test del job Spring Batch per verificare il comportamento in caso di:
+	- Retry automatico su errori temporanei (RestClientException)
+	- Skip di record problematici quando superato il limite di retry
+	- Failure del job quando superato il limite di skip
+	Configurati policy di retry con backoff esponenziale (2s, 4s, 8s).
+
+2025-11-11  Luigi Buoncristiani <buoncristiani@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #1 - Prima fase implementazione
+	Implementata prima fase del batch di acquisizione FDR da pagoPA:
+	- Step 1: Cleanup tabella temporanea FR_TEMP
+	- Step 2: Acquisizione headers FDR da API pagoPA con multi-threading
+	- Step 3: Acquisizione metadata FDR (dettagli flusso)
+	- Step 4: Acquisizione pagamenti e salvataggio su database
+	Implementati componenti Spring Batch:
+	- Reader: FdrHeadersReader, FdrMetadataReader, FdrPaymentsReader
+	- Processor: FdrHeadersProcessor, FdrMetadataProcessor, FdrPaymentsProcessor
+	- Writer: FdrHeadersWriter, FdrMetadataWriter, FdrPaymentsWriter
+	Configurazione completa con retry policy, skip policy e fault tolerance.
+
+2025-11-03  Giuliano Pintori <pintori@link.it>
+
+	* [ProjectSetup]
+	Aggiunta funzionalità #1 - Setup progetto iniziale
+	(https://github.com/link-it/govpay-fdr-batch/issues/1)
+	Creato progetto Spring Batch per acquisizione FDR da pagoPA.
+	Configurazione base Spring Boot 3.5.6 con Java 21.
+	Integrazione OpenAPI Generator per generazione automatica del client REST dalle specifiche pagoPA:
+	- OpenAPI spec: src/main/resources/openapi/fdr_organization.yaml
+	- Client generato: it.govpay.fdr.client
+	- Libreria: RestTemplate (Spring)
+	Struttura base del batch job con 4 step sequenziali.
+
+2025-09-29  Lorenzo Nardi <nardi@link.it>
+
+	* [ProjectSetup]
+	Creazione repository
+	Creato repository iniziale per il progetto govpay-fdr-batch.
