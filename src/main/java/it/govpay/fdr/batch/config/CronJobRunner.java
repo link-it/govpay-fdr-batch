@@ -1,11 +1,9 @@
 package it.govpay.fdr.batch.config;
 
 import java.time.OffsetDateTime;
-import java.util.Map;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.JobParameter;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.JobParametersInvalidException;
@@ -98,38 +96,22 @@ public class CronJobRunner implements CommandLineRunner, ApplicationContextAware
                 .getCurrentRunningJobExecution(Costanti.FDR_ACQUISITION_JOB_NAME);
 
         if (currentRunningJobExecution != null) {
-            // Estrai il clusterid dell'esecuzione corrente
-            Map<String, JobParameter<?>> runningParams = currentRunningJobExecution.getJobParameters().getParameters();
-            String runningClusterId = runningParams.containsKey(Costanti.GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID)
-                    ? runningParams.get(Costanti.GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID).getValue().toString()
-                    : null;
-
-            // VERIFICA SE IL JOB È STALE (bloccato o in stato anomalo)
-            boolean isStale = this.preventConcurrentJobLauncher.isJobExecutionStale(currentRunningJobExecution);
-
-            if (isStale) {
+            // Verifica se il job è stale (bloccato o in stato anomalo)
+            if (this.preventConcurrentJobLauncher.isJobExecutionStale(currentRunningJobExecution)) {
                 log.warn("JobExecution {} rilevata come STALE. Procedo con abbandono e riavvio.",
                     currentRunningJobExecution.getId());
 
-                // Abbandona il job stale
-                boolean abandoned = this.preventConcurrentJobLauncher.abandonStaleJobExecution(currentRunningJobExecution);
-
-                if (abandoned) {
-                    log.info("Job stale abbandonato con successo. Avvio nuova esecuzione.");
-                    // Procedi con l'avvio di una nuova esecuzione
-                    runFdrAcquisitionJob();
-                    log.info("{} completato.", Costanti.FDR_ACQUISITION_JOB_NAME);
-                } else {
-                    log.error("Impossibile abbandonare il job stale. Uscita senza avviare nuova esecuzione.");
-                }
+                boolean abandoned = checkAbandonedJobStale(currentRunningJobExecution);
 
                 // Terminazione dell'applicazione
-                int exitCode = SpringApplication.exit(context, () -> 0);
+                int exitCode = SpringApplication.exit(context, () -> abandoned ? 0 : 1);
                 System.exit(exitCode);
                 return;
             }
+            
+            // Job in esecuzione normale - estrai il clusterid dell'esecuzione corrente
+            String runningClusterId = this.preventConcurrentJobLauncher.getClusterIdFromExecution(currentRunningJobExecution);
 
-            // Job in esecuzione normale
             if (runningClusterId != null && !runningClusterId.equals(this.clusterId)) {
                 log.info("Il job {} è in esecuzione su un altro nodo ({}). Uscita.",
                     Costanti.FDR_ACQUISITION_JOB_NAME, runningClusterId);
@@ -137,7 +119,9 @@ public class CronJobRunner implements CommandLineRunner, ApplicationContextAware
                 log.warn("Il job {} è ancora in esecuzione sul nodo corrente ({}). Uscita.",
                     Costanti.FDR_ACQUISITION_JOB_NAME, runningClusterId);
             }
-            return;
+            // Terminazione dell'applicazione
+            int exitCode = SpringApplication.exit(context, () -> 0);
+            System.exit(exitCode);
         }
 
         runFdrAcquisitionJob();
@@ -147,6 +131,22 @@ public class CronJobRunner implements CommandLineRunner, ApplicationContextAware
         int exitCode = SpringApplication.exit(context, () -> 0);
         System.exit(exitCode);
     }
+
+	public boolean checkAbandonedJobStale(JobExecution currentRunningJobExecution) throws JobExecutionAlreadyRunningException,
+			JobRestartException, JobInstanceAlreadyCompleteException, JobParametersInvalidException {
+		// Abbandona il job stale
+		boolean abandoned = this.preventConcurrentJobLauncher.abandonStaleJobExecution(currentRunningJobExecution);
+
+		if (abandoned) {
+		    log.info("Job stale abbandonato con successo. Avvio nuova esecuzione.");
+		    // Procedi con l'avvio di una nuova esecuzione
+		    runFdrAcquisitionJob();
+		    log.info("{} completato.", Costanti.FDR_ACQUISITION_JOB_NAME);
+		} else {
+		    log.error("Impossibile abbandonare il job stale. Uscita senza avviare nuova esecuzione.");
+		}
+		return abandoned;
+	}
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {

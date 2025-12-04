@@ -97,20 +97,13 @@ public class ScheduledJobRunner {
                 .getCurrentRunningJobExecution(Costanti.FDR_ACQUISITION_JOB_NAME);
 
         if (currentRunningJobExecution != null) {
-            // Estrai il clusterid dell'esecuzione corrente
-            String runningClusterId = this.preventConcurrentJobLauncher.getClusterIdFromExecution(currentRunningJobExecution);
-
             // VERIFICA SE IL JOB È STALE (bloccato o in stato anomalo)
-            boolean isStale = this.preventConcurrentJobLauncher.isJobExecutionStale(currentRunningJobExecution);
-
-            if (isStale) {
+            if (this.preventConcurrentJobLauncher.isJobExecutionStale(currentRunningJobExecution)) {
                 log.warn("JobExecution {} rilevata come STALE. Procedo con abbandono e riavvio.",
                     currentRunningJobExecution.getId());
 
                 // Abbandona il job stale
-                boolean abandoned = this.preventConcurrentJobLauncher.abandonStaleJobExecution(currentRunningJobExecution);
-
-                if (abandoned) {
+                if (this.preventConcurrentJobLauncher.abandonStaleJobExecution(currentRunningJobExecution)) {
                     log.info("Job stale abbandonato con successo. Avvio nuova esecuzione.");
                     // Procedi con l'avvio di una nuova esecuzione
                     runFdrAcquisitionJob();
@@ -120,7 +113,9 @@ public class ScheduledJobRunner {
                 return;
             }
 
-            // Job in esecuzione normale
+            // Job in esecuzione normale - estrai il clusterid dell'esecuzione corrente
+            String runningClusterId = this.preventConcurrentJobLauncher.getClusterIdFromExecution(currentRunningJobExecution);
+
             if (runningClusterId != null && !runningClusterId.equals(this.clusterId)) {
                 log.info("Il job {} è in esecuzione su un altro nodo ({}). Uscita.",
                     Costanti.FDR_ACQUISITION_JOB_NAME, runningClusterId);
