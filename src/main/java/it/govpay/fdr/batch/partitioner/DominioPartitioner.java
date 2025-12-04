@@ -41,7 +41,7 @@ public class DominioPartitioner implements Partitioner {
             context.putInt("partitionNumber", i + 1);
             context.putInt("totalPartitions", domini.size());
 
-            // Nome partizione: partition-{dominio}
+            // Nome partizione: partition-dominio
             String partitionName = "partition-" + codDominio;
             partitions.put(partitionName, context);
 

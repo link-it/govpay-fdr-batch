@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -28,6 +29,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClientException;
 
 import it.govpay.fdr.batch.Costanti;
+import it.govpay.fdr.batch.config.PagoPAProperties;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
 import it.govpay.gde.client.ApiException;
@@ -52,6 +54,9 @@ class GdeServiceTest {
     @Mock
     private ObjectMapper objectMapper;
 
+    @Mock
+    private PagoPAProperties pagoPAProperties;
+
     @Captor
     private ArgumentCaptor<NuovoEvento> eventoCaptor;
 
@@ -60,7 +65,8 @@ class GdeServiceTest {
 
     @BeforeEach
     void setUp() {
-        gdeService = new GdeService(eventiApi, eventoFdrMapper, objectMapper);
+        lenient().when(pagoPAProperties.getBaseUrl()).thenReturn("https://api.pagopa.it");
+        gdeService = new GdeService(eventiApi, eventoFdrMapper, objectMapper, pagoPAProperties);
         ReflectionTestUtils.setField(gdeService, "gdeEnabled", true);
 
         testFr = Fr.builder()
@@ -128,7 +134,6 @@ class GdeServiceTest {
         String flowDate = "2025-01-01";
         OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime end = start.plusSeconds(5);
-        String url = "http://api.example.com/flows";
         int flowsCount = 42;
 
         NuovoEvento mockEvento = new NuovoEvento();
@@ -141,13 +146,14 @@ class GdeServiceTest {
         doNothing().when(eventoFdrMapper).setParametriRisposta(any(), any(), any(), any());
 
         // When
-        gdeService.saveGetPublishedFlowsOk(organizationId, pspId, flowDate, start, end, url, flowsCount, null);
+        gdeService.saveGetPublishedFlowsOk(organizationId, pspId, flowDate, start, end, flowsCount, null);
 
         // Then
         await().untilAsserted(() -> {
             verify(eventoFdrMapper).createEventoOk(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
                 anyString(), eq(start), eq(end));
-            verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento), eq(url), eq("GET"), anyList());
+            verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
+                eq("https://api.pagopa.it/organizations/ORG001/fdrs"), eq("GET"), anyList());
         });
 
         // Verify idDominio is always set (it's always known)
@@ -167,7 +173,6 @@ class GdeServiceTest {
         String flowDate = "2025-01-01";
         OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime end = start.plusSeconds(5);
-        String url = "http://api.example.com/flows";
         RestClientException exception = new RestClientException("Connection error");
 
         NuovoEvento mockEvento = new NuovoEvento();
@@ -178,7 +183,7 @@ class GdeServiceTest {
             anyString(), eq(start), eq(end), isNull(), eq(exception))).thenReturn(mockEvento);
 
         // When
-        gdeService.saveGetPublishedFlowsKo(organizationId, pspId, flowDate, start, end, url, null, exception);
+        gdeService.saveGetPublishedFlowsKo(organizationId, pspId, flowDate, start, end, null, exception);
 
         // Then
         await().untilAsserted(() -> {
@@ -197,7 +202,6 @@ class GdeServiceTest {
         // Given
         OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime end = start.plusSeconds(3);
-        String url = "http://api.example.com/flow/123";
         int paymentsCount = 10;
 
         NuovoEvento mockEvento = new NuovoEvento();
@@ -209,13 +213,15 @@ class GdeServiceTest {
             anyString(), eq(start), eq(end))).thenReturn(mockEvento);
 
         // When
-        gdeService.saveGetFlowDetailsOk(testFr, start, end, url, paymentsCount, null);
+        gdeService.saveGetFlowDetailsOk(testFr, start, end, paymentsCount, null);
 
         // Then
         await().untilAsserted(() -> {
             verify(eventoFdrMapper).createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
                 anyString(), eq(start), eq(end));
-            verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento), eq(url), eq("GET"), anyList());
+            verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
+                eq("https://api.pagopa.it/organizations/12345678901/fdrs/FDR-TEST-001/revisions/1/psps/PSP001"),
+                eq("GET"), anyList());
         });
         assertThat(mockEvento.getSottotipoEvento()).contains("fdr=FDR-TEST-001");
         assertThat(mockEvento.getDettaglioEsito()).contains("10 payments");
@@ -226,7 +232,6 @@ class GdeServiceTest {
         // Given
         OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime end = start.plusSeconds(3);
-        String url = "http://api.example.com/flow/123";
         RestClientException exception = new RestClientException("Flow not found");
 
         NuovoEvento mockEvento = new NuovoEvento();
@@ -237,7 +242,7 @@ class GdeServiceTest {
             anyString(), eq(start), eq(end), isNull(), eq(exception))).thenReturn(mockEvento);
 
         // When
-        gdeService.saveGetFlowDetailsKo(testFr, start, end, url, null, exception);
+        gdeService.saveGetFlowDetailsKo(testFr, start, end, null, exception);
 
         // Then
         await().untilAsserted(() -> {

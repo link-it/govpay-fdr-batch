@@ -14,6 +14,7 @@ import org.springframework.web.client.RestClientException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import it.govpay.fdr.batch.Costanti;
+import it.govpay.fdr.batch.config.PagoPAProperties;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
 import it.govpay.fdr.batch.gde.utils.GdeUtils;
@@ -40,9 +41,15 @@ import lombok.extern.slf4j.Slf4j;
 @ConditionalOnProperty(name = "govpay.gde.enabled", havingValue = "true", matchIfMissing = false)
 public class GdeService {
 
-    private final EventiApi eventiApi;
+    private static final String PLACEHOLDER_PSP_ID = "{pspId}";
+	private static final String PLACEHOLDER_REVISION = "{revision}";
+	private static final String PLACEHOLDER_FDR = "{fdr}";
+	private static final String PLACEHOLDER_ORGANIZATION_ID = "{organizationId}";
+	
+	private final EventiApi eventiApi;
     private final EventoFdrMapper eventoFdrMapper;
     private final ObjectMapper objectMapper;
+    private final PagoPAProperties pagoPAProperties;
     
     @Value("${govpay.gde.enabled:false}")
     private Boolean gdeEnabled;
@@ -85,9 +92,10 @@ public class GdeService {
      */
     public void saveGetPublishedFlowsOk(String organizationId, String pspId, String flowDate,
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                         String url, int flowsCount, ResponseEntity<?> responseEntity) {
+                                          int flowsCount, ResponseEntity<?> responseEntity) {
         String transactionId = UUID.randomUUID().toString();
-
+        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
+                .replace(PLACEHOLDER_ORGANIZATION_ID, organizationId);
         // Create event without Fr entity (list operation)
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd);
@@ -124,8 +132,11 @@ public class GdeService {
      */
     public void saveGetPublishedFlowsKo(String organizationId, String pspId, String flowDate,
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                         String url, ResponseEntity<?> responseEntity, RestClientException exception) {
+                                         ResponseEntity<?> responseEntity, RestClientException exception) {
         String transactionId = UUID.randomUUID().toString();
+        
+        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
+                .replace(PLACEHOLDER_ORGANIZATION_ID, organizationId);
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd,
@@ -160,8 +171,14 @@ public class GdeService {
      * @param responseEntity HTTP response entity with payload
      */
     public void saveGetFlowDetailsOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                      String url, int paymentsCount, ResponseEntity<?> responseEntity) {
+                                      int paymentsCount, ResponseEntity<?> responseEntity) {
         String transactionId = UUID.randomUUID().toString();
+        
+        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
+                .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
+                .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
+                .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
+                .replace(PLACEHOLDER_PSP_ID, fr.getCodPsp());
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 fr, Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW, transactionId, dataStart, dataEnd);
@@ -186,8 +203,14 @@ public class GdeService {
      * @param exception      Exception that occurred
      */
     public void saveGetFlowDetailsKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                      String url, ResponseEntity<?> responseEntity, RestClientException exception) {
+                                      ResponseEntity<?> responseEntity, RestClientException exception) {
         String transactionId = UUID.randomUUID().toString();
+        
+        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
+                .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
+                .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
+                .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
+                .replace(PLACEHOLDER_PSP_ID, fr.getCodPsp());
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
                 fr, Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW, transactionId, dataStart, dataEnd,
@@ -213,8 +236,14 @@ public class GdeService {
      * @param responseEntity HTTP response entity with payload
      */
     public void saveGetPaymentsOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                   String url, int paymentsCount, ResponseEntity<?> responseEntity) {
+                                   int paymentsCount, ResponseEntity<?> responseEntity) {
         String transactionId = UUID.randomUUID().toString();
+        
+        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
+                .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
+                .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
+                .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
+                .replace(PLACEHOLDER_PSP_ID, fr.getCodPsp());
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 fr, Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW, transactionId, dataStart, dataEnd);
@@ -240,8 +269,14 @@ public class GdeService {
      * @param exception      Exception that occurred
      */
     public void saveGetPaymentsKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                   String url, ResponseEntity<?> responseEntity, RestClientException exception) {
+                                   ResponseEntity<?> responseEntity, RestClientException exception) {
         String transactionId = UUID.randomUUID().toString();
+        
+        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
+                .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
+                .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
+                .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
+                .replace(PLACEHOLDER_PSP_ID, fr.getCodPsp());
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
                 fr, Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW, transactionId, dataStart, dataEnd,

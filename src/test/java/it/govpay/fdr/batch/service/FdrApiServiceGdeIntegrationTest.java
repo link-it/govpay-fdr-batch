@@ -1,6 +1,7 @@
 package it.govpay.fdr.batch.service;
 
 import it.govpay.fdr.batch.config.PagoPAProperties;
+import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.service.GdeService;
 import it.govpay.fdr.client.api.OrganizationsApi;
 import it.govpay.fdr.client.model.*;
@@ -95,7 +96,6 @@ class FdrApiServiceGdeIntegrationTest {
                 eq(publishedGt.toString()),
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
-                contains("/organizations/" + organizationId + "/fdrs"),
                 eq(1),
                 any()
             )
@@ -126,7 +126,6 @@ class FdrApiServiceGdeIntegrationTest {
                 eq(publishedGt.toString()),
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
-                contains("/organizations/" + organizationId + "/fdrs"),
                 any(),
                 any(RestClientException.class)
             )
@@ -161,13 +160,12 @@ class FdrApiServiceGdeIntegrationTest {
         // Verify GDE event was sent
         await().untilAsserted(() ->
             verify(gdeService).saveGetFlowDetailsOk(
-                argThat(fr -> fr.getCodFlusso().equals(fdr)
+                argThat((Fr fr) -> fr.getCodFlusso().equals(fdr)
                     && fr.getCodPsp().equals(pspId)
                     && fr.getCodDominio().equals(organizationId)
                     && fr.getRevisione().equals(revision)),
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
-                contains("/organizations/" + organizationId + "/fdrs/" + fdr),
                 eq(42),
                 any()
             )
@@ -195,13 +193,12 @@ class FdrApiServiceGdeIntegrationTest {
         // Verify GDE error event was sent
         await().untilAsserted(() ->
             verify(gdeService).saveGetFlowDetailsKo(
-                argThat(fr -> fr.getCodFlusso().equals(fdr)
+                argThat((Fr fr) -> fr.getCodFlusso().equals(fdr)
                     && fr.getCodPsp().equals(pspId)
                     && fr.getCodDominio().equals(organizationId)
                     && fr.getRevisione().equals(revision)),
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
-                contains("/organizations/" + organizationId + "/fdrs/" + fdr),
                 any(),
                 any(RestClientException.class)
             )
@@ -269,7 +266,6 @@ class FdrApiServiceGdeIntegrationTest {
                 any(),
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
-                anyString(),
                 eq(0), // Should default to 0 when totPayments is null
                 any()
             )

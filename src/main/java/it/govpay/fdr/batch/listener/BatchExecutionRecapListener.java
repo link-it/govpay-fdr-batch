@@ -1,16 +1,18 @@
 package it.govpay.fdr.batch.listener;
 
-import lombok.extern.slf4j.Slf4j;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobExecutionListener;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Listener che stampa un riepilogo dettagliato dell'esecuzione del batch per ogni dominio.
@@ -19,7 +21,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class BatchExecutionRecapListener implements JobExecutionListener {
 
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final String METADATA = "METADATA";
+	private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     @Override
     public void beforeJob(JobExecution jobExecution) {
@@ -71,7 +74,7 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
         stepExecutions.stream()
             .filter(se -> se.getStepName().equals("fdrMetadataAcquisitionStep"))
             .findFirst()
-            .ifPresent(se -> printPartitionedStepStats(se, "METADATA"));
+            .ifPresent(se -> printPartitionedStepStats(se, METADATA));
 
         // Step 4: Payments Acquisition (partitioned)
         stepExecutions.stream()
@@ -102,15 +105,15 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
 
     private void printPartitionedStepStats(StepExecution masterStepExecution, String stepType) {
         log.info("--- STEP {}: ACQUISIZIONE {} (PARTIZIONATO) ---",
-            stepType.equals("METADATA") ? "3" : "4", stepType);
+            stepType.equals(METADATA) ? "3" : "4", stepType);
         log.info("Status master step: {}", masterStepExecution.getStatus());
 
         // Statistiche aggregate dalle partizioni
         Collection<StepExecution> partitionSteps = masterStepExecution.getJobExecution().getStepExecutions().stream()
-            .filter(se -> se.getStepName().startsWith(stepType.equals("METADATA")
+            .filter(se -> se.getStepName().startsWith(stepType.equals(METADATA)
                 ? "fdrMetadataWorkerStep"
                 : "fdrPaymentsWorkerStep"))
-            .collect(Collectors.toList());
+            .toList();
 
         if (partitionSteps.isEmpty()) {
             log.info("Nessuna partizione eseguita (nessun dominio da processare)");
@@ -165,7 +168,7 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
                 "DOMINIO", "LETTI", "PROCESSATI", "SKIPPATI", "ERRORI", "STATUS", "DURATA(s)"));
             log.info("-".repeat(80));
 
-            domainStats.values().forEach(stats -> {
+            domainStats.values().forEach(stats -> 
                 log.info(String.format("%-20s %-10d %-10d %-10d %-10d %-15s %-10.1f",
                     stats.codDominio,
                     stats.readCount,
@@ -174,8 +177,8 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
                     stats.errorCount,
                     stats.status,
                     stats.durationMs / 1000.0
-                ));
-            });
+                ))
+            );
             log.info("-".repeat(80));
         }
         log.info("");

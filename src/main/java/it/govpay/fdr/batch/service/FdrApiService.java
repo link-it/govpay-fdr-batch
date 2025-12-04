@@ -1,6 +1,17 @@
 package it.govpay.fdr.batch.service;
 
-import it.govpay.fdr.batch.Costanti;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+
 import it.govpay.fdr.batch.config.PagoPAProperties;
 import it.govpay.fdr.batch.gde.service.GdeService;
 import it.govpay.fdr.client.ApiClient;
@@ -10,17 +21,6 @@ import it.govpay.fdr.client.model.PaginatedFlowsResponse;
 import it.govpay.fdr.client.model.PaginatedPaymentsResponse;
 import it.govpay.fdr.client.model.SingleFlowResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
-
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Service for interacting with pagoPA FDR API
@@ -125,11 +125,9 @@ public class FdrApiService {
             // Send success event to GDE
             if (gdeService != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
-                    .replace("{organizationId}", organizationId);
                 gdeService.saveGetPublishedFlowsOk(organizationId, null,
                     publishedGt != null ? publishedGt.toString() : "all",
-                    startTime, endTime, url, allFlows.size(), lastResponseEntity);
+                    startTime, endTime, allFlows.size(), lastResponseEntity);
             }
 
             return allFlows;
@@ -138,11 +136,9 @@ public class FdrApiService {
             // Send failure event to GDE
             if (gdeService != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
-                    .replace("{organizationId}", organizationId);
                 gdeService.saveGetPublishedFlowsKo(organizationId, null,
                     publishedGt != null ? publishedGt.toString() : "all",
-                    startTime, endTime, url, lastResponseEntity, e);
+                    startTime, endTime, lastResponseEntity, e);
             }
             throw e;
         }
@@ -171,11 +167,6 @@ public class FdrApiService {
             // Send success event to GDE
             if (gdeService != null && response != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
-                    .replace("{organizationId}", organizationId)
-                    .replace("{fdr}", fdr)
-                    .replace("{revision}", String.valueOf(revision))
-                    .replace("{pspId}", pspId);
 
                 // Create minimal Fr object for event tracking
                 it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
@@ -188,7 +179,7 @@ public class FdrApiService {
                 int paymentsCount = (response.getTotPayments() != null)
                     ? response.getTotPayments().intValue() : 0;
 
-                gdeService.saveGetFlowDetailsOk(frForEvent, startTime, endTime, url, paymentsCount, responseEntity);
+                gdeService.saveGetFlowDetailsOk(frForEvent, startTime, endTime, paymentsCount, responseEntity);
             }
 
             return response;
@@ -199,11 +190,6 @@ public class FdrApiService {
             // Send failure event to GDE
             if (gdeService != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
-                    .replace("{organizationId}", organizationId)
-                    .replace("{fdr}", fdr)
-                    .replace("{revision}", String.valueOf(revision))
-                    .replace("{pspId}", pspId);
 
                 it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
                     .codFlusso(fdr)
@@ -212,7 +198,7 @@ public class FdrApiService {
                     .revisione(revision)
                     .build();
 
-                gdeService.saveGetFlowDetailsKo(frForEvent, startTime, endTime, url, responseEntity,
+                gdeService.saveGetFlowDetailsKo(frForEvent, startTime, endTime, responseEntity,
                     e instanceof RestClientException restClientException ? restClientException : new RestClientException(e.getMessage(), e));
             }
 
@@ -281,11 +267,6 @@ public class FdrApiService {
             // Send success event to GDE
             if (gdeService != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
-                    .replace("{organizationId}", organizationId)
-                    .replace("{fdr}", fdr)
-                    .replace("{revision}", String.valueOf(revision))
-                    .replace("{pspId}", pspId);
 
                 // Create minimal Fr object for event tracking
                 it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
@@ -295,7 +276,7 @@ public class FdrApiService {
                     .revisione(revision)
                     .build();
 
-                gdeService.saveGetPaymentsOk(frForEvent, startTime, endTime, url, allPayments.size(), lastResponseEntity);
+                gdeService.saveGetPaymentsOk(frForEvent, startTime, endTime, allPayments.size(), lastResponseEntity);
             }
 
             return allPayments;
@@ -304,11 +285,6 @@ public class FdrApiService {
             // Send failure event to GDE
             if (gdeService != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
-                    .replace("{organizationId}", organizationId)
-                    .replace("{fdr}", fdr)
-                    .replace("{revision}", String.valueOf(revision))
-                    .replace("{pspId}", pspId);
 
                 it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
                     .codFlusso(fdr)
@@ -317,7 +293,7 @@ public class FdrApiService {
                     .revisione(revision)
                     .build();
 
-                gdeService.saveGetPaymentsKo(frForEvent, startTime, endTime, url, lastResponseEntity, e);
+                gdeService.saveGetPaymentsKo(frForEvent, startTime, endTime, lastResponseEntity, e);
             }
             throw e;
         }
