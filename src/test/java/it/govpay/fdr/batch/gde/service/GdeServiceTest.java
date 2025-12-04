@@ -95,7 +95,7 @@ class GdeServiceTest {
     }
 
     @Test
-    void testInviaEventoWhenDisabled() throws Exception {
+    void testInviaEventoWhenDisabled() {
         // Given
         ReflectionTestUtils.setField(gdeService, "gdeEnabled", false);
         NuovoEvento evento = new NuovoEvento();
@@ -105,8 +105,10 @@ class GdeServiceTest {
         gdeService.inviaEvento(evento);
 
         // Then - should not call API
-        Thread.sleep(100); // Give time for async if it was executed
-        verify(eventiApi, never()).addEvento(any());
+        await().untilAsserted(() ->
+        verify(eventiApi, never()).addEvento(any())
+        );
+        
     }
 
     @Test
@@ -127,7 +129,7 @@ class GdeServiceTest {
     }
 
     @Test
-    void testSaveGetPublishedFlowsOk() throws Exception {
+    void testSaveGetPublishedFlowsOk() {
         // Given
         String organizationId = "ORG001";
         String pspId = "PSP001";
@@ -166,7 +168,7 @@ class GdeServiceTest {
     }
 
     @Test
-    void testSaveGetPublishedFlowsKo() throws Exception {
+    void testSaveGetPublishedFlowsKo() {
         // Given
         String organizationId = "ORG001";
         String pspId = null; // Test with null PSP
@@ -198,7 +200,7 @@ class GdeServiceTest {
     }
 
     @Test
-    void testSaveGetFlowDetailsOk() throws Exception {
+    void testSaveGetFlowDetailsOk() {
         // Given
         OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime end = start.plusSeconds(3);
@@ -228,7 +230,7 @@ class GdeServiceTest {
     }
 
     @Test
-    void testSaveGetFlowDetailsKo() throws Exception {
+    void testSaveGetFlowDetailsKo() {
         // Given
         OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime end = start.plusSeconds(3);

@@ -100,26 +100,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 
 		Dominio dominio = dominioOpt.get();
 
-		// Create FR entity
-		Fr fr = Fr.builder()
-		    .codPsp(data.getCodPsp())
-		    .dominio(dominio)
-		    .codDominio(dominio.getCodDominio())
-		    .codFlusso(data.getCodFlusso())
-		    .iur(data.getIur())
-		    .dataOraFlusso(data.getDataOraFlusso())
-		    .dataRegolamento(data.getDataRegolamento())
-		    .dataAcquisizione(Instant.now())
-		    .numeroPagamenti(data.getNumeroPagamenti())
-		    .importoTotalePagamenti(data.getImportoTotalePagamenti())
-		    .codBicRiversamento(data.getCodBicRiversamento())
-		    .ragioneSocialePsp(data.getRagioneSocialePsp())
-		    .ragioneSocialeDominio(data.getRagioneSocialeDominio())
-		    .dataOraPubblicazione(data.getDataOraPubblicazione())
-		    .dataOraAggiornamento(data.getDataOraAggiornamento())
-		    .revisione(data.getRevisione())
-		    .stato(StatoFr.ACCETTATA)
-		    .build();
+		Fr fr = buildFR(data, dominio);
 
 		List<String> anomalieFr = new ArrayList<>();
 		double  totaleImportiRendicontati = 0.0;
@@ -130,18 +111,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    List<Pagamento> pagamenti = findAllPagamenti(data.getCodDominio(), paymentData.getIuv(), paymentData.getIur(), paymentData.getIndiceDati());
 		    Pagamento pagamento = (pagamenti.size() == 1 ? pagamenti.get(0) : null);
 
-		    Rendicontazione rendicontazione = Rendicontazione.builder()
-		        .fr(fr)
-		        .pagamento(pagamento)
-		        .singoloVersamento(pagamento != null ? pagamento.getSingoloVersamento() : null)
-		        .iuv(paymentData.getIuv())
-		        .iur(paymentData.getIur())
-		        .indiceDati(paymentData.getIndiceDati() != null ? paymentData.getIndiceDati().intValue() : null)
-		        .importoPagato(paymentData.getImportoPagato())
-		        .esito(paymentData.getEsito())
-		        .data(paymentData.getData())
-		        .stato(StatoRendicontazione.OK)
-		        .build();
+		    Rendicontazione rendicontazione = buildRendicontazione(fr, paymentData, pagamento);
 
 		    totaleImportiRendicontati += paymentData.getImportoPagato();
 
@@ -189,6 +159,44 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    log.info("Flusso di rendicontazione acquisito con anomalie.");
 		else
 		    log.info("Flusso di rendicontazione acquisito senza anomalie.");
+	}
+
+	private Rendicontazione buildRendicontazione(Fr fr, FdrPaymentsProcessor.PaymentData paymentData, Pagamento pagamento) {
+		return Rendicontazione.builder()
+		    .fr(fr)
+		    .pagamento(pagamento)
+		    .singoloVersamento(pagamento != null ? pagamento.getSingoloVersamento() : null)
+		    .iuv(paymentData.getIuv())
+		    .iur(paymentData.getIur())
+		    .indiceDati(paymentData.getIndiceDati() != null ? paymentData.getIndiceDati().intValue() : null)
+		    .importoPagato(paymentData.getImportoPagato())
+		    .esito(paymentData.getEsito())
+		    .data(paymentData.getData())
+		    .stato(StatoRendicontazione.OK)
+		    .build();
+	}
+
+	private Fr buildFR(FdrPaymentsProcessor.FdrCompleteData data, Dominio dominio) {
+		// Create FR entity
+		return Fr.builder()
+		    .codPsp(data.getCodPsp())
+		    .dominio(dominio)
+		    .codDominio(dominio.getCodDominio())
+		    .codFlusso(data.getCodFlusso())
+		    .iur(data.getIur())
+		    .dataOraFlusso(data.getDataOraFlusso())
+		    .dataRegolamento(data.getDataRegolamento())
+		    .dataAcquisizione(Instant.now())
+		    .numeroPagamenti(data.getNumeroPagamenti())
+		    .importoTotalePagamenti(data.getImportoTotalePagamenti())
+		    .codBicRiversamento(data.getCodBicRiversamento())
+		    .ragioneSocialePsp(data.getRagioneSocialePsp())
+		    .ragioneSocialeDominio(data.getRagioneSocialeDominio())
+		    .dataOraPubblicazione(data.getDataOraPubblicazione())
+		    .dataOraAggiornamento(data.getDataOraAggiornamento())
+		    .revisione(data.getRevisione())
+		    .stato(StatoFr.ACCETTATA)
+		    .build();
 	}
 
 	private void registerAnomalieRendicontazione(Rendicontazione rendicontazione, List<String> anomalieRnd) {

@@ -57,9 +57,9 @@ class FdrPaymentsReaderTest {
         reader.open(new ExecutionContext());
 
         List<FrTemp> results = new ArrayList<>();
-        FrTemp record;
-        while ((record = reader.read()) != null) {
-            results.add(record);
+        FrTemp flussoTemp;
+        while ((flussoTemp = reader.read()) != null) {
+            results.add(flussoTemp);
         }
 
         // Then: Should read all 10 flows
@@ -105,9 +105,9 @@ class FdrPaymentsReaderTest {
         // When: Read all
         reader.open(new ExecutionContext());
         List<FrTemp> results = new ArrayList<>();
-        FrTemp record;
-        while ((record = reader.read()) != null) {
-            results.add(record);
+        FrTemp flussoTemp;
+        while ((flussoTemp = reader.read()) != null) {
+            results.add(flussoTemp);
         }
 
         // Then: Should maintain order
