@@ -333,17 +333,30 @@ class GovpayFdrBatchRetryTests {
 		// Setup: 2 domini
 		Mockito.reset(frTempRepository);
 		Mockito.reset(headersReader);
+		Mockito.reset(metadataReader);
+		Mockito.reset(paymentsReader);
 		when(frTempRepository.findDistinctCodDominio()).thenReturn(Arrays.asList("DOM001", "DOM002"));
 
 		// Headers reader deve restituire 2 DominioProcessingContext
-		DominioProcessingContext dom1 = DominioProcessingContext.builder().dominioId(1L).build();
-		DominioProcessingContext dom2 = DominioProcessingContext.builder().dominioId(2L).build();
+		DominioProcessingContext dom1 = DominioProcessingContext.builder().dominioId(1L).codDominio("DOM001").build();
+		DominioProcessingContext dom2 = DominioProcessingContext.builder().dominioId(2L).codDominio("DOM002").build();
 		when(headersReader.read()).thenReturn(dom1, dom2, null);
 
 		when(headersProcessor.process(any())).thenReturn(
 			FdrHeadersBatch.builder().codDominio("DOM001").build(),
 			FdrHeadersBatch.builder().codDominio("DOM002").build()
 		).thenThrow(new RuntimeException("No more domains"));
+
+		// Reset dei contatori prima del test
+		metadataProcessorCounter.set(0);
+		paymentsProcessorCounter.set(0);
+		headerQueue.clear();
+
+		// Metadata reader deve leggere solo 1 elemento per partizione
+		when(metadataReader.read()).thenAnswer(invocation -> frTempReaderFun());
+
+		// Payments reader deve anch'esso leggere dalla coda
+		when(paymentsReader.read()).thenAnswer(invocation -> frTempReaderFun());
 
 		// Tutti i processing hanno successo
 		FdrMetadataProcessor.FdrCompleteData metadataCompleteData = FdrMetadataProcessor.FdrCompleteData.builder().build();
