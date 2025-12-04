@@ -1,7 +1,5 @@
 package it.govpay.fdr.batch.scheduler;
 
-import it.govpay.fdr.batch.config.BatchProperties;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
@@ -10,6 +8,8 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Scheduler for FDR Acquisition Batch Job
@@ -21,16 +21,13 @@ public class FdrBatchScheduler {
 
     private final JobLauncher jobLauncher;
     private final Job fdrAcquisitionJob;
-    private final BatchProperties batchProperties;
 
     public FdrBatchScheduler(
         JobLauncher jobLauncher,
-        Job fdrAcquisitionJob,
-        BatchProperties batchProperties
+        Job fdrAcquisitionJob
     ) {
         this.jobLauncher = jobLauncher;
         this.fdrAcquisitionJob = fdrAcquisitionJob;
-        this.batchProperties = batchProperties;
     }
 
     /**

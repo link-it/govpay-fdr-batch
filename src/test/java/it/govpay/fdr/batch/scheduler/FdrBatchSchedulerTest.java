@@ -19,8 +19,6 @@ import org.springframework.batch.core.repository.JobExecutionAlreadyRunningExcep
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
 import org.springframework.batch.core.repository.JobRestartException;
 
-import it.govpay.fdr.batch.config.BatchProperties;
-
 /**
  * Test per FdrBatchScheduler
  */
@@ -34,9 +32,6 @@ class FdrBatchSchedulerTest {
     private Job fdrAcquisitionJob;
 
     @Mock
-    private BatchProperties batchProperties;
-
-    @Mock
     private JobExecution jobExecution;
 
     private FdrBatchScheduler scheduler;
@@ -44,13 +39,13 @@ class FdrBatchSchedulerTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        scheduler = new FdrBatchScheduler(jobLauncher, fdrAcquisitionJob, batchProperties);
+        scheduler = new FdrBatchScheduler(jobLauncher, fdrAcquisitionJob);
     }
 
     @Test
     @DisplayName("Test constructor creates instance")
     void testConstructor() {
-        FdrBatchScheduler newScheduler = new FdrBatchScheduler(jobLauncher, fdrAcquisitionJob, batchProperties);
+        FdrBatchScheduler newScheduler = new FdrBatchScheduler(jobLauncher, fdrAcquisitionJob);
         assertNotNull(newScheduler);
     }
 

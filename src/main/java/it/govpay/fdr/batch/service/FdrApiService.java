@@ -49,8 +49,7 @@ public class FdrApiService {
      */
     public List<FlowByPSP> getAllPublishedFlows(String organizationId, Instant publishedGt) throws RestClientException {
 
-        log.debug("Recupero dei flussi pubblicati per l'organizzazione {} con publishedGt {}",
-            organizationId, publishedGt);
+        log.debug("Recupero dei flussi pubblicati per l'organizzazione {} con publishedGt {}", organizationId, publishedGt);
 
         OffsetDateTime startTime = OffsetDateTime.now(ZoneOffset.UTC);
         List<FlowByPSP> allFlows = new ArrayList<>();
@@ -58,14 +57,11 @@ public class FdrApiService {
         boolean hasMorePages = true;
         ResponseEntity<PaginatedFlowsResponse> lastResponseEntity = null;
 
+        OffsetDateTime publishedGtOffset = publishedGt != null ? OffsetDateTime.ofInstant(publishedGt, ZoneOffset.UTC) : null;
         try {
             while (hasMorePages) {
                 try {
                     log.debug("Chiamata API per l'organizzazione {} pagina {}", organizationId, currentPage);
-
-                    OffsetDateTime publishedGtOffset = publishedGt != null
-                        ? OffsetDateTime.ofInstant(publishedGt, ZoneOffset.UTC)
-                        : null;
 
                     lastResponseEntity = organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
                         organizationId,
@@ -78,19 +74,9 @@ public class FdrApiService {
 
                     PaginatedFlowsResponse response = lastResponseEntity.getBody();
 
-                    log.info("Chiamata API completata per l'organizzazione {}, risposta ricevuta", organizationId);
-                    log.info("Risposta per l'organizzazione {}: data={}, metadata={}",
-                        organizationId,
-                        response.getData() != null ? response.getData().size() + " flussi" : "null",
-                        response.getMetadata());
+                    logInfoResponseOk(organizationId, response);
 
-                    if (response.getData() != null && !response.getData().isEmpty()) {
-                        allFlows.addAll(response.getData());
-                        log.info("Recuperata pagina {} con {} flussi per l'organizzazione {}",
-                            currentPage, response.getData().size(), organizationId);
-                    } else {
-                        log.info("Pagina {} ha restituito dati vuoti per l'organizzazione {}", currentPage, organizationId);
-                    }
+                    aggiungiFlussoRicevutoAllElenco(organizationId, allFlows, currentPage, response);
 
                     // Check if there are more pages
                     if (response.getMetadata() != null &&
@@ -103,15 +89,7 @@ public class FdrApiService {
                     }
 
                 } catch (org.springframework.web.client.ResourceAccessException e) {
-                    // Gestione risposta vuota (connessione chiusa) - normale quando non ci sono flussi disponibili
-                    if (e.getMessage() != null && e.getMessage().contains("closed")) {
-                        log.info("Nessun flusso disponibile per l'organizzazione {} (risposta vuota)", organizationId);
-                        hasMorePages = false;
-                    } else {
-                        log.error("Errore I/O nel recupero dei flussi per l'organizzazione {} alla pagina {}: {}",
-                            organizationId, currentPage, e.getMessage());
-                        throw new RestClientException("Fallito il recupero dei flussi per l'organizzazione " + organizationId, e);
-                    }
+                    hasMorePages = gestioneRispostaVuota(organizationId, currentPage, e);
                 } catch (Exception e) {
                     log.error("Errore nel recupero dei flussi per l'organizzazione {} alla pagina {}: {}",
                         organizationId, currentPage, e.getMessage());
@@ -122,27 +100,67 @@ public class FdrApiService {
 
             log.info("Recuperati in totale {} flussi per l'organizzazione {}", allFlows.size(), organizationId);
 
-            // Send success event to GDE
-            if (gdeService != null) {
-                OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                gdeService.saveGetPublishedFlowsOk(organizationId, null,
-                    publishedGt != null ? publishedGt.toString() : "all",
-                    startTime, endTime, allFlows.size(), lastResponseEntity);
-            }
+            saveGetPublishedFlowsOk(organizationId, publishedGt, startTime, allFlows, lastResponseEntity);
 
             return allFlows;
 
         } catch (RestClientException e) {
-            // Send failure event to GDE
-            if (gdeService != null) {
-                OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-                gdeService.saveGetPublishedFlowsKo(organizationId, null,
-                    publishedGt != null ? publishedGt.toString() : "all",
-                    startTime, endTime, lastResponseEntity, e);
-            }
+            saveGetPublishedFlowsKo(organizationId, publishedGt, startTime, lastResponseEntity, e);
             throw e;
         }
     }
+
+	private boolean gestioneRispostaVuota(String organizationId, Long currentPage, org.springframework.web.client.ResourceAccessException e) {
+		// Gestione risposta vuota (connessione chiusa) - normale quando non ci sono flussi disponibili
+		if (e.getMessage() != null && e.getMessage().contains("closed")) {
+		    log.info("Nessun flusso disponibile per l'organizzazione {} (risposta vuota)", organizationId);
+		    return false;
+		} else {
+		    log.error("Errore I/O nel recupero dei flussi per l'organizzazione {} alla pagina {}: {}",
+		        organizationId, currentPage, e.getMessage());
+		    throw new RestClientException("Fallito il recupero dei flussi per l'organizzazione " + organizationId, e);
+		}
+	}
+
+	private void aggiungiFlussoRicevutoAllElenco(String organizationId, List<FlowByPSP> allFlows, Long currentPage,
+			PaginatedFlowsResponse response) {
+		if (response.getData() != null && !response.getData().isEmpty()) {
+		    allFlows.addAll(response.getData());
+		    log.info("Recuperata pagina {} con {} flussi per l'organizzazione {}",
+		        currentPage, response.getData().size(), organizationId);
+		} else {
+		    log.info("Pagina {} ha restituito dati vuoti per l'organizzazione {}", currentPage, organizationId);
+		}
+	}
+
+	private void logInfoResponseOk(String organizationId, PaginatedFlowsResponse response) {
+		log.info("Chiamata API completata per l'organizzazione {}, risposta ricevuta: data={}, metadata={}",
+		    organizationId,
+		    response.getData() != null ? response.getData().size() + " flussi" : "null",
+		    response.getMetadata());
+	}
+
+	private void saveGetPublishedFlowsKo(String organizationId, Instant publishedGt, OffsetDateTime startTime,
+			ResponseEntity<PaginatedFlowsResponse> lastResponseEntity, RestClientException e) {
+		// Send failure event to GDE
+		if (gdeService != null) {
+		    OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
+		    gdeService.saveGetPublishedFlowsKo(organizationId, null,
+		        publishedGt != null ? publishedGt.toString() : "all",
+		        startTime, endTime, lastResponseEntity, e);
+		}
+	}
+
+	private void saveGetPublishedFlowsOk(String organizationId, Instant publishedGt, OffsetDateTime startTime,
+			List<FlowByPSP> allFlows, ResponseEntity<PaginatedFlowsResponse> lastResponseEntity) {
+		// Send success event to GDE
+		if (gdeService != null) {
+		    OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
+		    gdeService.saveGetPublishedFlowsOk(organizationId, null,
+		        publishedGt != null ? publishedGt.toString() : "all",
+		        startTime, endTime, allFlows.size(), lastResponseEntity);
+		}
+	}
 
     /**
      * Get single published flow details
