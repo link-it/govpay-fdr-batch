@@ -26,7 +26,8 @@ public class FdrHeadersReader implements ItemReader<DominioProcessingContext>, S
     private final DominioRepository dominioRepository;
 
     // Thread-safe queue shared across all reader instances within the same step execution
-    private static volatile java.util.concurrent.ConcurrentLinkedQueue<Object[]> dominioQueue = null;
+    private static final java.util.concurrent.atomic.AtomicReference<java.util.concurrent.ConcurrentLinkedQueue<Object[]>> dominioQueueRef =
+        new java.util.concurrent.atomic.AtomicReference<>();
     private static final Object lock = new Object();
 
     public FdrHeadersReader(DominioRepository dominioRepository) {
@@ -36,18 +37,21 @@ public class FdrHeadersReader implements ItemReader<DominioProcessingContext>, S
     @Override
     public DominioProcessingContext read() {
         // Initialize queue once for all threads (thread-safe)
-        if (dominioQueue == null) {
+        java.util.concurrent.ConcurrentLinkedQueue<Object[]> queue = dominioQueueRef.get();
+        if (queue == null) {
             synchronized (lock) {
-                if (dominioQueue == null) {
+                queue = dominioQueueRef.get();
+                if (queue == null) {
                     List<Object[]> dominiInfos = dominioRepository.findDominioWithMaxDataOraPubblicazione();
                     log.info("Trovati {} domini abilitati da processare", dominiInfos.size());
-                    dominioQueue = new java.util.concurrent.ConcurrentLinkedQueue<>(dominiInfos);
+                    queue = new java.util.concurrent.ConcurrentLinkedQueue<>(dominiInfos);
+                    dominioQueueRef.set(queue);
                 }
             }
         }
 
         // Each thread polls from the shared queue
-        Object[] dominioInfos = dominioQueue.poll();
+        Object[] dominioInfos = queue.poll();
         if (dominioInfos != null) {
             Dominio dominio = (Dominio) dominioInfos[0];
             log.debug("Lettura dominio: {} (thread: {})", dominio.getCodDominio(), Thread.currentThread().getName());
@@ -68,7 +72,7 @@ public class FdrHeadersReader implements ItemReader<DominioProcessingContext>, S
      */
     public static void resetQueue() {
         synchronized (lock) {
-            dominioQueue = null;
+            dominioQueueRef.set(null);
         }
     }
 
