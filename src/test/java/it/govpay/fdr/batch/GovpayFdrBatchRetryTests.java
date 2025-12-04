@@ -352,8 +352,16 @@ class GovpayFdrBatchRetryTests {
 		paymentsProcessorCounter.set(0);
 		headerQueue.clear();
 
-		// Metadata reader deve leggere solo 1 elemento per partizione
-		when(metadataReader.read()).thenAnswer(invocation -> frTempReaderFun());
+		// Track items processed in metadata step to prevent infinite loop
+		final AtomicInteger metadataItemsRead = new AtomicInteger(0);
+
+		// Metadata reader deve leggere solo 2 elementi totali (non per partizione)
+		when(metadataReader.read()).thenAnswer(invocation -> {
+			if (metadataItemsRead.incrementAndGet() <= 2) {
+				return frTempReaderFun();
+			}
+			return null;
+		});
 
 		// Payments reader deve anch'esso leggere dalla coda
 		when(paymentsReader.read()).thenAnswer(invocation -> frTempReaderFun());
