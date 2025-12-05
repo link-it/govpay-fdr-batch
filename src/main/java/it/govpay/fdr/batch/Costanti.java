@@ -32,8 +32,15 @@ public class Costanti {
 	public static final String OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW = "IOrganizationsController_getPaymentsFromPublishedFlow";
 
 	// Path delle operazioni FDR API (da fdr_organization.json)
+	// Questi sono path template fissi definiti dalla specifica OpenAPI di pagoPA.
+	// Non sono URI completi (mancano protocollo e host) ma template che vengono
+	// combinati con il baseUrl configurabile in PagoPAProperties.
+	// Soppressione S1075: path template API fissi, non URI configurabili
+	@SuppressWarnings("java:S1075")
 	public static final String PATH_GET_ALL_PUBLISHED_FLOWS = "/organizations/{organizationId}/fdrs";
+	@SuppressWarnings("java:S1075")
 	public static final String PATH_GET_SINGLE_PUBLISHED_FLOW = "/organizations/{organizationId}/fdrs/{fdr}/revisions/{revision}/psps/{pspId}";
+	@SuppressWarnings("java:S1075")
 	public static final String PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW = "/organizations/{organizationId}/fdrs/{fdr}/revisions/{revision}/psps/{pspId}/payments";
 
 	// Pattern date per serializzazione/deserializzazione JSON
