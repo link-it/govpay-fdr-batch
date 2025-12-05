@@ -60,41 +60,28 @@ public class FdrApiService {
         OffsetDateTime publishedGtOffset = publishedGt != null ? OffsetDateTime.ofInstant(publishedGt, ZoneOffset.UTC) : null;
         try {
             while (hasMorePages) {
-                try {
-                    log.debug("Chiamata API per l'organizzazione {} pagina {}", organizationId, currentPage);
+                PageFetchResult<PaginatedFlowsResponse> result = fetchFlowsPage(
+                    organizationId, publishedGtOffset, currentPage);
 
-                    lastResponseEntity = organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
-                        organizationId,
-                        null,           // flowDate
-                        currentPage,    // page
-                        null,           // pspId
-                        publishedGtOffset,    // publishedGt
-                        (long) pagoPAProperties.getPageSize()  // size
-                    );
+                lastResponseEntity = result.responseEntity;
+                PaginatedFlowsResponse response = result.responseEntity.getBody();
 
-                    PaginatedFlowsResponse response = lastResponseEntity.getBody();
+                if (!result.success) {
+                    hasMorePages = false;
+                    break;
+                }
 
-                    logInfoResponseOk(organizationId, response);
+                logInfoResponseOk(organizationId, response);
+                aggiungiFlussoRicevutoAllElenco(organizationId, allFlows, currentPage, response);
 
-                    aggiungiFlussoRicevutoAllElenco(organizationId, allFlows, currentPage, response);
-
-                    // Check if there are more pages
-                    if (response.getMetadata() != null &&
-                        response.getMetadata().getPageNumber() != null &&
-                        response.getMetadata().getTotPage() != null) {
-                        hasMorePages = response.getMetadata().getPageNumber() < response.getMetadata().getTotPage();
-                        currentPage++;
-                    } else {
-                        hasMorePages = false;
-                    }
-
-                } catch (org.springframework.web.client.ResourceAccessException e) {
-                    hasMorePages = gestioneRispostaVuota(organizationId, currentPage, e);
-                } catch (Exception e) {
-                    log.error("Errore nel recupero dei flussi per l'organizzazione {} alla pagina {}: {}",
-                        organizationId, currentPage, e.getMessage());
-                    log.error(e.getMessage(), e);
-                    throw new RestClientException("Fallito il recupero dei flussi per l'organizzazione " + organizationId, e);
+                // Check if there are more pages
+                if (response.getMetadata() != null &&
+                    response.getMetadata().getPageNumber() != null &&
+                    response.getMetadata().getTotPage() != null) {
+                    hasMorePages = response.getMetadata().getPageNumber() < response.getMetadata().getTotPage();
+                    currentPage++;
+                } else {
+                    hasMorePages = false;
                 }
             }
 
@@ -107,6 +94,39 @@ public class FdrApiService {
         } catch (RestClientException e) {
             saveGetPublishedFlowsKo(organizationId, publishedGt, startTime, lastResponseEntity, e);
             throw e;
+        }
+    }
+
+    /**
+     * Fetches a single page of flows from the API.
+     * Extracted to avoid nested try blocks (SonarQube java:S1141).
+     */
+    private PageFetchResult<PaginatedFlowsResponse> fetchFlowsPage(
+            String organizationId, OffsetDateTime publishedGtOffset, Long currentPage) throws RestClientException {
+
+        try {
+            log.debug("Chiamata API per l'organizzazione {} pagina {}", organizationId, currentPage);
+
+            ResponseEntity<PaginatedFlowsResponse> responseEntity =
+                organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+                    organizationId,
+                    null,           // flowDate
+                    currentPage,    // page
+                    null,           // pspId
+                    publishedGtOffset,    // publishedGt
+                    (long) pagoPAProperties.getPageSize()  // size
+                );
+
+            return new PageFetchResult<>(responseEntity, true);
+
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            boolean shouldContinue = !gestioneRispostaVuota(organizationId, currentPage, e);
+            return new PageFetchResult<>(null, shouldContinue);
+        } catch (Exception e) {
+            log.error("Errore nel recupero dei flussi per l'organizzazione {} alla pagina {}: {}",
+                organizationId, currentPage, e.getMessage());
+            log.error(e.getMessage(), e);
+            throw new RestClientException("Fallito il recupero dei flussi per l'organizzazione " + organizationId, e);
         }
     }
 
@@ -245,38 +265,26 @@ public class FdrApiService {
 
         try {
             while (hasMorePages) {
-                try {
-                    lastResponseEntity = organizationsApi.iOrganizationsControllerGetPaymentsFromPublishedFlowWithHttpInfo(
-                        fdr,
-                        organizationId,
-                        pspId,
-                        revision,
-                        currentPage,
-                        (long) pagoPAProperties.getPageSize()
-                    );
+                PageFetchResult<PaginatedPaymentsResponse> result = fetchPaymentsPage(
+                    organizationId, fdr, revision, pspId, currentPage);
 
-                    PaginatedPaymentsResponse response = lastResponseEntity.getBody();
+                lastResponseEntity = result.responseEntity;
+                PaginatedPaymentsResponse response = result.responseEntity.getBody();
 
-                    if (response != null && response.getData() != null && !response.getData().isEmpty()) {
-                        allPayments.addAll(response.getData());
-                        log.debug("Recuperata pagina {} con {} pagamenti per fdr {}",
-                            currentPage, response.getData().size(), fdr);
-                    }
+                if (response != null && response.getData() != null && !response.getData().isEmpty()) {
+                    allPayments.addAll(response.getData());
+                    log.debug("Recuperata pagina {} con {} pagamenti per fdr {}",
+                        currentPage, response.getData().size(), fdr);
+                }
 
-                    // Check if there are more pages
-                    if (response != null && response.getMetadata() != null &&
-                        response.getMetadata().getPageNumber() != null &&
-                        response.getMetadata().getTotPage() != null) {
-                        hasMorePages = response.getMetadata().getPageNumber() < response.getMetadata().getTotPage();
-                        currentPage++;
-                    } else {
-                        hasMorePages = false;
-                    }
-
-                } catch (Exception e) {
-                    log.error("Errore nel recupero dei pagamenti per fdr {} alla pagina {}: {}",
-                        fdr, currentPage, e.getMessage());
-                    throw new RestClientException("Fallito il recupero dei pagamenti per il flusso " + fdr, e);
+                // Check if there are more pages
+                if (response != null && response.getMetadata() != null &&
+                    response.getMetadata().getPageNumber() != null &&
+                    response.getMetadata().getTotPage() != null) {
+                    hasMorePages = response.getMetadata().getPageNumber() < response.getMetadata().getTotPage();
+                    currentPage++;
+                } else {
+                    hasMorePages = false;
                 }
             }
 
@@ -314,6 +322,47 @@ public class FdrApiService {
                 gdeService.saveGetPaymentsKo(frForEvent, startTime, endTime, lastResponseEntity, e);
             }
             throw e;
+        }
+    }
+
+    /**
+     * Fetches a single page of payments from the API.
+     * Extracted to avoid nested try blocks (SonarQube java:S1141).
+     */
+    private PageFetchResult<PaginatedPaymentsResponse> fetchPaymentsPage(
+            String organizationId, String fdr, Long revision, String pspId, Long currentPage) throws RestClientException {
+
+        try {
+            ResponseEntity<PaginatedPaymentsResponse> responseEntity =
+                organizationsApi.iOrganizationsControllerGetPaymentsFromPublishedFlowWithHttpInfo(
+                    fdr,
+                    organizationId,
+                    pspId,
+                    revision,
+                    currentPage,
+                    (long) pagoPAProperties.getPageSize()
+                );
+
+            return new PageFetchResult<>(responseEntity, true);
+
+        } catch (Exception e) {
+            log.error("Errore nel recupero dei pagamenti per fdr {} alla pagina {}: {}",
+                fdr, currentPage, e.getMessage());
+            throw new RestClientException("Fallito il recupero dei pagamenti per il flusso " + fdr, e);
+        }
+    }
+
+    /**
+     * Helper class to encapsulate the result of a page fetch operation.
+     * Used to avoid nested try blocks.
+     */
+    private static class PageFetchResult<T> {
+        final ResponseEntity<T> responseEntity;
+        final boolean success;
+
+        PageFetchResult(ResponseEntity<T> responseEntity, boolean success) {
+            this.responseEntity = responseEntity;
+            this.success = success;
         }
     }
 }
