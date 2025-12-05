@@ -31,53 +31,72 @@ public class FdrHeadersWriter implements ItemWriter<FdrHeadersBatch> {
         for (FdrHeadersBatch batch : chunk) {
             log.info("Scrittura di {} header FDR per il dominio {}", batch.getHeaders().size(), batch.getCodDominio());
 
-            int savedCount = 0;
-            int alreadyInFrCount = 0;
-            int alreadyInFrTempCount = 0;
+            HeaderProcessingStats stats = new HeaderProcessingStats();
 
             for (FdrHeadersBatch.FdrHeader header : batch.getHeaders()) {
-                // Prima verifica: controllare se esiste già nella tabella definitiva FR
-                // Questo evita chiamate API inutili verso pagoPA
-                if (frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(
-                    batch.getCodDominio(),
-                    header.getCodFlusso(),
-                    header.getIdPsp(),
-                    header.getRevision()
-                )) {
-                    log.debug("FDR {} già presente nella tabella FR definitiva per il dominio {} - saltato",
-                        header.getCodFlusso(), batch.getCodDominio());
-                    alreadyInFrCount++;
-                    continue;
-                }
-
-                // Seconda verifica: controllare se esiste già in FR_TEMP
-                if (frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
-                    batch.getCodDominio(),
-                    header.getCodFlusso(),
-                    header.getIdPsp(),
-                    header.getRevision()
-                )) {
-                    log.debug("FDR {} già presente in FR_TEMP - saltato", header.getCodFlusso());
-                    alreadyInFrTempCount++;
-                    continue;
-                }
-
-                // Nuovo flusso: inserire in FR_TEMP per elaborazione successiva
-                FrTemp frTemp = FrTemp.builder()
-                    .codDominio(batch.getCodDominio())
-                    .codFlusso(header.getCodFlusso())
-                    .idPsp(header.getIdPsp())
-                    .revisione(header.getRevision())
-                    .dataOraFlusso(header.getDataOraFlusso())
-                    .dataOraPubblicazione(header.getDataOraPubblicazione())
-                    .build();
-
-                frTempRepository.save(frTemp);
-                savedCount++;
+                processHeader(batch.getCodDominio(), header, stats);
             }
 
             log.info("Dominio {}: salvati {} nuovi FDR, saltati {} già in FR, saltati {} già in FR_TEMP",
-                batch.getCodDominio(), savedCount, alreadyInFrCount, alreadyInFrTempCount);
+                batch.getCodDominio(), stats.savedCount, stats.alreadyInFrCount, stats.alreadyInFrTempCount);
         }
+    }
+
+    /**
+     * Processes a single FDR header and updates statistics.
+     * Extracted to avoid multiple continue statements (SonarQube java:S135).
+     *
+     * @param codDominio the domain code
+     * @param header the FDR header to process
+     * @param stats statistics object to update
+     */
+    private void processHeader(String codDominio, FdrHeadersBatch.FdrHeader header, HeaderProcessingStats stats) {
+        // Prima verifica: controllare se esiste già nella tabella definitiva FR
+        // Questo evita chiamate API inutili verso pagoPA
+        if (frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(
+            codDominio,
+            header.getCodFlusso(),
+            header.getIdPsp(),
+            header.getRevision()
+        )) {
+            log.debug("FDR {} già presente nella tabella FR definitiva per il dominio {} - saltato",
+                header.getCodFlusso(), codDominio);
+            stats.alreadyInFrCount++;
+            return;
+        }
+
+        // Seconda verifica: controllare se esiste già in FR_TEMP
+        if (frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(
+            codDominio,
+            header.getCodFlusso(),
+            header.getIdPsp(),
+            header.getRevision()
+        )) {
+            log.debug("FDR {} già presente in FR_TEMP - saltato", header.getCodFlusso());
+            stats.alreadyInFrTempCount++;
+            return;
+        }
+
+        // Nuovo flusso: inserire in FR_TEMP per elaborazione successiva
+        FrTemp frTemp = FrTemp.builder()
+            .codDominio(codDominio)
+            .codFlusso(header.getCodFlusso())
+            .idPsp(header.getIdPsp())
+            .revisione(header.getRevision())
+            .dataOraFlusso(header.getDataOraFlusso())
+            .dataOraPubblicazione(header.getDataOraPubblicazione())
+            .build();
+
+        frTempRepository.save(frTemp);
+        stats.savedCount++;
+    }
+
+    /**
+     * Helper class to track header processing statistics.
+     */
+    private static class HeaderProcessingStats {
+        int savedCount = 0;
+        int alreadyInFrCount = 0;
+        int alreadyInFrTempCount = 0;
     }
 }

@@ -67,7 +67,6 @@ public class FdrApiService {
                 PaginatedFlowsResponse response = result.responseEntity.getBody();
 
                 if (!result.success) {
-                    hasMorePages = false;
                     break;
                 }
 
