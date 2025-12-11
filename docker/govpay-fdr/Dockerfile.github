@@ -5,7 +5,7 @@ ARG govpay_fdr_home=/opt/govpay-fdr
 ARG govpay_fdr_log=/var/log/govpay-fdr
 
 LABEL maintainer="Link.it s.r.l."
-LABEL description="GovPay A.C.A. (Archivio Centralizzato Avvisi) Batch Processor"
+LABEL description="GovPay FDR (Flussi di rendicontazione) Batch Processor"
 LABEL govpay.fdr.version="${govpay_fdr_fullversion}"
 USER root
 
@@ -48,12 +48,22 @@ RUN chown -R govpay:0 /usr/local/bin/entrypoint.sh /usr/local/bin/init_fdr_db.sh
 
 USER govpay
 
+# Spring Batch configuration
 ENV SPRING_BATCH_JOB_ENABLED=false \
-    IT_GOVPAY_GPD_TIME_ZONE=Europe/Rome \
-    IT_GOVPAY_GPD_BATCH_CLIENT_HEADER_SUBSCRIPTIONKEY_NAME=Ocp-Apim-Subscription-Key \
-    IT_GOVPAY_GPD_BATCH_CLIENT_DEBUGGING=false \
-    IT_GOVPAY_GPD_BATCH_JOBS_GPDSENDERJOB_STEPS_SPEDIZIONEPENDENZA_STEP_CHUNK_SIZE=10 \
-    IT_GOVPAY_GPD_BATCH_DBREADER_SOGLIA_TEMPORALE_RICERCA_PENDENZE_NUMERO_GIORNI=7 \
+    # pagoPA FDR API configuration
+    PAGOPA_FDR_SUBSCRIPTION_KEY_HEADER=Ocp-Apim-Subscription-Key \
+    PAGOPA_FDR_CONNECTION_TIMEOUT=10000 \
+    PAGOPA_FDR_READ_TIMEOUT=30000 \
+    PAGOPA_FDR_MAX_RETRIES=3 \
+    PAGOPA_FDR_PAGE_SIZE=1000 \
+    PAGOPA_FDR_DEBUGGING=false \
+    GOVPAY_BATCH_ENABLED=true \
+    GOVPAY_BATCH_THREAD_POOL_SIZE=5 \
+    GOVPAY_BATCH_HEADERS_CHUNK_SIZE=1 \
+    GOVPAY_BATCH_METADATA_CHUNK_SIZE=100 \
+    GOVPAY_BATCH_PAYMENTS_CHUNK_SIZE=50 \
+    GOVPAY_BATCH_SKIP_LIMIT=10 \
+    GOVPAY_BATCH_STALE_THRESHOLD_MINUTES=120 \
     MANAGEMENT_ENDPOINTS_WEB_BASE_PATH=/actuator \
     SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT=20000 \
     SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT=10000 \

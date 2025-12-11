@@ -47,12 +47,12 @@ docker compose ps
 
 ```
 ┌─────────────────────────────────────┐
-│   GovPay A.C.A. Batch Processor    │
+│   GovPay FDR Batch Processor        │
 │                                     │
 │  ┌──────────────────────────────┐  │
 │  │   Applicazione Spring Boot   │  │
 │  │   - Spring Batch             │  │
-│  │   - Client GPD               │  │
+│  │   - Client FDR               │  │
 │  │   - Client GDE (opzionale)   │  │
 │  └──────────────────────────────┘  │
 │              │                      │
