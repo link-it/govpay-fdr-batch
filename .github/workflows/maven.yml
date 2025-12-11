@@ -230,10 +230,10 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: docker/buildcontext
-        file: docker/govpay-aca/Dockerfile.github
+        file: docker/govpay-fdr/Dockerfile.github
         push: true
         build-args: |
-          govpay_aca_fullversion=${{ steps.version.outputs.VERSION }}
+          govpay_fdr_fullversion=${{ steps.version.outputs.VERSION }}
         tags: |
-          linkitaly/govpay-aca-batch:${{ steps.version.outputs.VERSION }}
-          linkitaly/govpay-aca-batch:latest
+          linkitaly/govpay-fdr-batch:${{ steps.version.outputs.VERSION }}
+          linkitaly/govpay-fdr-batch:latest
