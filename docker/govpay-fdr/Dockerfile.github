@@ -32,6 +32,11 @@ WORKDIR ${GOVPAY_FDR_HOME}
 # Download FDR JAR from GitHub release
 RUN set -eux; \
 curl -kL -sS -q -o ${GOVPAY_FDR_HOME}/govpay-fdr-batch.jar "https://github.com/link-it/govpay-fdr-batch/releases/download/${GOVPAY_FDR_FULLVERSION}/govpay-fdr-batch-${GOVPAY_FDR_FULLVERSION}.jar";  \
+ls -la ${GOVPAY_FDR_HOME}/; \
+curl -fL -o /tmp/govpay-fdr-batch.jar "https://github.com/link-it/govpay-fdr-batch/releases/download/${GOVPAY_FDR_FULLVERSION}/govpay-fdr-batch-${GOVPAY_FDR_FULLVERSION}.jar"; \
+mv /tmp/govpay-fdr-batch.jar ${GOVPAY_FDR_HOME}/govpay-fdr-batch.jar; \
+chown govpay:govpay ${GOVPAY_FDR_HOME}/govpay-fdr-batch.jar; \
+ls -la ${GOVPAY_FDR_HOME}/; \
 curl -kL -sS -q -o /tmp/sql.zip "https://github.com/link-it/govpay-fdr-batch/releases/download/${GOVPAY_FDR_FULLVERSION}/sql.zip"; \
 unzip -q /tmp/sql.zip -d /opt && rm /tmp/sql.zip; \
 chown -R govpay:govpay /opt/sql; \
@@ -48,9 +53,7 @@ RUN chown -R govpay:0 /usr/local/bin/entrypoint.sh /usr/local/bin/init_fdr_db.sh
 
 USER govpay
 
-# Spring Batch configuration
 ENV SPRING_BATCH_JOB_ENABLED=false \
-    # pagoPA FDR API configuration
     PAGOPA_FDR_SUBSCRIPTION_KEY_HEADER=Ocp-Apim-Subscription-Key \
     PAGOPA_FDR_CONNECTION_TIMEOUT=10000 \
     PAGOPA_FDR_READ_TIMEOUT=30000 \
