@@ -131,7 +131,7 @@ jobs:
       with:
         name: govpay-fdr-batch
         path: |
-          target/govpay-fdr-batch-*.jar
+          target/govpay-fdr-batch.jar
           target/site/jacoco/jacoco.xml
           target/jacoco-html-report.zip
           target/dependency-check-report.html
@@ -160,7 +160,7 @@ jobs:
 
     - name: Rename the artifact file to include the tag
       run: |
-        cp target/govpay-fdr-batch-*.jar target/govpay-fdr-batch-${{ github.ref_name }}.jar  # Rinominare il file
+        cp target/govpay-fdr-batch.jar target/govpay-fdr-batch-${{ github.ref_name }}.jar  # Rinominare il file
         cp target/site/jacoco/jacoco.xml target/jacoco.xml
 
     - name: Zip SQL files
