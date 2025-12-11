@@ -5,8 +5,9 @@
 # GovPay - Porta di accesso al sistema pagoPA - FDR Batch
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=link-it_govpay-fdr-batch&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=link-it_govpay-fdr-batch)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.6-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Docker Hub](https://img.shields.io/docker/v/linkitaly/govpay-fdr-batch?label=Docker%20Hub&logo=docker)](https://hub.docker.com/r/linkitaly/govpay-fdr-batch)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://raw.githubusercontent.com/link-it/govpay-fdr-batch/main/LICENSE)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.7-brightgreen.svg)](https://spring.io/projects/spring-boot)
 
 ## Sommario
 
