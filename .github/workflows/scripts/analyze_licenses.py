@@ -128,6 +128,15 @@ LICENSE_COMPATIBILITY = {
     'CC0-1.0': {'gplv3_compatible': True, 'enterprise_safe': True, 'category': 'CC0-1.0'},
     'Public Domain, per Creative Commons CC0': {'gplv3_compatible': True, 'enterprise_safe': True, 'category': 'CC0-1.0'},
     'CC0': {'gplv3_compatible': True, 'enterprise_safe': True, 'category': 'CC0-1.0'},
+
+    # MIT-0 (MIT No Attribution)
+    'MIT-0': {'gplv3_compatible': True, 'enterprise_safe': True, 'category': 'MIT-0'},
+
+    # CDDL + GPLv2 with classpath exception
+    'CDDL + GPLv2 with classpath exception': {'gplv3_compatible': True, 'enterprise_safe': True, 'category': 'CDDL/GPL-2.0-with-CE'},
+
+    # Oracle Free Use Terms and Conditions (FUTC) - used by Oracle JDBC drivers
+    'Oracle Free Use Terms and Conditions (FUTC)': {'gplv3_compatible': True, 'enterprise_safe': True, 'category': 'Oracle-FUTC'},
 }
 
 def normalize_license_name(license_name):
