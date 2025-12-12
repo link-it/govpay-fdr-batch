@@ -90,14 +90,19 @@ class ObjectMapperConfigTest {
     }
 
     @Test
-    @DisplayName("Global ObjectMapper requires timezone in fixed pattern")
-    void testGlobalObjectMapperRequiresTimezone() {
-        // Given: JSON without timezone (fixed pattern requires timezone)
+    @DisplayName("Global ObjectMapper handles missing timezone with CET fallback")
+    void testGlobalObjectMapperHandlesMissingTimezone() throws JsonProcessingException {
+        // Given: JSON without timezone
         String json = "\"2025-01-27T10:30:45.123\"";
 
-        // When/Then: Should throw exception as pattern requires timezone
-        assertThatThrownBy(() -> objectMapper.readValue(json, OffsetDateTime.class))
-            .isInstanceOf(JsonProcessingException.class);
+        // When: Deserialize (flexible deserializer applies CET fallback)
+        OffsetDateTime result = objectMapper.readValue(json, OffsetDateTime.class);
+
+        // Then: Should parse with CET offset as fallback
+        assertThat(result).isNotNull();
+        assertThat(result.getYear()).isEqualTo(2025);
+        assertThat(result.getNano()).isEqualTo(123_000_000);
+        assertThat(result.getOffset()).isEqualTo(ZoneOffset.ofHoursMinutes(1, 0)); // CET fallback
     }
 
     @Test

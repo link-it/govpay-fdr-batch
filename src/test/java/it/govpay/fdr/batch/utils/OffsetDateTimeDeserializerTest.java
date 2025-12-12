@@ -311,6 +311,105 @@ class OffsetDateTimeDeserializerTest {
     }
 
     @Test
+    @DisplayName("Should handle date without seconds with timezone (pagoPA format)")
+    void testDeserializeDateWithoutSeconds() throws IOException {
+        // Given - this is the format returned by pagoPA API for fdrDate
+        OffsetDateTimeDeserializer deserializer = new OffsetDateTimeDeserializer(
+            Costanti.PATTERN_YYYY_MM_DD_T_HH_MM_SS_MILLIS_VARIABILI_XXX
+        );
+        String json = "\"2025-12-09T00:00+01:00\"";
+
+        JsonParser jsonParser = new JsonFactory().createParser(json);
+        jsonParser.nextToken();
+
+        // When
+        OffsetDateTime result = deserializer.deserialize(jsonParser, null);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getYear()).isEqualTo(2025);
+        assertThat(result.getMonthValue()).isEqualTo(12);
+        assertThat(result.getDayOfMonth()).isEqualTo(9);
+        assertThat(result.getHour()).isEqualTo(0);
+        assertThat(result.getMinute()).isEqualTo(0);
+        assertThat(result.getSecond()).isEqualTo(0);
+        assertThat(result.getOffset()).isEqualTo(ZoneOffset.ofHours(1));
+    }
+
+    @Test
+    @DisplayName("Should handle date without seconds with UTC timezone")
+    void testDeserializeDateWithoutSecondsUTC() throws IOException {
+        // Given
+        OffsetDateTimeDeserializer deserializer = new OffsetDateTimeDeserializer(
+            Costanti.PATTERN_YYYY_MM_DD_T_HH_MM_SS_MILLIS_VARIABILI_XXX
+        );
+        String json = "\"2025-12-09T15:30Z\"";
+
+        JsonParser jsonParser = new JsonFactory().createParser(json);
+        jsonParser.nextToken();
+
+        // When
+        OffsetDateTime result = deserializer.deserialize(jsonParser, null);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getYear()).isEqualTo(2025);
+        assertThat(result.getMonthValue()).isEqualTo(12);
+        assertThat(result.getDayOfMonth()).isEqualTo(9);
+        assertThat(result.getHour()).isEqualTo(15);
+        assertThat(result.getMinute()).isEqualTo(30);
+        assertThat(result.getSecond()).isEqualTo(0);
+        assertThat(result.getOffset()).isEqualTo(ZoneOffset.UTC);
+    }
+
+    @Test
+    @DisplayName("Should handle date without seconds with negative offset")
+    void testDeserializeDateWithoutSecondsNegativeOffset() throws IOException {
+        // Given
+        OffsetDateTimeDeserializer deserializer = new OffsetDateTimeDeserializer(
+            Costanti.PATTERN_YYYY_MM_DD_T_HH_MM_SS_MILLIS_VARIABILI_XXX
+        );
+        String json = "\"2025-12-09T10:45-05:00\"";
+
+        JsonParser jsonParser = new JsonFactory().createParser(json);
+        jsonParser.nextToken();
+
+        // When
+        OffsetDateTime result = deserializer.deserialize(jsonParser, null);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getHour()).isEqualTo(10);
+        assertThat(result.getMinute()).isEqualTo(45);
+        assertThat(result.getSecond()).isEqualTo(0);
+        assertThat(result.getOffset()).isEqualTo(ZoneOffset.ofHours(-5));
+    }
+
+    @Test
+    @DisplayName("Should handle date without seconds without timezone (fallback to CET)")
+    void testDeserializeDateWithoutSecondsNoTimezone() throws IOException {
+        // Given
+        OffsetDateTimeDeserializer deserializer = new OffsetDateTimeDeserializer(
+            Costanti.PATTERN_YYYY_MM_DD_T_HH_MM_SS_MILLIS_VARIABILI
+        );
+        String json = "\"2025-12-09T14:30\"";
+
+        JsonParser jsonParser = new JsonFactory().createParser(json);
+        jsonParser.nextToken();
+
+        // When
+        OffsetDateTime result = deserializer.deserialize(jsonParser, null);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getHour()).isEqualTo(14);
+        assertThat(result.getMinute()).isEqualTo(30);
+        assertThat(result.getSecond()).isEqualTo(0);
+        // Should fallback to CET offset
+        assertThat(result.getOffset()).isEqualTo(ZoneOffset.ofHours(1));
+    }
+
+    @Test
     @DisplayName("Should handle dates at end of day")
     void testDeserializeEndOfDay() throws IOException {
         // Given
