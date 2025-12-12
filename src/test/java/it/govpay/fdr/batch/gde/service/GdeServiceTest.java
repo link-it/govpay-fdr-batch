@@ -253,4 +253,63 @@ class GdeServiceTest {
         });
     }
 
+    @Test
+    void testSaveGetPaymentsOk() {
+        // Given
+        OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime end = start.plusSeconds(2);
+        int paymentsCount = 25;
+
+        NuovoEvento mockEvento = new NuovoEvento();
+        mockEvento.setTipoEvento(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW);
+        mockEvento.setEsito(EsitoEvento.OK);
+
+        when(eventoFdrMapper.createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
+            anyString(), eq(start), eq(end))).thenReturn(mockEvento);
+        doNothing().when(eventoFdrMapper).setParametriRichiesta(any(), anyString(), anyString(), anyList());
+        doNothing().when(eventoFdrMapper).setParametriRisposta(any(), any(), any(), any());
+
+        // When
+        gdeService.saveGetPaymentsOk(testFr, start, end, paymentsCount, null);
+
+        // Then
+        await().untilAsserted(() -> {
+            verify(eventoFdrMapper).createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
+                anyString(), eq(start), eq(end));
+            verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
+                eq("https://api.pagopa.it/organizations/12345678901/fdrs/FDR-TEST-001/revisions/1/psps/PSP001/payments"),
+                eq("GET"), anyList());
+        });
+        assertThat(mockEvento.getDettaglioEsito()).contains("25 payments");
+    }
+
+    @Test
+    void testSaveGetPaymentsKo() {
+        // Given
+        OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime end = start.plusSeconds(2);
+        RestClientException exception = new RestClientException("Payments not found");
+
+        NuovoEvento mockEvento = new NuovoEvento();
+        mockEvento.setTipoEvento(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW);
+        mockEvento.setEsito(EsitoEvento.KO);
+
+        when(eventoFdrMapper.createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
+            anyString(), eq(start), eq(end), isNull(), eq(exception))).thenReturn(mockEvento);
+        doNothing().when(eventoFdrMapper).setParametriRichiesta(any(), anyString(), anyString(), anyList());
+        doNothing().when(eventoFdrMapper).setParametriRisposta(any(), any(), any(), any());
+
+        // When
+        gdeService.saveGetPaymentsKo(testFr, start, end, null, exception);
+
+        // Then
+        await().untilAsserted(() -> {
+            verify(eventoFdrMapper).createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
+                anyString(), eq(start), eq(end), isNull(), eq(exception));
+            verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
+                eq("https://api.pagopa.it/organizations/12345678901/fdrs/FDR-TEST-001/revisions/1/psps/PSP001/payments"),
+                eq("GET"), anyList());
+        });
+    }
+
 }

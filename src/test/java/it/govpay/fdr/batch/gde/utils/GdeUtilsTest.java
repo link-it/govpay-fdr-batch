@@ -23,7 +23,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.utils.ResponseBodyHolder;
 import it.govpay.gde.client.model.DettaglioRisposta;
+import it.govpay.gde.client.model.Header;
 import it.govpay.gde.client.model.NuovoEvento;
+
+import java.util.List;
+import org.springframework.http.HttpHeaders;
 
 /**
  * Test class for GdeUtils utility methods
@@ -339,6 +343,96 @@ class GdeUtilsTest {
 
         // Then
         assertThat(result).isEqualTo(Costanti.MSG_PAYLOAD_NON_SERIALIZZABILE);
+    }
+
+    // ========== Tests for getCapturedRequestHeaders ==========
+
+    @Test
+    @DisplayName("getCapturedRequestHeaders should return headers when set")
+    void testGetCapturedRequestHeadersWithHeaders() {
+        // Given
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.add("Ocp-Apim-Subscription-Key", "test-subscription-key");
+        httpHeaders.add("Accept", "application/json");
+        httpHeaders.add("Content-Type", "application/json");
+        ResponseBodyHolder.setRequestHeaders(httpHeaders);
+
+        // When
+        List<Header> result = GdeUtils.getCapturedRequestHeaders();
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result).hasSize(3);
+
+        // Verify headers are correctly converted
+        assertThat(result).anyMatch(h ->
+            "Ocp-Apim-Subscription-Key".equals(h.getNome()) &&
+            "test-subscription-key".equals(h.getValore()));
+        assertThat(result).anyMatch(h ->
+            "Accept".equals(h.getNome()) &&
+            "application/json".equals(h.getValore()));
+        assertThat(result).anyMatch(h ->
+            "Content-Type".equals(h.getNome()) &&
+            "application/json".equals(h.getValore()));
+
+        // Cleanup
+        ResponseBodyHolder.clear();
+    }
+
+    @Test
+    @DisplayName("getCapturedRequestHeaders should return empty list when no headers set")
+    void testGetCapturedRequestHeadersWithNoHeaders() {
+        // Given
+        ResponseBodyHolder.clear();
+
+        // When
+        List<Header> result = GdeUtils.getCapturedRequestHeaders();
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("getCapturedRequestHeaders should handle multi-value headers")
+    void testGetCapturedRequestHeadersWithMultiValueHeaders() {
+        // Given
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.add("Accept", "application/json");
+        httpHeaders.add("Accept", "text/plain");
+        ResponseBodyHolder.setRequestHeaders(httpHeaders);
+
+        // When
+        List<Header> result = GdeUtils.getCapturedRequestHeaders();
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getNome()).isEqualTo("Accept");
+        assertThat(result.get(0).getValore()).isEqualTo("application/json, text/plain");
+
+        // Cleanup
+        ResponseBodyHolder.clear();
+    }
+
+    @Test
+    @DisplayName("getCapturedRequestHeaders should handle empty header values")
+    void testGetCapturedRequestHeadersWithEmptyValues() {
+        // Given
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.add("X-Custom-Header", "value");
+        // Add header with empty list would not be added by HttpHeaders
+        ResponseBodyHolder.setRequestHeaders(httpHeaders);
+
+        // When
+        List<Header> result = GdeUtils.getCapturedRequestHeaders();
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result).hasSize(1);
+
+        // Cleanup
+        ResponseBodyHolder.clear();
     }
 
     // ========== Helper classes for testing ==========
