@@ -1,5 +1,9 @@
 2025-12-12  Giuliano Pintori <pintori@link.it>
 
+	* Avanzamento versione 1.0.1
+
+2025-12-12  Giuliano Pintori <pintori@link.it>
+
 	* [GDE]
 	Aggiunta funzionalità - Cattura headers delle richieste HTTP
 	Aggiunte agli eventi GDE le informazioni sugli headers HTTP inviati alle API pagoPA.
