@@ -111,7 +111,7 @@ class GdeUtilsTest {
     void testSerializzaPayloadWithRestClientExceptionAndCapturedBody() {
         // Given
         String capturedBody = "{\"error\":\"Deserialization failed\",\"details\":\"Invalid date format\"}";
-        ResponseBodyHolder.set(capturedBody.getBytes(StandardCharsets.UTF_8));
+        ResponseBodyHolder.setResponseBody(capturedBody.getBytes(StandardCharsets.UTF_8));
 
         RestClientException exception = new RestClientException("Failed to deserialize");
 
@@ -123,7 +123,7 @@ class GdeUtilsTest {
         assertThat(decodedPayload).isEqualTo(capturedBody);
 
         // Verify ThreadLocal was cleared
-        assertThat(ResponseBodyHolder.get()).isNull();
+        assertThat(ResponseBodyHolder.getResponseBody()).isNull();
     }
 
     @Test
@@ -164,7 +164,7 @@ class GdeUtilsTest {
     @DisplayName("serializzaPayload should clear ResponseBodyHolder even on success")
     void testSerializzaPayloadClearsResponseBodyHolderOnSuccess() {
         // Given - set a captured body that shouldn't be used
-        ResponseBodyHolder.set("captured body".getBytes(StandardCharsets.UTF_8));
+        ResponseBodyHolder.setResponseBody("captured body".getBytes(StandardCharsets.UTF_8));
         ResponseEntity<String> response = ResponseEntity.ok("success response");
 
         // When
@@ -175,7 +175,7 @@ class GdeUtilsTest {
         assertThat(decodedPayload).contains("success response");
 
         // Verify ThreadLocal was cleared
-        assertThat(ResponseBodyHolder.get()).isNull();
+        assertThat(ResponseBodyHolder.getResponseBody()).isNull();
     }
 
     // ========== Tests for serializzaPayload with ResponseEntity ==========

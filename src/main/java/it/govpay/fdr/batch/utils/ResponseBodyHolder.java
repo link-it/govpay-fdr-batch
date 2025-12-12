@@ -58,22 +58,6 @@ public final class ResponseBodyHolder {
     }
 
     /**
-     * @deprecated Use {@link #setResponseBody(byte[])} instead
-     */
-    @Deprecated
-    public static void set(byte[] body) {
-        setResponseBody(body);
-    }
-
-    /**
-     * @deprecated Use {@link #getResponseBody()} instead
-     */
-    @Deprecated
-    public static byte[] get() {
-        return getResponseBody();
-    }
-
-    /**
      * Clears all stored data for the current thread.
      * Should always be called in a finally block to prevent memory leaks.
      */
