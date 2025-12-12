@@ -147,16 +147,19 @@ class PagoPAObjectMapperTest {
     }
 
     @Test
-    @DisplayName("PagoPAObjectMapper pattern does not support explicit timezone in input")
-    void testDeserializePagoPAWithTimezoneThrowsException() {
-        // Given: pagoPA response with explicit timezone (not supported by pattern without XXX)
+    @DisplayName("PagoPAObjectMapper handles explicit timezone with flexible fallback")
+    void testDeserializePagoPAWithTimezoneUsingFlexibleFallback() throws JsonProcessingException {
+        // Given: pagoPA response with explicit timezone
         String jsonWithTz = "\"2025-01-27T10:30:45.123+01:00\"";
 
-        // When/Then: Should throw exception as pattern doesn't include XXX
-        // The pattern is: yyyy-MM-dd'T'HH:mm:ss[.[S...]] (no XXX)
-        // So dates WITH timezone will fail to parse
-        assertThatThrownBy(() -> pagoPAObjectMapper.readValue(jsonWithTz, OffsetDateTime.class))
-            .isInstanceOf(JsonProcessingException.class);
+        // When: Deserialize (flexible deserializer handles timezone via fallback formatter)
+        OffsetDateTime result = pagoPAObjectMapper.readValue(jsonWithTz, OffsetDateTime.class);
+
+        // Then: Should parse correctly preserving the timezone
+        assertThat(result).isNotNull();
+        assertThat(result.getYear()).isEqualTo(2025);
+        assertThat(result.getNano()).isEqualTo(123_000_000);
+        assertThat(result.getOffset()).isEqualTo(ZoneOffset.ofHours(1));
     }
 
     @Test

@@ -1,7 +1,6 @@
 package it.govpay.fdr.batch.gde.service;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -111,9 +110,9 @@ public class GdeService {
 
         nuovoEvento.setDettaglioEsito(String.format("Retrieved %d flows", flowsCount));
 
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, responseEntity, null);
-        
+
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
 
         inviaEvento(nuovoEvento);
@@ -134,7 +133,7 @@ public class GdeService {
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
                                          ResponseEntity<?> responseEntity, RestClientException exception) {
         String transactionId = UUID.randomUUID().toString();
-        
+
         String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
                 .replace(PLACEHOLDER_ORGANIZATION_ID, organizationId);
 
@@ -152,7 +151,7 @@ public class GdeService {
         nuovoEvento.setDatiPagoPA(datiPagoPA);
 
 
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
         
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
@@ -185,9 +184,9 @@ public class GdeService {
 
         nuovoEvento.setDettaglioEsito(String.format("Retrieved flow with %d payments", paymentsCount));
 
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, responseEntity, null);
-        
+
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
 
         inviaEvento(nuovoEvento);
@@ -217,7 +216,7 @@ public class GdeService {
                 null, exception);
 
 
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
 
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
@@ -250,7 +249,7 @@ public class GdeService {
 
         nuovoEvento.setDettaglioEsito(String.format("Retrieved %d payments", paymentsCount));
 
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, responseEntity, null);
 
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
@@ -282,7 +281,7 @@ public class GdeService {
                 fr, Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW, transactionId, dataStart, dataEnd,
                 null, exception);
 
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", List.of());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
 
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);

@@ -16,6 +16,8 @@ import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.utils.LocalDateFlexibleDeserializer;
 import it.govpay.fdr.batch.utils.OffsetDateTimeDeserializer;
 import it.govpay.fdr.batch.utils.OffsetDateTimeSerializer;
+import it.govpay.fdr.batch.utils.ResponseBodyCapturingInterceptor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -25,6 +27,7 @@ import java.time.OffsetDateTime;
 /**
  * Configuration for FDR API client with authentication
  */
+@Slf4j
 @Configuration
 public class FdrApiClientConfig {
 
@@ -40,18 +43,11 @@ public class FdrApiClientConfig {
             .rootUri(pagoPAProperties.getBaseUrl())
             .connectTimeout(Duration.ofMillis(pagoPAProperties.getConnectionTimeout()))
             .readTimeout(Duration.ofMillis(pagoPAProperties.getReadTimeout()))
-            .additionalInterceptors(subscriptionKeyInterceptor())
+            .additionalInterceptors(subscriptionKeyInterceptor(), responseBodyCapturingInterceptor())
             .build();
 
-        // Use BufferingClientHttpRequestFactory to allow reading response body multiple times
-        // This is needed when debugging is enabled because the ApiClient interceptor reads the body for logging
-        if (pagoPAProperties.isDebugging()) {
-            restTemplate.setRequestFactory(
-                new org.springframework.http.client.BufferingClientHttpRequestFactory(
-                    restTemplate.getRequestFactory()
-                )
-            );
-        }
+        // Note: BufferingClientHttpRequestFactory is NOT used here because it breaks the request pipeline.
+        // The ResponseBodyCapturingInterceptor already handles buffering the response body for GDE logging.
 
         // Configure custom ObjectMapper for secure date handling from pagoPA API
         // Remove default Jackson converter and add our custom one
@@ -116,11 +112,20 @@ public class FdrApiClientConfig {
      */
     private ClientHttpRequestInterceptor subscriptionKeyInterceptor() {
         return (request, body, execution) -> {
+        	log.debug("Adding subscription key header to request: {} -> {}", pagoPAProperties.getSubscriptionKeyHeader(), pagoPAProperties.getSubscriptionKey());
             request.getHeaders().add(
                 pagoPAProperties.getSubscriptionKeyHeader(),
                 pagoPAProperties.getSubscriptionKey()
             );
             return execution.execute(request, body);
         };
+    }
+
+    /**
+     * Interceptor to capture response body for GDE logging.
+     * This allows capturing the raw response even if deserialization fails.
+     */
+    private ClientHttpRequestInterceptor responseBodyCapturingInterceptor() {
+        return new ResponseBodyCapturingInterceptor();
     }
 }

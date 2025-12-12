@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import it.govpay.fdr.batch.Costanti;
+import it.govpay.fdr.batch.utils.ResponseBodyHolder;
 import it.govpay.gde.client.model.DettaglioRisposta;
 import it.govpay.gde.client.model.NuovoEvento;
 
@@ -106,11 +107,33 @@ class GdeUtilsTest {
     // ========== Tests for serializzaPayload with RestClientException ==========
 
     @Test
-    @DisplayName("serializzaPayload with generic RestClientException should encode message")
+    @DisplayName("serializzaPayload with generic RestClientException and captured body should use captured body")
+    void testSerializzaPayloadWithRestClientExceptionAndCapturedBody() {
+        // Given
+        String capturedBody = "{\"error\":\"Deserialization failed\",\"details\":\"Invalid date format\"}";
+        ResponseBodyHolder.set(capturedBody.getBytes(StandardCharsets.UTF_8));
+
+        RestClientException exception = new RestClientException("Failed to deserialize");
+
+        // When
+        GdeUtils.serializzaPayload(objectMapper, nuovoEvento, null, exception);
+
+        // Then - should use captured body instead of exception message
+        String decodedPayload = new String(Base64.getDecoder().decode(dettaglioRisposta.getPayload()));
+        assertThat(decodedPayload).isEqualTo(capturedBody);
+
+        // Verify ThreadLocal was cleared
+        assertThat(ResponseBodyHolder.get()).isNull();
+    }
+
+    @Test
+    @DisplayName("serializzaPayload with generic RestClientException without captured body should use message")
     void testSerializzaPayloadWithRestClientException() {
         // Given
         String errorMessage = "Connection timeout";
         RestClientException exception = new RestClientException(errorMessage);
+        // Ensure no captured body
+        ResponseBodyHolder.clear();
 
         // When
         GdeUtils.serializzaPayload(objectMapper, nuovoEvento, null, exception);
@@ -126,6 +149,8 @@ class GdeUtilsTest {
         // Given
         String errorMessage = "";
         RestClientException exception = new RestClientException(errorMessage);
+        // Ensure no captured body
+        ResponseBodyHolder.clear();
 
         // When
         GdeUtils.serializzaPayload(objectMapper, nuovoEvento, null, exception);
@@ -133,6 +158,24 @@ class GdeUtilsTest {
         // Then
         String expectedPayload = Base64.getEncoder().encodeToString(errorMessage.getBytes());
         assertThat(dettaglioRisposta.getPayload()).isEqualTo(expectedPayload);
+    }
+
+    @Test
+    @DisplayName("serializzaPayload should clear ResponseBodyHolder even on success")
+    void testSerializzaPayloadClearsResponseBodyHolderOnSuccess() {
+        // Given - set a captured body that shouldn't be used
+        ResponseBodyHolder.set("captured body".getBytes(StandardCharsets.UTF_8));
+        ResponseEntity<String> response = ResponseEntity.ok("success response");
+
+        // When
+        GdeUtils.serializzaPayload(objectMapper, nuovoEvento, response, null);
+
+        // Then - should use response body, not captured body
+        String decodedPayload = new String(Base64.getDecoder().decode(dettaglioRisposta.getPayload()));
+        assertThat(decodedPayload).contains("success response");
+
+        // Verify ThreadLocal was cleared
+        assertThat(ResponseBodyHolder.get()).isNull();
     }
 
     // ========== Tests for serializzaPayload with ResponseEntity ==========
