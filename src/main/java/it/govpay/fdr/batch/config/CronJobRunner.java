@@ -74,6 +74,7 @@ public class CronJobRunner implements CommandLineRunner, ApplicationContextAware
                 .addString(Costanti.GOVPAY_BATCH_JOB_ID, Costanti.FDR_ACQUISITION_JOB_NAME)
                 .addString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_WHEN, OffsetDateTime.now().toString())
                 .addString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID, this.clusterId)
+                .addString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_TIPO_ATTIVAZIONE, Costanti.TIPO_ATTIVAZIONE_ESTERNA)
                 .toJobParameters();
 
         jobLauncher.run(fdrAcquisitionJob, params);

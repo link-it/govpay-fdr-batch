@@ -4,6 +4,18 @@
 
 2025-12-12  Giuliano Pintori <pintori@link.it>
 
+	* [BatchCore]
+	Aggiunta funzionalità #20 
+	Attivazione manuale del batch da console GovPay
+	Aggiunto componente BatchTriggerChecker che monitora la tabella BATCH per rilevare
+	richieste di esecuzione manuale inviate dalla console GovPay.
+	Aggiunto parametro TipoAttivazione ai job per distinguere:
+	- ESTERNA: esecuzione da cron/scheduler di sistema (profile "cron")
+	- SCHEDULATA: esecuzione schedulata Spring con @Scheduled (profile "default")
+	- MANUALE: esecuzione attivata da console GovPay tramite tabella BATCH
+
+2025-12-12  Giuliano Pintori <pintori@link.it>
+
 	* [GDE]
 	Aggiunta funzionalità - Cattura headers delle richieste HTTP
 	Aggiunte agli eventi GDE le informazioni sugli headers HTTP inviati alle API pagoPA.

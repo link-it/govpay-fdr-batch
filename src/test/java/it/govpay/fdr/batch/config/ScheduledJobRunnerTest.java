@@ -104,6 +104,7 @@ class ScheduledJobRunnerTest {
         assertNotNull(capturedParams);
         assertEquals(JOB_NAME, capturedParams.getString(Costanti.GOVPAY_BATCH_JOB_ID));
         assertEquals(CLUSTER_ID, capturedParams.getString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID));
+        assertEquals(Costanti.TIPO_ATTIVAZIONE_SCHEDULATA, capturedParams.getString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_TIPO_ATTIVAZIONE));
         assertNotNull(capturedParams.getString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_WHEN));
     }
 
