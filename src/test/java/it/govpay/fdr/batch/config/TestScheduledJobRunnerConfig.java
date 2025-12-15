@@ -11,9 +11,6 @@ import org.springframework.context.annotation.Bean;
  * <p>
  * Necessaria perché ScheduledJobRunner ha @Profile("default") e quindi non viene
  * creato automaticamente quando i test usano @ActiveProfiles("test").
- * <p>
- * Nota: non usiamo @Profile("test") qui perché @TestConfiguration è sufficiente
- * e permette di ricevere correttamente i mock di @MockitoBean.
  */
 @TestConfiguration
 public class TestScheduledJobRunnerConfig {

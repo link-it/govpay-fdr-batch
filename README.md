@@ -180,7 +180,7 @@ java -jar target/govpay-fdr-batch-1.0.0-SNAPSHOT.jar
 ```
 
 ### Trigger Manuale
-Il job può essere eseguito manualmente invocando il metodo `FdrBatchScheduler.triggerManually()` tramite un endpoint REST o JMX.
+Il job può essere eseguito manualmente tramite il profilo `cron` che esegue il batch una sola volta al startup.
 
 ## Caratteristiche Implementate
 
