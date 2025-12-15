@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import it.govpay.fdr.batch.Costanti;
@@ -28,6 +29,9 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/api/batch")
 public class BatchController {
+
+    private static final String RESPONSE_STATUS = "status";
+    private static final String RESPONSE_MESSAGE = "message";
 
     private final JobLauncher jobLauncher;
     private final PreventConcurrentJobLauncher preventConcurrentJobLauncher;
@@ -48,15 +52,18 @@ public class BatchController {
     /**
      * Esegue il job FDR Acquisition manualmente.
      *
+     * @param forzaEsecuzione Se true, termina forzatamente l'eventuale esecuzione corrente e avvia una nuova esecuzione
      * @return ResponseEntity con lo stato dell'esecuzione
      */
     @GetMapping("/eseguiJob")
-    public ResponseEntity<Map<String, Object>> eseguiJob() {
-        log.info("Richiesta esecuzione manuale del job {}", Costanti.FDR_ACQUISITION_JOB_NAME);
+    public ResponseEntity<Map<String, Object>> eseguiJob(
+            @RequestParam(name = "forzaEsecuzione", required = false, defaultValue = "false") boolean forzaEsecuzione) {
+        log.info("Richiesta esecuzione manuale del job {} (forzaEsecuzione={})", Costanti.FDR_ACQUISITION_JOB_NAME, forzaEsecuzione);
 
         Map<String, Object> response = new HashMap<>();
         response.put("jobName", Costanti.FDR_ACQUISITION_JOB_NAME);
         response.put("timestamp", OffsetDateTime.now().toString());
+        response.put("forzaEsecuzione", forzaEsecuzione);
 
         try {
             // Verifica se il job è già in esecuzione
@@ -64,8 +71,26 @@ public class BatchController {
                     .getCurrentRunningJobExecution(Costanti.FDR_ACQUISITION_JOB_NAME);
 
             if (currentRunningJobExecution != null) {
+                // Se forzaEsecuzione=true, termina forzatamente l'esecuzione corrente
+                if (forzaEsecuzione) {
+                    log.warn("Parametro forzaEsecuzione=true: terminazione forzata di JobExecution {}",
+                            currentRunningJobExecution.getId());
+
+                    if (this.preventConcurrentJobLauncher.forceAbandonJobExecution(
+                            currentRunningJobExecution, "Richiesta esecuzione forzata via API REST")) {
+                        log.info("Job terminato forzatamente con successo. Avvio nuova esecuzione.");
+                        response.put("previousJobId", currentRunningJobExecution.getId());
+                        response.put("previousJobTerminated", true);
+                        // Procedi con l'esecuzione
+                    } else {
+                        response.put(RESPONSE_STATUS, "ERROR");
+                        response.put(RESPONSE_MESSAGE, "Impossibile terminare forzatamente il job in esecuzione");
+                        response.put("runningJobId", currentRunningJobExecution.getId());
+                        return ResponseEntity.status(503).body(response);
+                    }
+                }
                 // Verifica se il job è stale
-                if (this.preventConcurrentJobLauncher.isJobExecutionStale(currentRunningJobExecution)) {
+                else if (this.preventConcurrentJobLauncher.isJobExecutionStale(currentRunningJobExecution)) {
                     log.warn("JobExecution {} rilevata come STALE. Procedo con abbandono e riavvio.",
                             currentRunningJobExecution.getId());
 
@@ -73,16 +98,16 @@ public class BatchController {
                         log.info("Job stale abbandonato con successo. Avvio nuova esecuzione.");
                         // Procedi con l'esecuzione
                     } else {
-                        response.put("status", "ERROR");
-                        response.put("message", "Impossibile abbandonare il job stale");
+                        response.put(RESPONSE_STATUS, "ERROR");
+                        response.put(RESPONSE_MESSAGE, "Impossibile abbandonare il job stale");
                         response.put("staleJobId", currentRunningJobExecution.getId());
                         return ResponseEntity.status(503).body(response);
                     }
                 } else {
                     String runningClusterId = this.preventConcurrentJobLauncher
                             .getClusterIdFromExecution(currentRunningJobExecution);
-                    response.put("status", "ALREADY_RUNNING");
-                    response.put("message", "Il job è già in esecuzione");
+                    response.put(RESPONSE_STATUS, "ALREADY_RUNNING");
+                    response.put(RESPONSE_MESSAGE, "Il job è già in esecuzione. Usa il parametro forzaEsecuzione=true per terminarlo forzatamente.");
                     response.put("runningJobId", currentRunningJobExecution.getId());
                     response.put("runningOnCluster", runningClusterId);
                     return ResponseEntity.status(409).body(response);
@@ -98,25 +123,25 @@ public class BatchController {
 
             JobExecution execution = jobLauncher.run(fdrAcquisitionJob, params);
 
-            response.put("status", execution.getStatus().toString());
+            response.put(RESPONSE_STATUS, execution.getStatus().toString());
             response.put("jobExecutionId", execution.getId());
             response.put("exitCode", execution.getExitStatus().getExitCode());
 
             if (execution.getStatus() == BatchStatus.COMPLETED) {
-                response.put("message", "Job completato con successo");
+                response.put(RESPONSE_MESSAGE, "Job completato con successo");
                 return ResponseEntity.ok(response);
             } else if (execution.getStatus() == BatchStatus.FAILED) {
-                response.put("message", "Job terminato con errori");
+                response.put(RESPONSE_MESSAGE, "Job terminato con errori");
                 return ResponseEntity.status(500).body(response);
             } else {
-                response.put("message", "Job avviato");
+                response.put(RESPONSE_MESSAGE, "Job avviato");
                 return ResponseEntity.ok(response);
             }
 
         } catch (Exception e) {
             log.error("Errore durante l'esecuzione del job: {}", e.getMessage(), e);
-            response.put("status", "ERROR");
-            response.put("message", "Errore durante l'esecuzione: " + e.getMessage());
+            response.put(RESPONSE_STATUS, "ERROR");
+            response.put(RESPONSE_MESSAGE, "Errore durante l'esecuzione: " + e.getMessage());
             return ResponseEntity.status(500).body(response);
         }
     }
