@@ -67,12 +67,4 @@ public class Costanti {
 
 	// Nome job FDR acquisition
 	public static final String FDR_ACQUISITION_JOB_NAME = "fdrAcquisitionJob";
-
-	// Parametro per tipo di attivazione del batch
-	public static final String GOVPAY_BATCH_JOB_PARAMETER_TIPO_ATTIVAZIONE = "TipoAttivazione";
-
-	// Valori per tipo di attivazione
-	public static final String TIPO_ATTIVAZIONE_ESTERNA = "ESTERNA";      // Esecuzione da cron/scheduler di sistema
-	public static final String TIPO_ATTIVAZIONE_SCHEDULATA = "SCHEDULATA"; // Esecuzione schedulata Spring (@Scheduled)
-	public static final String TIPO_ATTIVAZIONE_MANUALE = "MANUALE";       // Esecuzione manuale da console GovPay
 }

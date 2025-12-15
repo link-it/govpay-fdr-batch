@@ -10,19 +10,16 @@ import org.springframework.batch.item.Chunk;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.RestClientException;
 
-import it.govpay.fdr.batch.config.PreventConcurrentJobLauncher;
-import it.govpay.fdr.batch.config.ScheduledJobRunner;
-import it.govpay.fdr.batch.config.TestScheduledJobRunnerConfig;
 import it.govpay.fdr.batch.dto.DominioProcessingContext;
 import it.govpay.fdr.batch.dto.FdrHeadersBatch;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.repository.FrTempRepository;
+import it.govpay.fdr.batch.scheduler.FdrBatchScheduler;
 import it.govpay.fdr.batch.step2.FdrHeadersProcessor;
 import it.govpay.fdr.batch.step2.FdrHeadersReader;
 import it.govpay.fdr.batch.step2.FdrHeadersWriter;
@@ -51,7 +48,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Integration tests for GovpayFdrBatchApplication
  */
 @SpringBootTest(classes = GovpayFdrBatchApplication.class)
-@Import(TestScheduledJobRunnerConfig.class)
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
 		"spring.batch.job.enabled=false"
@@ -61,7 +57,7 @@ class GovpayFdrBatchRetryTests {
 	JobExplorer jobExplorer;
 
 	@Autowired
-	ScheduledJobRunner batchScheduler;
+	FdrBatchScheduler batchScheduler;
 
 	private AtomicInteger headerProcessCounter = new AtomicInteger(0);
 	private AtomicInteger metadataProcessorCounter = new AtomicInteger(0);
@@ -90,8 +86,6 @@ class GovpayFdrBatchRetryTests {
 	private FdrPaymentsWriter paymentsWriter = mock(FdrPaymentsWriter.class);
 	@MockitoBean
 	private FrTempRepository frTempRepository = mock(FrTempRepository.class);
-	@MockitoBean
-	private PreventConcurrentJobLauncher preventConcurrentJobLauncher = mock(PreventConcurrentJobLauncher.class);
 
 	private FrTemp frTempReaderFun() {
 		// poll() rimuove e ritorna l'elemento dalla coda (o null se vuota)
@@ -106,9 +100,6 @@ class GovpayFdrBatchRetryTests {
 		metadataProcessorCounter.set(0);
 		paymentsProcessorCounter.set(0);
 		headerQueue.clear();
-
-		// Mock PreventConcurrentJobLauncher per permettere l'esecuzione del job
-		when(preventConcurrentJobLauncher.getCurrentRunningJobExecution(any())).thenReturn(null);
 
 		// Mock FrTempRepository per supportare il partitioning
 		when(frTempRepository.findDistinctCodDominio()).thenReturn(Arrays.asList("12345678901"));
@@ -154,7 +145,8 @@ class GovpayFdrBatchRetryTests {
 	@Test
 	void headerRetrySuccess() throws Exception {
 		when(headersProcessor.process(any())).thenAnswer(invocation -> {
-			headerProcessCounter.addAndGet(1);
+			if (headerProcessCounter.addAndGet(1) < 3)
+				throw new RestClientException("test");
 			return FdrHeadersBatch.builder()
 								  .codDominio("process-" + headerProcessCounter.get())
 								  .build();
@@ -166,15 +158,14 @@ class GovpayFdrBatchRetryTests {
 			return metadataCompleteData;
 		});
 
-		final JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
+		final JobExecution execution = batchScheduler.runFdrAcquisitionJob();
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
-		assertEquals(1, headerProcessCounter.get());  // 1 perché il processor viene chiamato una volta per dominio
+		assertEquals(3, headerProcessCounter.get());  // 3 perché la prima e seconda esecuzione vanno in eccezione la terza ritorna correttamente
 		assertEquals(1, metadataProcessorCounter.get());
 	}
 	
 	@Test
 	void headerRetryAndSkip() throws Exception {
-		// Configura il processor per fallire le prime 4 volte e poi avere successo alla quinta
 		when(headersProcessor.process(any())).thenAnswer(invocation -> {
 			if (headerProcessCounter.addAndGet(1) < 5)
 				throw new RestClientException("test");
@@ -189,9 +180,8 @@ class GovpayFdrBatchRetryTests {
 			return metadataCompleteData;
 		});
 
-		final JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
+		final JobExecution execution = batchScheduler.runFdrAcquisitionJob();
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
-		// Con retry policy attuale: 3 tentativi (retry limit) poi skip
 		assertEquals(3, headerProcessCounter.get());
 		assertEquals(0, metadataProcessorCounter.get());
 	}
@@ -209,7 +199,7 @@ class GovpayFdrBatchRetryTests {
 			return metadataCompleteData;
 		});
 
-		final JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
+		final JobExecution execution = batchScheduler.runFdrAcquisitionJob();
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
 		assertEquals(3, metadataProcessorCounter.get());
 		assertEquals(1, paymentsProcessorCounter.get());
@@ -228,7 +218,7 @@ class GovpayFdrBatchRetryTests {
 			return metadataCompleteData;
 		});
 
-		JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
+		JobExecution execution = batchScheduler.runFdrAcquisitionJob();
 		assertEquals(BatchStatus.FAILED, execution.getStatus());
 		assertEquals(3, metadataProcessorCounter.get());
 		assertEquals(0, paymentsProcessorCounter.get());
@@ -243,7 +233,7 @@ class GovpayFdrBatchRetryTests {
 			metadataProcessorCounter.addAndGet(1);
 			return metadataCompleteData;
 		});
-		execution = batchScheduler.runBatchFdrAcquisitionJob();
+		execution = batchScheduler.runFdrAcquisitionJob();
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
 		assertEquals(0, metadataProcessorCounter.get());
 	}
@@ -289,7 +279,7 @@ class GovpayFdrBatchRetryTests {
 			return metadataCompleteData;
 		});
 
-		JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
+		JobExecution execution = batchScheduler.runFdrAcquisitionJob();
 
 		// Il job completa con successo
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
@@ -325,7 +315,7 @@ class GovpayFdrBatchRetryTests {
 			return metadataCompleteData;
 		});
 
-		JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
+		JobExecution execution = batchScheduler.runFdrAcquisitionJob();
 
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
 		// Verifica che tutti e 3 i flussi siano stati processati
@@ -383,7 +373,7 @@ class GovpayFdrBatchRetryTests {
 			return metadataCompleteData;
 		});
 
-		JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
+		JobExecution execution = batchScheduler.runFdrAcquisitionJob();
 
 		// Il job completa con successo
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());

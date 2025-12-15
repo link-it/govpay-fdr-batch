@@ -256,17 +256,6 @@ Quando `GOVPAY_FDR_GDE_URL` è impostato, l'integrazione GDE viene automaticamen
 | `GOVPAY_FDR_BATCH_INTERVALLO_CRON` | No | `5` | Intervallo scheduler in minuti (modalità CRON) |
 | `SERVER_PORT` | No | `10001` | Porta Actuator (modalità CRON) |
 
-### Variabili d'Ambiente - Attivazione Manuale da GovPay
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GOVPAY_FDR_BATCH_TRIGGER_ENABLED` | No | `false` | Abilita il controllo della tabella BATCH per attivazione manuale |
-| `GOVPAY_FDR_BATCH_TRIGGER_INTERVAL` | No | `10000` | Intervallo di polling in millisecondi (default: 10 secondi) |
-| `GOVPAY_FDR_BATCH_TRIGGER_INITIAL_DELAY` | No | `10000` | Ritardo iniziale prima del primo check in millisecondi |
-
-**Nota:** Quando abilitato, il batch può essere attivato dalla console GovPay tramite l'operazione "Acquisisci rendicontazioni".
-GovPay aggiorna il campo `aggiornamento` nella tabella `BATCH` e il BatchTriggerChecker rileva la modifica entro l'intervallo configurato.
-
 ### Variabili d'Ambiente - Integrazione GDE
 
 | Variable | Required | Default | Description |
