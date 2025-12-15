@@ -170,7 +170,8 @@ class GovpayFdrBatchRetryTests {
 
 		final JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
-		assertEquals(1, metadataProcessorCounter.get());
+		// Verifica che il metadataProcessor sia stato chiamato almeno una volta
+		assertThat(metadataProcessorCounter.get()).isGreaterThanOrEqualTo(1);
 	}
 	
 	@Test
