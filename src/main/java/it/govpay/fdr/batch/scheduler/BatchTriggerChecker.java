@@ -14,7 +14,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.config.PreventConcurrentJobLauncher;
@@ -99,7 +98,6 @@ public class BatchTriggerChecker {
     /**
      * Verifica se c'è una richiesta di esecuzione pendente.
      */
-    @Transactional(readOnly = true)
     protected boolean isAttivazioneManualeRichiesta() {
         try {
             Batch batch = batchRepository.findByCodBatch(BATCH_CODE).orElse(null);
@@ -183,7 +181,6 @@ public class BatchTriggerChecker {
     /**
      * Registra nel database che il batch è stato eseguito.
      */
-    @Transactional
     protected void registraEsecuzione() {
         try {
             Date now = new Date();

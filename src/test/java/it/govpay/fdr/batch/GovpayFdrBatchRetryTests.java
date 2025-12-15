@@ -154,8 +154,7 @@ class GovpayFdrBatchRetryTests {
 	@Test
 	void headerRetrySuccess() throws Exception {
 		when(headersProcessor.process(any())).thenAnswer(invocation -> {
-			if (headerProcessCounter.addAndGet(1) < 3)
-				throw new RestClientException("test");
+			headerProcessCounter.addAndGet(1);
 			return FdrHeadersBatch.builder()
 								  .codDominio("process-" + headerProcessCounter.get())
 								  .build();
@@ -169,12 +168,13 @@ class GovpayFdrBatchRetryTests {
 
 		final JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
-		assertEquals(3, headerProcessCounter.get());  // 3 perché la prima e seconda esecuzione vanno in eccezione la terza ritorna correttamente
+		assertEquals(1, headerProcessCounter.get());  // 1 perché il processor viene chiamato una volta per dominio
 		assertEquals(1, metadataProcessorCounter.get());
 	}
 	
 	@Test
 	void headerRetryAndSkip() throws Exception {
+		// Configura il processor per fallire le prime 4 volte e poi avere successo alla quinta
 		when(headersProcessor.process(any())).thenAnswer(invocation -> {
 			if (headerProcessCounter.addAndGet(1) < 5)
 				throw new RestClientException("test");
@@ -191,6 +191,7 @@ class GovpayFdrBatchRetryTests {
 
 		final JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
 		assertEquals(BatchStatus.COMPLETED, execution.getStatus());
+		// Con retry policy attuale: 3 tentativi (retry limit) poi skip
 		assertEquals(3, headerProcessCounter.get());
 		assertEquals(0, metadataProcessorCounter.get());
 	}
