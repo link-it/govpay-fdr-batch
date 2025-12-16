@@ -55,12 +55,12 @@ public class BatchController {
      * @return ResponseEntity con lo stato dell'avvio o Problem in caso di errore
      */
     @GetMapping("/eseguiJob")
-    public ResponseEntity<?> eseguiJob(
+    public ResponseEntity<Object> eseguiJob(
             @RequestParam(name = "forzaEsecuzione", required = false, defaultValue = "false") boolean forzaEsecuzione) {
         log.info("Richiesta esecuzione manuale del job {} (forzaEsecuzione={})", Costanti.FDR_ACQUISITION_JOB_NAME, forzaEsecuzione);
 
         try {
-            ResponseEntity<?> runningJobResponse = gestisciJobInEsecuzione(forzaEsecuzione);
+            ResponseEntity<Object> runningJobResponse = gestisciJobInEsecuzione(forzaEsecuzione);
             if (runningJobResponse != null) {
                 return runningJobResponse;
             }
@@ -76,7 +76,7 @@ public class BatchController {
     /**
      * Gestisce l'eventuale job già in esecuzione.
      */
-    private ResponseEntity<?> gestisciJobInEsecuzione(boolean forzaEsecuzione) {
+    private ResponseEntity<Object> gestisciJobInEsecuzione(boolean forzaEsecuzione) {
         JobExecution currentRunningJobExecution = this.preventConcurrentJobLauncher
                 .getCurrentRunningJobExecution(Costanti.FDR_ACQUISITION_JOB_NAME);
 
@@ -98,7 +98,7 @@ public class BatchController {
     /**
      * Gestisce la terminazione forzata di un job in esecuzione.
      */
-    private ResponseEntity<?> gestisciForzaEsecuzione(JobExecution currentRunningJobExecution) {
+    private ResponseEntity<Object> gestisciForzaEsecuzione(JobExecution currentRunningJobExecution) {
         log.warn("Parametro forzaEsecuzione=true: terminazione forzata di JobExecution {}",
                 currentRunningJobExecution.getId());
 
@@ -114,7 +114,7 @@ public class BatchController {
     /**
      * Gestisce l'abbandono di un job stale.
      */
-    private ResponseEntity<?> gestisciJobStale(JobExecution currentRunningJobExecution) {
+    private ResponseEntity<Object> gestisciJobStale(JobExecution currentRunningJobExecution) {
         log.warn("JobExecution {} rilevata come STALE. Procedo con abbandono e riavvio.",
                 currentRunningJobExecution.getId());
 
@@ -130,7 +130,7 @@ public class BatchController {
     /**
      * Restituisce la risposta quando il job è già in esecuzione.
      */
-    private ResponseEntity<Problem> restituisciJobGiaInEsecuzione(JobExecution currentRunningJobExecution) {
+    private ResponseEntity<Object> restituisciJobGiaInEsecuzione(JobExecution currentRunningJobExecution) {
         String runningClusterId = this.preventConcurrentJobLauncher
                 .getClusterIdFromExecution(currentRunningJobExecution);
 
@@ -149,7 +149,7 @@ public class BatchController {
      * Il job viene eseguito in un thread separato, permettendo al servizio REST
      * di restituire la risposta senza attendere la terminazione del batch.
      */
-    private ResponseEntity<Void> avviaJobAsincrono() {
+    private ResponseEntity<Object> avviaJobAsincrono() {
         JobParameters params = new JobParametersBuilder()
                 .addString(Costanti.GOVPAY_BATCH_JOB_ID, Costanti.FDR_ACQUISITION_JOB_NAME)
                 .addString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_WHEN, OffsetDateTime.now().toString())

@@ -78,7 +78,7 @@ class BatchControllerTest {
         when(jobLauncher.run(eq(fdrAcquisitionJob), any(JobParameters.class)))
                 .thenReturn(mockExecution);
 
-        ResponseEntity<?> response = batchController.eseguiJob(false);
+        ResponseEntity<Object> response = batchController.eseguiJob(false);
 
         assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
         assertNull(response.getBody());
@@ -98,7 +98,7 @@ class BatchControllerTest {
         when(jobLauncher.run(eq(fdrAcquisitionJob), any(JobParameters.class)))
                 .thenReturn(mockExecution);
 
-        ResponseEntity<?> response = batchController.eseguiJob(true);
+        ResponseEntity<Object> response = batchController.eseguiJob(true);
 
         assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
         assertNull(response.getBody());
@@ -116,7 +116,7 @@ class BatchControllerTest {
         when(preventConcurrentJobLauncher.getClusterIdFromExecution(runningExecution))
                 .thenReturn("OtherCluster");
 
-        ResponseEntity<?> response = batchController.eseguiJob(false);
+        ResponseEntity<Object> response = batchController.eseguiJob(false);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -141,7 +141,7 @@ class BatchControllerTest {
         when(jobLauncher.run(eq(fdrAcquisitionJob), any(JobParameters.class)))
                 .thenReturn(mockExecution);
 
-        ResponseEntity<?> response = batchController.eseguiJob(false);
+        ResponseEntity<Object> response = batchController.eseguiJob(false);
 
         assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
         verify(preventConcurrentJobLauncher).abandonStaleJobExecution(staleExecution);
@@ -157,7 +157,7 @@ class BatchControllerTest {
         when(preventConcurrentJobLauncher.abandonStaleJobExecution(staleExecution))
                 .thenReturn(false);
 
-        ResponseEntity<?> response = batchController.eseguiJob(false);
+        ResponseEntity<Object> response = batchController.eseguiJob(false);
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -179,7 +179,7 @@ class BatchControllerTest {
         when(jobLauncher.run(eq(fdrAcquisitionJob), any(JobParameters.class)))
                 .thenReturn(mockExecution);
 
-        ResponseEntity<?> response = batchController.eseguiJob(true);
+        ResponseEntity<Object> response = batchController.eseguiJob(true);
 
         assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
         verify(preventConcurrentJobLauncher).forceAbandonJobExecution(eq(runningExecution), anyString());
@@ -195,7 +195,7 @@ class BatchControllerTest {
         when(preventConcurrentJobLauncher.forceAbandonJobExecution(eq(runningExecution), anyString()))
                 .thenReturn(false);
 
-        ResponseEntity<?> response = batchController.eseguiJob(true);
+        ResponseEntity<Object> response = batchController.eseguiJob(true);
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -210,7 +210,7 @@ class BatchControllerTest {
         when(preventConcurrentJobLauncher.getCurrentRunningJobExecution(Costanti.FDR_ACQUISITION_JOB_NAME))
                 .thenThrow(new RuntimeException("Database connection error"));
 
-        ResponseEntity<?> response = batchController.eseguiJob(false);
+        ResponseEntity<Object> response = batchController.eseguiJob(false);
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -231,7 +231,7 @@ class BatchControllerTest {
                 .when(jobLauncher).run(eq(fdrAcquisitionJob), any(JobParameters.class));
 
         // La risposta deve comunque essere 202 perché l'esecuzione è asincrona
-        ResponseEntity<?> response = batchController.eseguiJob(false);
+        ResponseEntity<Object> response = batchController.eseguiJob(false);
 
         assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 
@@ -258,7 +258,7 @@ class BatchControllerTest {
                     return mockExecution;
                 });
 
-        ResponseEntity<?> response = batchController.eseguiJob(false);
+        ResponseEntity<Object> response = batchController.eseguiJob(false);
 
         assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 
