@@ -22,17 +22,25 @@ import java.net.http.HttpClient;
 @ConditionalOnProperty(name = "govpay.gde.enabled", havingValue = "true", matchIfMissing = false)
 public class GdeConfig {
 
-    @Value("${govpay.gde.base-url}")
+    @Value("${govpay.gde.base-url:}")
     private String baseUrl;
 
     /**
      * Creates the EventiApi bean for sending events to GDE.
+     * <p>
+     * If the base URL is not configured, a warning is logged and null is returned.
+     * GdeService handles null EventiApi gracefully.
      *
      * @param objectMapper Jackson ObjectMapper for JSON serialization
-     * @return EventiApi configured with base URL
+     * @return EventiApi configured with base URL, or null if not configured
      */
     @Bean("gdeEventiApi")
     public EventiApi gdeEventiApi(ObjectMapper objectMapper) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            log.warn("GDE è abilitato ma govpay.gde.base-url non è configurato. Gli eventi GDE non saranno inviati.");
+            return null;
+        }
+
         log.info("Initializing GDE EventiApi with base URL: {}", baseUrl);
 
         HttpClient.Builder builder = HttpClient.newBuilder();

@@ -325,18 +325,30 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 
     private void verificaImporto(Fr fr, Pagamento pagamento, Rendicontazione rendicontazione, List<String> anomalieRnd) {
         if (rendicontazione.getEsito() != null && rendicontazione.getEsito().intValue() == Costanti.PAYMENT_REVOKED) {
-            if (pagamento.getImportoRevocato().compareTo(Math.abs(rendicontazione.getImportoPagato().doubleValue())) != 0) {
+            Double importoRevocato = pagamento.getImportoRevocato();
+            if (importoRevocato == null) {
+                log.warn("Revoca [Dominio:{} Iuv:{} Iur:{} Indice:{}]: importoRevocato non disponibile nel pagamento",
+                         fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati());
+                return;
+            }
+            if (importoRevocato.compareTo(Math.abs(rendicontazione.getImportoPagato().doubleValue())) != 0) {
                 log.info("Revoca [Dominio:{} Iuv:{} Iur:{} Indice:{}] rendicontato con errore: l''importo rendicontato [{}] non corrisponde a quanto stornato [{}]",
-                         fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati(), rendicontazione.getImportoPagato().doubleValue(), pagamento.getImportoRevocato().doubleValue());
+                         fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati(), rendicontazione.getImportoPagato().doubleValue(), importoRevocato);
                 anomalieRnd.add(MessageFormat.format("{0}#L''importo rendicontato [{1}] non corrisponde a quanto stornato [{2}]",
-                                                  "007112", rendicontazione.getImportoPagato(), pagamento.getImportoRevocato().doubleValue()));
+                                                  "007112", rendicontazione.getImportoPagato(), importoRevocato));
             }
         } else {
-            if (pagamento.getImportoPagato().compareTo(rendicontazione.getImportoPagato()) != 0) {
+            Double importoPagato = pagamento.getImportoPagato();
+            if (importoPagato == null) {
+                log.warn("Pagamento [Dominio:{} Iuv:{} Iur:{} Indice:{}]: importoPagato non disponibile nel pagamento",
+                         fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati());
+                return;
+            }
+            if (importoPagato.compareTo(rendicontazione.getImportoPagato()) != 0) {
                 log.info("Pagamento [Dominio:{} Iuv:{} Iur:{} Indice:{}] rendicontato con errore: l''importo rendicontato [{}] non corrisponde a quanto pagato [{}]",
-                         fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati(), rendicontazione.getImportoPagato().doubleValue(), pagamento.getImportoRevocato().doubleValue());
+                         fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati(), rendicontazione.getImportoPagato().doubleValue(), importoPagato);
                 anomalieRnd.add(MessageFormat.format("{0}#L''importo rendicontato [{1}] non corrisponde a quanto pagato [{2}]",
-                                                  "007104", rendicontazione.getImportoPagato(), pagamento.getImportoPagato().doubleValue()));
+                                                  "007104", rendicontazione.getImportoPagato(), importoPagato));
             }
         }
     }
