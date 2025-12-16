@@ -92,25 +92,4 @@ public class Problem implements Serializable {
                 .build();
     }
 
-    /**
-     * Crea un Problem per richiesta non valida.
-     */
-    public static Problem badRequest(String detail) {
-        return Problem.builder()
-                .title("Richiesta non valida")
-                .status(400)
-                .detail(detail)
-                .build();
-    }
-
-    /**
-     * Crea un Problem per risorsa non trovata.
-     */
-    public static Problem notFound(String detail) {
-        return Problem.builder()
-                .title("Risorsa non trovata")
-                .status(404)
-                .detail(detail)
-                .build();
-    }
 }
