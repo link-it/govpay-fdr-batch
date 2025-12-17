@@ -95,8 +95,17 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
         log.info("--- STEP 2: ACQUISIZIONE HEADERS ---");
         log.info("Status: {}", stepExecution.getStatus());
         log.info("Domini processati: {}", stepExecution.getReadCount());
-        log.info("Flussi trovati e salvati: {}", stepExecution.getWriteCount());
-        log.info("Flussi skippati (già esistenti): {}", stepExecution.getWriteSkipCount());
+
+        // Leggi statistiche dal contesto dello step (impostate da FdrHeadersWriter)
+        int savedCount = stepExecution.getExecutionContext().getInt("headersSavedCount", 0);
+        int skippedFrCount = stepExecution.getExecutionContext().getInt("headersSkippedFrCount", 0);
+        int skippedFrTempCount = stepExecution.getExecutionContext().getInt("headersSkippedFrTempCount", 0);
+        int totalSkipped = skippedFrCount + skippedFrTempCount;
+
+        log.info("Flussi salvati in FR_TEMP: {}", savedCount);
+        log.info("Flussi skippati (già in FR): {}", skippedFrCount);
+        log.info("Flussi skippati (già in FR_TEMP): {}", skippedFrTempCount);
+        log.info("Totale flussi skippati: {}", totalSkipped);
         log.info("Errori: {}", stepExecution.getReadSkipCount() + stepExecution.getProcessSkipCount());
         long durationMs = Duration.between(stepExecution.getStartTime(), stepExecution.getEndTime()).toMillis();
         log.info("Durata: {} ms", durationMs);

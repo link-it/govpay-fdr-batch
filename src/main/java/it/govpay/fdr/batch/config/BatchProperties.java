@@ -13,11 +13,6 @@ import org.springframework.context.annotation.Configuration;
 public class BatchProperties {
 
     /**
-     * Cron expression for batch scheduling (default: every day at 2 AM)
-     */
-    private String cron = "0 0 2 * * ?";
-
-    /**
      * Thread pool size for parallel processing (Step 2)
      */
     private int threadPoolSize = 5;

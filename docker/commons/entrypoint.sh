@@ -217,8 +217,8 @@ case "${GOVPAY_FDR_BATCH_USA_CRON,,}" in
         log_info "Modalità deployment: SCHEDULER INTERNO (auto-schedulato)"
         SERVER_PORT=${SERVER_PORT:-10001}
 
-        # Conversione intervallo da minuti a millisecondi (default: 10 minuti = 600000 ms)
-        INTERVALLO_MINUTI=${GOVPAY_FDR_BATCH_INTERVALLO_CRON:-10}
+        # Conversione intervallo da minuti a millisecondi (default: 120 minuti = 2 ore)
+        INTERVALLO_MINUTI=${GOVPAY_FDR_BATCH_INTERVALLO_CRON:-120}
         SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING=$((INTERVALLO_MINUTI * 60 * 1000))
 
         export SERVER_PORT SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING

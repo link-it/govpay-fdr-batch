@@ -87,7 +87,7 @@ public class ScheduledJobRunner {
      * @throws JobParametersInvalidException se i parametri del job non sono validi
      */
     @Scheduled(
-        fixedDelayString = "${scheduler.fdrAcquisitionJob.fixedDelayString:600000}",
+        fixedDelayString = "${scheduler.fdrAcquisitionJob.fixedDelayString:7200000}",
         initialDelayString = "${scheduler.initialDelayString:1}"
     )
     public JobExecution runBatchFdrAcquisitionJob() throws JobExecutionAlreadyRunningException, JobRestartException,
