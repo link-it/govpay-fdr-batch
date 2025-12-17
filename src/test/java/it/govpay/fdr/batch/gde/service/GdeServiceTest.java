@@ -312,4 +312,26 @@ class GdeServiceTest {
         });
     }
 
+    @Test
+    void testInviaEventoWhenEventiApiIsNull() throws Exception {
+        // Given - GdeService with null EventiApi
+        GdeService gdeServiceNullApi = new GdeService(null, eventoFdrMapper, objectMapper, pagoPAProperties);
+        ReflectionTestUtils.setField(gdeServiceNullApi, "gdeEnabled", true);
+
+        NuovoEvento evento = new NuovoEvento();
+        evento.setTipoEvento("TEST_EVENT");
+
+        // When
+        gdeServiceNullApi.inviaEvento(evento);
+
+        // Then - should not throw exception, API should never be called
+        // Give time for async execution that should not happen
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        verify(eventiApi, never()).addEvento(any());
+    }
+
 }
