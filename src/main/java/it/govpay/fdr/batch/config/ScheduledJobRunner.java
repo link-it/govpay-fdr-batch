@@ -55,12 +55,13 @@ public class ScheduledJobRunner {
     /**
      * Esegue il job FDR Acquisition con i parametri necessari per la gestione multi-nodo.
      *
+     * @return JobExecution l'esecuzione del job
      * @throws JobExecutionAlreadyRunningException se il job è già in esecuzione
      * @throws JobRestartException se il job non può essere riavviato
      * @throws JobInstanceAlreadyCompleteException se l'istanza del job è già completata
      * @throws JobParametersInvalidException se i parametri del job non sono validi
      */
-    private void runFdrAcquisitionJob() throws JobExecutionAlreadyRunningException, JobRestartException,
+    private JobExecution runFdrAcquisitionJob() throws JobExecutionAlreadyRunningException, JobRestartException,
             JobInstanceAlreadyCompleteException, JobParametersInvalidException {
         JobParameters params = new JobParametersBuilder()
                 .addString(Costanti.GOVPAY_BATCH_JOB_ID, Costanti.FDR_ACQUISITION_JOB_NAME)
@@ -68,7 +69,7 @@ public class ScheduledJobRunner {
                 .addString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID, this.clusterId)
                 .toJobParameters();
 
-        jobLauncher.run(fdrAcquisitionJob, params);
+        return jobLauncher.run(fdrAcquisitionJob, params);
     }
 
     /**
@@ -86,10 +87,10 @@ public class ScheduledJobRunner {
      * @throws JobParametersInvalidException se i parametri del job non sono validi
      */
     @Scheduled(
-        fixedDelayString = "${scheduler.fdrAcquisitionJob.fixedDelayString:600000}",
+        fixedDelayString = "${scheduler.fdrAcquisitionJob.fixedDelayString:7200000}",
         initialDelayString = "${scheduler.initialDelayString:1}"
     )
-    public void runBatchFdrAcquisitionJob() throws JobExecutionAlreadyRunningException, JobRestartException,
+    public JobExecution runBatchFdrAcquisitionJob() throws JobExecutionAlreadyRunningException, JobRestartException,
             JobInstanceAlreadyCompleteException, JobParametersInvalidException {
         log.info("Esecuzione schedulata di {}", Costanti.FDR_ACQUISITION_JOB_NAME);
 
@@ -106,11 +107,11 @@ public class ScheduledJobRunner {
                 if (this.preventConcurrentJobLauncher.abandonStaleJobExecution(currentRunningJobExecution)) {
                     log.info("Job stale abbandonato con successo. Avvio nuova esecuzione.");
                     // Procedi con l'avvio di una nuova esecuzione
-                    runFdrAcquisitionJob();
+                    return runFdrAcquisitionJob();
                 } else {
                     log.error("Impossibile abbandonare il job stale. Uscita senza avviare nuova esecuzione.");
                 }
-                return;
+                return null;
             }
 
             // Job in esecuzione normale - estrai il clusterid dell'esecuzione corrente
@@ -123,9 +124,9 @@ public class ScheduledJobRunner {
                 log.warn("Il job {} è ancora in esecuzione sul nodo corrente ({}). Uscita.",
                     Costanti.FDR_ACQUISITION_JOB_NAME, runningClusterId);
             }
-            return;
+            return null;
         }
 
-        runFdrAcquisitionJob();
+        return runFdrAcquisitionJob();
     }
 }

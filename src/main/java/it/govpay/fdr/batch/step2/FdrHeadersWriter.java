@@ -1,14 +1,17 @@
 package it.govpay.fdr.batch.step2;
 
+import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.annotation.BeforeStep;
+import org.springframework.batch.item.Chunk;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
 import it.govpay.fdr.batch.dto.FdrHeadersBatch;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.item.Chunk;
-import org.springframework.batch.item.ItemWriter;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Writer to save FDR headers to FR_TEMP table and update domain last acquisition date
@@ -17,12 +20,26 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class FdrHeadersWriter implements ItemWriter<FdrHeadersBatch> {
 
+    public static final String STATS_SAVED_COUNT = "headersSavedCount";
+    public static final String STATS_SKIPPED_FR_COUNT = "headersSkippedFrCount";
+    public static final String STATS_SKIPPED_FR_TEMP_COUNT = "headersSkippedFrTempCount";
+
     private final FrTempRepository frTempRepository;
     private final FrRepository frRepository;
+    private StepExecution stepExecution;
 
     public FdrHeadersWriter(FrTempRepository frTempRepository, FrRepository frRepository) {
         this.frTempRepository = frTempRepository;
         this.frRepository = frRepository;
+    }
+
+    @BeforeStep
+    public void beforeStep(StepExecution stepExecution) {
+        this.stepExecution = stepExecution;
+        // Inizializza i contatori nel contesto
+        stepExecution.getExecutionContext().putInt(STATS_SAVED_COUNT, 0);
+        stepExecution.getExecutionContext().putInt(STATS_SKIPPED_FR_COUNT, 0);
+        stepExecution.getExecutionContext().putInt(STATS_SKIPPED_FR_TEMP_COUNT, 0);
     }
 
     @Override
@@ -37,8 +54,23 @@ public class FdrHeadersWriter implements ItemWriter<FdrHeadersBatch> {
                 processHeader(batch.getCodDominio(), header, stats);
             }
 
+            // Aggiorna le statistiche nel contesto dello step
+            updateStepContextStats(stats);
+
             log.info("Dominio {}: salvati {} nuovi FDR, saltati {} già in FR, saltati {} già in FR_TEMP",
                 batch.getCodDominio(), stats.savedCount, stats.alreadyInFrCount, stats.alreadyInFrTempCount);
+        }
+    }
+
+    private void updateStepContextStats(HeaderProcessingStats stats) {
+        if (stepExecution != null) {
+            int currentSaved = stepExecution.getExecutionContext().getInt(STATS_SAVED_COUNT, 0);
+            int currentSkippedFr = stepExecution.getExecutionContext().getInt(STATS_SKIPPED_FR_COUNT, 0);
+            int currentSkippedFrTemp = stepExecution.getExecutionContext().getInt(STATS_SKIPPED_FR_TEMP_COUNT, 0);
+
+            stepExecution.getExecutionContext().putInt(STATS_SAVED_COUNT, currentSaved + stats.savedCount);
+            stepExecution.getExecutionContext().putInt(STATS_SKIPPED_FR_COUNT, currentSkippedFr + stats.alreadyInFrCount);
+            stepExecution.getExecutionContext().putInt(STATS_SKIPPED_FR_TEMP_COUNT, currentSkippedFrTemp + stats.alreadyInFrTempCount);
         }
     }
 

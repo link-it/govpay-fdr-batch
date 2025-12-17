@@ -67,13 +67,21 @@ public class GdeService {
             return;
         }
 
+        if (eventiApi == null) {
+            log.debug("EventiApi non configurato, salto evento: {}", nuovoEvento.getTipoEvento());
+            return;
+        }
+
         CompletableFuture.runAsync(() -> {
             try {
                 eventiApi.addEvento(nuovoEvento);
-                log.info("Evento {} inviato con successo al GDE", nuovoEvento.getTipoEvento());
+                log.debug("Evento {} inviato con successo al GDE", nuovoEvento.getTipoEvento());
             } catch (Exception ex) {
-                log.error("Fallito l'invio dell'evento {} al GDE: {}",
-                        nuovoEvento.getTipoEvento(), ex.getMessage(), ex);
+                // Log come warning per non interrompere il batch
+                // L'invio eventi GDE è best-effort: se fallisce, il batch continua
+                log.warn("Impossibile inviare evento {} al GDE (il batch continua normalmente): {}",
+                        nuovoEvento.getTipoEvento(), ex.getMessage());
+                log.debug("Dettaglio errore GDE:", ex);
             }
         });
     }

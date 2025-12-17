@@ -1,5 +1,6 @@
 package it.govpay.fdr.batch.step2;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -19,9 +20,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.JobInstance;
+import org.springframework.batch.core.JobParameters;
+import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.item.Chunk;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.springframework.batch.item.ExecutionContext;
 
 import it.govpay.fdr.batch.dto.FdrHeadersBatch;
 import it.govpay.fdr.batch.entity.FrTemp;
@@ -278,5 +282,174 @@ class FdrHeadersWriterTest {
             .dataOraFlusso(Instant.now())
             .dataOraPubblicazione(Instant.now())
             .build();
+    }
+
+    // ============ Tests for beforeStep and statistics tracking ============
+
+    @Test
+    @DisplayName("beforeStep should initialize counters in execution context")
+    void testBeforeStepInitializesCounters() {
+        // Given
+        JobInstance jobInstance = new JobInstance(1L, "testJob");
+        JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
+        StepExecution stepExecution = new StepExecution("testStep", jobExecution);
+        stepExecution.setExecutionContext(new ExecutionContext());
+
+        // When
+        writer.beforeStep(stepExecution);
+
+        // Then
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SAVED_COUNT)).isZero();
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SKIPPED_FR_COUNT)).isZero();
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SKIPPED_FR_TEMP_COUNT)).isZero();
+    }
+
+    @Test
+    @DisplayName("Should update statistics correctly when saving new headers")
+    void testStatisticsForNewHeaders() throws Exception {
+        // Given
+        JobInstance jobInstance = new JobInstance(1L, "testJob");
+        JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
+        StepExecution stepExecution = new StepExecution("testStep", jobExecution);
+        stepExecution.setExecutionContext(new ExecutionContext());
+        writer.beforeStep(stepExecution);
+
+        String codDominio = "12345678901";
+        List<FdrHeadersBatch.FdrHeader> headers = List.of(
+            createHeader("FDR-001", "PSP001", 1L),
+            createHeader("FDR-002", "PSP001", 1L)
+        );
+        FdrHeadersBatch batch = FdrHeadersBatch.builder()
+            .codDominio(codDominio)
+            .headers(headers)
+            .build();
+
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+
+        // When
+        writer.write(new Chunk<>(List.of(batch)));
+
+        // Then
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SAVED_COUNT)).isEqualTo(2);
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SKIPPED_FR_COUNT)).isZero();
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SKIPPED_FR_TEMP_COUNT)).isZero();
+    }
+
+    @Test
+    @DisplayName("Should update statistics correctly when skipping headers in FR")
+    void testStatisticsForSkippedInFr() throws Exception {
+        // Given
+        JobInstance jobInstance = new JobInstance(1L, "testJob");
+        JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
+        StepExecution stepExecution = new StepExecution("testStep", jobExecution);
+        stepExecution.setExecutionContext(new ExecutionContext());
+        writer.beforeStep(stepExecution);
+
+        String codDominio = "12345678901";
+        FdrHeadersBatch batch = FdrHeadersBatch.builder()
+            .codDominio(codDominio)
+            .headers(List.of(createHeader("FDR-001", "PSP001", 1L)))
+            .build();
+
+        // Already exists in FR
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(true);
+
+        // When
+        writer.write(new Chunk<>(List.of(batch)));
+
+        // Then
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SAVED_COUNT)).isZero();
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SKIPPED_FR_COUNT)).isEqualTo(1);
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SKIPPED_FR_TEMP_COUNT)).isZero();
+    }
+
+    @Test
+    @DisplayName("Should update statistics correctly when skipping headers in FR_TEMP")
+    void testStatisticsForSkippedInFrTemp() throws Exception {
+        // Given
+        JobInstance jobInstance = new JobInstance(1L, "testJob");
+        JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
+        StepExecution stepExecution = new StepExecution("testStep", jobExecution);
+        stepExecution.setExecutionContext(new ExecutionContext());
+        writer.beforeStep(stepExecution);
+
+        String codDominio = "12345678901";
+        FdrHeadersBatch batch = FdrHeadersBatch.builder()
+            .codDominio(codDominio)
+            .headers(List.of(createHeader("FDR-001", "PSP001", 1L)))
+            .build();
+
+        // Not in FR, but already in FR_TEMP
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(true);
+
+        // When
+        writer.write(new Chunk<>(List.of(batch)));
+
+        // Then
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SAVED_COUNT)).isZero();
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SKIPPED_FR_COUNT)).isZero();
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SKIPPED_FR_TEMP_COUNT)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Should accumulate statistics across multiple writes")
+    void testStatisticsAccumulation() throws Exception {
+        // Given
+        JobInstance jobInstance = new JobInstance(1L, "testJob");
+        JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
+        StepExecution stepExecution = new StepExecution("testStep", jobExecution);
+        stepExecution.setExecutionContext(new ExecutionContext());
+        writer.beforeStep(stepExecution);
+
+        String codDominio = "12345678901";
+
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+
+        // When - write multiple chunks
+        FdrHeadersBatch batch1 = FdrHeadersBatch.builder()
+            .codDominio(codDominio)
+            .headers(List.of(createHeader("FDR-001", "PSP001", 1L)))
+            .build();
+        writer.write(new Chunk<>(List.of(batch1)));
+
+        FdrHeadersBatch batch2 = FdrHeadersBatch.builder()
+            .codDominio(codDominio)
+            .headers(List.of(createHeader("FDR-002", "PSP001", 1L)))
+            .build();
+        writer.write(new Chunk<>(List.of(batch2)));
+
+        // Then
+        assertThat(stepExecution.getExecutionContext().getInt(FdrHeadersWriter.STATS_SAVED_COUNT)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Should handle write without beforeStep being called")
+    void testWriteWithoutBeforeStep() throws Exception {
+        // Given - writer without beforeStep called
+        FdrHeadersWriter writerNoStep = new FdrHeadersWriter(frTempRepository, frRepository);
+
+        when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+        when(frTempRepository.existsByCodDominioAndCodFlussoAndIdPspAndRevisione(any(), any(), any(), any()))
+            .thenReturn(false);
+
+        FdrHeadersBatch batch = FdrHeadersBatch.builder()
+            .codDominio("12345678901")
+            .headers(List.of(createHeader("FDR-001", "PSP001", 1L)))
+            .build();
+
+        // When & Then - should not throw
+        writerNoStep.write(new Chunk<>(List.of(batch)));
+        verify(frTempRepository, times(1)).save(any(FrTemp.class));
     }
 }
