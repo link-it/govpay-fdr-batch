@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,13 +52,13 @@ public class Fr {
     private String iur;
 
     @Column(name = "data_ora_flusso")
-    private Instant dataOraFlusso;
+    private LocalDateTime dataOraFlusso;
 
     @Column(name = "data_regolamento")
-    private Instant dataRegolamento;
+    private LocalDateTime dataRegolamento;
 
     @Column(name = "data_acquisizione")
-    private Instant dataAcquisizione;
+    private LocalDateTime dataAcquisizione;
 
     @Column(name = "numero_pagamenti")
     private Long numeroPagamenti;
@@ -76,10 +76,10 @@ public class Fr {
     private String ragioneSocialeDominio;
 
     @Column(name = "data_ora_pubblicazione")
-    private Instant dataOraPubblicazione;
+    private LocalDateTime dataOraPubblicazione;
 
     @Column(name = "data_ora_aggiornamento")
-    private Instant dataOraAggiornamento;
+    private LocalDateTime dataOraAggiornamento;
 
     @Column(name = "revisione", nullable = false)
     private Long revisione;
@@ -97,7 +97,7 @@ public class Fr {
 
     @PrePersist
     protected void onCreate() {
-        dataAcquisizione = Instant.now();
+        dataAcquisizione = LocalDateTime.now();
     }
 
     public void addRendicontazione(Rendicontazione rendicontazione) {

@@ -8,7 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,7 +56,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should write all headers to FR_TEMP")
-    void testWriteMultipleHeaders() throws Exception {
+    void testWriteMultipleHeaders() {
         // Given: Batch with 3 headers (all new)
         String codDominio = "12345678901";
         List<FdrHeadersBatch.FdrHeader> headers = new ArrayList<>();
@@ -87,7 +87,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should skip duplicate headers")
-    void testWriteSkipsDuplicates() throws Exception {
+    void testWriteSkipsDuplicates() {
         // Given: Batch with 3 headers (2 new, 1 duplicate)
         String codDominio = "12345678901";
         List<FdrHeadersBatch.FdrHeader> headers = new ArrayList<>();
@@ -123,7 +123,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should write multiple batches in single chunk")
-    void testWriteMultipleBatches() throws Exception {
+    void testWriteMultipleBatches() {
         // Given: Chunk with 2 batches
         FdrHeadersBatch batch1 = FdrHeadersBatch.builder()
             .codDominio("12345678901")
@@ -151,14 +151,14 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should correctly map header fields to FrTemp entity")
-    void testFieldMapping() throws Exception {
+    void testFieldMapping() {
         // Given: Single header with all fields
         String codDominio = "12345678901";
         String codFlusso = "FDR-001";
         String idPsp = "PSP001";
         Long revisione = 1L;
-        Instant dataOraFlusso = Instant.parse("2025-01-27T10:30:00Z");
-        Instant dataOraPubblicazione = Instant.parse("2025-01-27T11:00:00Z");
+        LocalDateTime dataOraFlusso = LocalDateTime.parse("2025-01-27T10:30:00");
+        LocalDateTime dataOraPubblicazione = LocalDateTime.parse("2025-01-27T11:00:00");
 
         FdrHeadersBatch.FdrHeader header = FdrHeadersBatch.FdrHeader.builder()
             .codFlusso(codFlusso)
@@ -197,7 +197,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should handle empty chunk gracefully")
-    void testWriteEmptyChunk() throws Exception {
+    void testWriteEmptyChunk() {
         // Given: Empty chunk
         Chunk<FdrHeadersBatch> chunk = new Chunk<>();
 
@@ -210,7 +210,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should handle batch with empty headers list")
-    void testWriteBatchWithEmptyHeaders() throws Exception {
+    void testWriteBatchWithEmptyHeaders() {
         // Given: Batch with empty headers list
         FdrHeadersBatch batch = FdrHeadersBatch.builder()
             .codDominio("12345678901")
@@ -228,7 +228,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should skip headers already present in FR table")
-    void testWriteSkipsHeadersAlreadyInFr() throws Exception {
+    void testWriteSkipsHeadersAlreadyInFr() {
         // Given: Batch with 3 headers (1 new, 1 already in FR, 1 already in FR_TEMP)
         String codDominio = "12345678901";
         List<FdrHeadersBatch.FdrHeader> headers = new ArrayList<>();
@@ -279,8 +279,8 @@ class FdrHeadersWriterTest {
             .codFlusso(codFlusso)
             .idPsp(idPsp)
             .revision(revision)
-            .dataOraFlusso(Instant.now())
-            .dataOraPubblicazione(Instant.now())
+            .dataOraFlusso(LocalDateTime.now())
+            .dataOraPubblicazione(LocalDateTime.now())
             .build();
     }
 
@@ -306,7 +306,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should update statistics correctly when saving new headers")
-    void testStatisticsForNewHeaders() throws Exception {
+    void testStatisticsForNewHeaders() {
         // Given
         JobInstance jobInstance = new JobInstance(1L, "testJob");
         JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
@@ -340,7 +340,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should update statistics correctly when skipping headers in FR")
-    void testStatisticsForSkippedInFr() throws Exception {
+    void testStatisticsForSkippedInFr() {
         // Given
         JobInstance jobInstance = new JobInstance(1L, "testJob");
         JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
@@ -369,7 +369,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should update statistics correctly when skipping headers in FR_TEMP")
-    void testStatisticsForSkippedInFrTemp() throws Exception {
+    void testStatisticsForSkippedInFrTemp() {
         // Given
         JobInstance jobInstance = new JobInstance(1L, "testJob");
         JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
@@ -400,7 +400,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should accumulate statistics across multiple writes")
-    void testStatisticsAccumulation() throws Exception {
+    void testStatisticsAccumulation() {
         // Given
         JobInstance jobInstance = new JobInstance(1L, "testJob");
         JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
@@ -434,7 +434,7 @@ class FdrHeadersWriterTest {
 
     @Test
     @DisplayName("Should handle write without beforeStep being called")
-    void testWriteWithoutBeforeStep() throws Exception {
+    void testWriteWithoutBeforeStep() {
         // Given - writer without beforeStep called
         FdrHeadersWriter writerNoStep = new FdrHeadersWriter(frTempRepository, frRepository);
 

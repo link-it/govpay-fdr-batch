@@ -3,7 +3,7 @@ package it.govpay.fdr.batch.dto;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -21,7 +21,7 @@ public class FdrHeadersBatch {
         private String codFlusso;
         private String idPsp;
         private Long revision;
-        private Instant dataOraFlusso;
-        private Instant dataOraPubblicazione;
+        private LocalDateTime dataOraFlusso;
+        private LocalDateTime dataOraPubblicazione;
     }
 }

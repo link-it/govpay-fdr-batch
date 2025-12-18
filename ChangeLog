@@ -1,3 +1,23 @@
+2025-12-17  Giuliano Pintori <pintori@link.it>
+
+	* Avanzamento versione 1.0.2
+
+2025-12-17  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità - Gestione centralizzata timezone
+	Implementata gestione centralizzata del timezone configurabile tramite property 'spring.jackson.time-zone'.
+	Il timezone configurato (default: Europe/Rome) viene utilizzato in tutta l'applicazione:
+	- Configurazione JVM default timezone all'avvio tramite TimezoneConfig
+	- Bean ZoneId iniettato in tutti i componenti che gestiscono date
+	- Conversione OffsetDateTime -> LocalDateTime nel timezone configurato per le API pagoPA
+	- Tutte le date vengono salvate nel database nel timezone locale invece che UTC
+	Modificate le entità per utilizzare LocalDateTime invece di Instant:
+	- Fr: dataOraFlusso, dataRegolamento, dataAcquisizione, dataOraPubblicazione, dataOraAggiornamento
+	- FrTemp: dataOraFlusso, dataOraPubblicazione, dataOraAggiornamento
+	- Rendicontazione: data
+	Modificati i processor e writer per la corretta conversione delle date nel timezone configurato.
+
 2025-12-12  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.0.1

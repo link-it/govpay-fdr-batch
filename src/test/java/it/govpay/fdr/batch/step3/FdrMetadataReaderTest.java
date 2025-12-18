@@ -5,7 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -94,7 +94,7 @@ class FdrMetadataReaderTest {
                 .codFlusso("FDR-" + String.format("%03d", i))
                 .idPsp("PSP001")
                 .revisione(1L)
-                .dataOraPubblicazione(Instant.now())
+                .dataOraPubblicazione(LocalDateTime.now())
                 .build();
             flussi.add(frTemp);
         }
@@ -180,7 +180,7 @@ class FdrMetadataReaderTest {
                 .codFlusso("FDR-" + String.format("%05d", i))
                 .idPsp("PSP001")
                 .revisione(1L)
-                .dataOraPubblicazione(Instant.now())
+                .dataOraPubblicazione(LocalDateTime.now())
                 .build();
             list.add(frTemp);
         }

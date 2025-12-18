@@ -9,8 +9,9 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -21,9 +22,11 @@ import java.util.List;
 public class FdrHeadersProcessor implements ItemProcessor<DominioProcessingContext, FdrHeadersBatch> {
 
     private final FdrApiService fdrApiService;
+    private final ZoneId applicationZoneId;
 
-    public FdrHeadersProcessor(FdrApiService fdrApiService) {
+    public FdrHeadersProcessor(FdrApiService fdrApiService, ZoneId applicationZoneId) {
         this.fdrApiService = fdrApiService;
+        this.applicationZoneId = applicationZoneId;
     }
 
     private FdrHeadersBatch.FdrHeader flowConverter(FlowByPSP flow) {
@@ -31,8 +34,8 @@ public class FdrHeadersProcessor implements ItemProcessor<DominioProcessingConte
                 .codFlusso(flow.getFdr())
                 .idPsp(flow.getPspId())
                 .revision(flow.getRevision())
-                .dataOraFlusso(convertToInstant(flow.getFlowDate()))
-                .dataOraPubblicazione(convertToInstant(flow.getPublished()))
+                .dataOraFlusso(convertToLocalDateTime(flow.getFlowDate()))
+                .dataOraPubblicazione(convertToLocalDateTime(flow.getPublished()))
                 .build();
     }
     @Override
@@ -68,10 +71,10 @@ public class FdrHeadersProcessor implements ItemProcessor<DominioProcessingConte
         }
     }
 
-    private Instant convertToInstant(OffsetDateTime offsetDateTime) {
+    private LocalDateTime convertToLocalDateTime(OffsetDateTime offsetDateTime) {
         if (offsetDateTime == null) {
             return null;
         }
-        return offsetDateTime.toInstant();
+        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime();
     }
 }

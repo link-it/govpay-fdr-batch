@@ -1,12 +1,18 @@
 package it.govpay.fdr.batch.step3;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -32,13 +38,15 @@ class FdrMetadataProcessorTest {
 
     @Mock
     private FdrApiService fdrApiService;
+    
+    private static final ZoneId ZONE_ID = ZoneId.of("Europe/Rome");
 
     private FdrMetadataProcessor processor;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        processor = new FdrMetadataProcessor(fdrApiService);
+        processor = new FdrMetadataProcessor(fdrApiService, ZONE_ID);
     }
 
     private FrTemp createFrTemp() {
@@ -215,7 +223,7 @@ class FdrMetadataProcessorTest {
         FrTemp frTemp = createFrTemp();
         SingleFlowResponse flowResponse = new SingleFlowResponse();
 
-        OffsetDateTime testDate = OffsetDateTime.of(2025, 12, 4, 10, 30, 0, 0, ZoneOffset.UTC);
+        OffsetDateTime testDate = OffsetDateTime.of(2025, 12, 4, 10, 30, 0, 0, ZONE_ID.getRules().getOffset(LocalDateTime.now()));
         flowResponse.setFdrDate(testDate);
         flowResponse.setPublished(testDate);
         flowResponse.setUpdated(testDate);
@@ -229,9 +237,9 @@ class FdrMetadataProcessorTest {
         FdrCompleteData result = processor.process(frTemp);
 
         assertNotNull(result);
-        assertEquals(testDate.toInstant(), result.getDataOraFlusso());
-        assertEquals(testDate.toInstant(), result.getDataOraPubblicazione());
-        assertEquals(testDate.toInstant(), result.getDataOraAggiornamento());
+        assertEquals(testDate.toLocalDateTime(), result.getDataOraFlusso());
+        assertEquals(testDate.toLocalDateTime(), result.getDataOraPubblicazione());
+        assertEquals(testDate.toLocalDateTime(), result.getDataOraAggiornamento());
     }
 
     @Test
@@ -252,14 +260,14 @@ class FdrMetadataProcessorTest {
         FdrCompleteData result = processor.process(frTemp);
 
         assertNotNull(result);
-        Instant expected = testDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+        LocalDateTime expected = testDate.atStartOfDay(ZoneOffset.UTC).toLocalDateTime();
         assertEquals(expected, result.getDataRegolamento());
     }
 
     @Test
     @DisplayName("Test FdrCompleteData builder")
     void testFdrCompleteDataBuilder() {
-        Instant now = Instant.now();
+    	LocalDateTime now = LocalDateTime.now();
 
         FdrCompleteData data = FdrCompleteData.builder()
             .frTempId(1L)
@@ -313,7 +321,7 @@ class FdrMetadataProcessorTest {
             null, null, null, null, null, null, null, null, null, null, null
         );
 
-        Instant now = Instant.now();
+        LocalDateTime now = LocalDateTime.now();
 
         data.setFrTempId(1L);
         data.setCodPsp("PSP_01");

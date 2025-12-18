@@ -1,8 +1,12 @@
 package it.govpay.fdr.batch.dto;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,7 +27,7 @@ class FrTempBatchTest {
             .codFlusso(codFlusso)
             .codPsp("AGID_01")
             .idPsp("PSP_12345")
-            .dataOraFlusso(Instant.now())
+            .dataOraFlusso(LocalDateTime.now())
             .build();
     }
 
@@ -151,7 +155,7 @@ class FrTempBatchTest {
     void testEqualsWithNull() {
         FrTempBatch batch = new FrTempBatch("12345678901", new ArrayList<>());
 
-        assertNotEquals(batch, null);
+        assertNotEquals(null, batch);
     }
 
     @Test

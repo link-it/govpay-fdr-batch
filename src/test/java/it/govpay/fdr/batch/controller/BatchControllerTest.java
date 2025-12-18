@@ -1,9 +1,12 @@
 package it.govpay.fdr.batch.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -12,6 +15,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.awaitility.Awaitility;
@@ -25,7 +31,9 @@ import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobInstance;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -39,20 +47,28 @@ class BatchControllerTest {
     private JobLauncher jobLauncher;
 
     @Mock
+    private JobExplorer jobExplorer;
+
+    @Mock
     private PreventConcurrentJobLauncher preventConcurrentJobLauncher;
 
     @Mock
     private Job fdrAcquisitionJob;
 
+    @Mock
+    private Environment environment;
+
     private BatchController batchController;
 
     private static final String CLUSTER_ID = "TestCluster";
+    private static final ZoneId ZONE_ID = ZoneId.of("Europe/Rome");
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        batchController = new BatchController(jobLauncher, preventConcurrentJobLauncher, fdrAcquisitionJob);
+        batchController = new BatchController(jobLauncher, jobExplorer, preventConcurrentJobLauncher, fdrAcquisitionJob, environment, ZONE_ID);
         ReflectionTestUtils.setField(batchController, "clusterId", CLUSTER_ID);
+        ReflectionTestUtils.setField(batchController, "schedulerIntervalMillis", 7200000L);
     }
 
     private JobExecution createJobExecution(String clusterId, BatchStatus status) {
@@ -165,7 +181,7 @@ class BatchControllerTest {
         assertEquals(503, problem.getStatus());
     }
 
-    // ============ Test forzaEsecuzione=true ============
+    // ============ Test force=true ============
 
     @Test
     void whenForzaEsecuzioneAndJobRunning_thenForceAbandonAndReturns202Accepted() throws Exception {
@@ -265,5 +281,170 @@ class BatchControllerTest {
         Awaitility.await()
                 .atMost(2, TimeUnit.SECONDS)
                 .untilAsserted(() -> verify(jobLauncher).run(eq(fdrAcquisitionJob), any(JobParameters.class)));
+    }
+
+    // ============ Test endpoint /status ============
+
+    @Test
+    void whenGetStatus_andNoJobRunning_thenReturnsNotRunning() {
+        when(preventConcurrentJobLauncher.getCurrentRunningJobExecution(Costanti.FDR_ACQUISITION_JOB_NAME))
+                .thenReturn(null);
+
+        ResponseEntity<BatchStatusInfo> response = batchController.getStatus();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertFalse(response.getBody().isRunning());
+        assertNull(response.getBody().getExecutionId());
+    }
+
+    @Test
+    void whenGetStatus_andJobRunning_thenReturnsRunningStatus() {
+        JobExecution runningExecution = createJobExecution(CLUSTER_ID, BatchStatus.STARTED);
+        when(preventConcurrentJobLauncher.getCurrentRunningJobExecution(Costanti.FDR_ACQUISITION_JOB_NAME))
+                .thenReturn(runningExecution);
+        when(preventConcurrentJobLauncher.getClusterIdFromExecution(runningExecution))
+                .thenReturn(CLUSTER_ID);
+
+        ResponseEntity<BatchStatusInfo> response = batchController.getStatus();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isRunning());
+        assertEquals(1L, response.getBody().getExecutionId());
+        assertEquals(CLUSTER_ID, response.getBody().getClusterId());
+        assertEquals("STARTED", response.getBody().getStatus());
+        assertNotNull(response.getBody().getRunningSeconds());
+    }
+
+    // ============ Test endpoint /lastExecution ============
+
+    @Test
+    void whenGetLastExecution_andNoExecutions_thenReturnsEmptyInfo() {
+        when(jobExplorer.getJobInstances(Costanti.FDR_ACQUISITION_JOB_NAME, 0, 10))
+                .thenReturn(Collections.emptyList());
+
+        ResponseEntity<LastExecutionInfo> response = batchController.getLastExecution();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertNull(response.getBody().getExecutionId());
+    }
+
+    @Test
+    void whenGetLastExecution_andCompletedExecutionExists_thenReturnsLastExecution() {
+        JobInstance jobInstance = new JobInstance(1L, Costanti.FDR_ACQUISITION_JOB_NAME);
+        JobExecution completedExecution = createJobExecution(CLUSTER_ID, BatchStatus.COMPLETED);
+        completedExecution.setEndTime(LocalDateTime.now());
+
+        when(jobExplorer.getJobInstances(Costanti.FDR_ACQUISITION_JOB_NAME, 0, 10))
+                .thenReturn(List.of(jobInstance));
+        when(jobExplorer.getJobExecutions(jobInstance))
+                .thenReturn(List.of(completedExecution));
+        when(preventConcurrentJobLauncher.getClusterIdFromExecution(completedExecution))
+                .thenReturn(CLUSTER_ID);
+
+        ResponseEntity<LastExecutionInfo> response = batchController.getLastExecution();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1L, response.getBody().getExecutionId());
+        assertEquals(CLUSTER_ID, response.getBody().getClusterId());
+        assertEquals("COMPLETED", response.getBody().getStatus());
+        assertNotNull(response.getBody().getDurationSeconds());
+    }
+
+    @Test
+    void whenGetLastExecution_andOnlyRunningExecutions_thenReturnsEmptyInfo() {
+        JobInstance jobInstance = new JobInstance(1L, Costanti.FDR_ACQUISITION_JOB_NAME);
+        JobExecution runningExecution = createJobExecution(CLUSTER_ID, BatchStatus.STARTED);
+
+        when(jobExplorer.getJobInstances(Costanti.FDR_ACQUISITION_JOB_NAME, 0, 10))
+                .thenReturn(List.of(jobInstance));
+        when(jobExplorer.getJobExecutions(jobInstance))
+                .thenReturn(List.of(runningExecution));
+
+        ResponseEntity<LastExecutionInfo> response = batchController.getLastExecution();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertNull(response.getBody().getExecutionId());
+    }
+
+    // ============ Test endpoint /nextExecution ============
+
+    @Test
+    void whenGetNextExecution_andCronMode_thenReturnsCronInfo() {
+        when(environment.matchesProfiles("cron")).thenReturn(true);
+
+        ResponseEntity<NextExecutionInfo> response = batchController.getNextExecution();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("cron", response.getBody().getSchedulingMode());
+        assertNotNull(response.getBody().getMessage());
+        assertNull(response.getBody().getNextExecutionTime());
+    }
+
+    @Test
+    void whenGetNextExecution_andSchedulerMode_andNoExecutions_thenReturnsImmediateExecution() {
+        when(environment.matchesProfiles("cron")).thenReturn(false);
+        when(jobExplorer.getJobInstances(Costanti.FDR_ACQUISITION_JOB_NAME, 0, 5))
+                .thenReturn(Collections.emptyList());
+
+        ResponseEntity<NextExecutionInfo> response = batchController.getNextExecution();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("scheduler", response.getBody().getSchedulingMode());
+        assertNotNull(response.getBody().getNextExecutionTime());
+        assertEquals(7200000L, response.getBody().getIntervalMillis());
+        assertEquals("2 ore", response.getBody().getIntervalFormatted());
+    }
+
+    @Test
+    void whenGetNextExecution_andSchedulerMode_andPreviousExecution_thenCalculatesNextTime() {
+        JobInstance jobInstance = new JobInstance(1L, Costanti.FDR_ACQUISITION_JOB_NAME);
+        JobExecution completedExecution = createJobExecution(CLUSTER_ID, BatchStatus.COMPLETED);
+        completedExecution.setEndTime(LocalDateTime.now().minusHours(1));
+
+        when(environment.matchesProfiles("cron")).thenReturn(false);
+        when(jobExplorer.getJobInstances(Costanti.FDR_ACQUISITION_JOB_NAME, 0, 5))
+                .thenReturn(List.of(jobInstance));
+        when(jobExplorer.getJobExecutions(jobInstance))
+                .thenReturn(List.of(completedExecution));
+
+        ResponseEntity<NextExecutionInfo> response = batchController.getNextExecution();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("scheduler", response.getBody().getSchedulingMode());
+        assertNotNull(response.getBody().getLastCompletedTime());
+        assertEquals(7200000L, response.getBody().getIntervalMillis());
+    }
+
+    @Test
+    void whenGetNextExecution_andJobCurrentlyRunning_thenNextTimeIsNull() {
+        JobInstance jobInstance = new JobInstance(1L, Costanti.FDR_ACQUISITION_JOB_NAME);
+        JobExecution completedExecution = createJobExecution(CLUSTER_ID, BatchStatus.COMPLETED);
+        // Set end time far in the past so next execution would be in the past
+        completedExecution.setEndTime(LocalDateTime.now().minusHours(5));
+
+        JobExecution runningExecution = createJobExecution(CLUSTER_ID, BatchStatus.STARTED);
+
+        when(environment.matchesProfiles("cron")).thenReturn(false);
+        when(jobExplorer.getJobInstances(Costanti.FDR_ACQUISITION_JOB_NAME, 0, 5))
+                .thenReturn(List.of(jobInstance));
+        when(jobExplorer.getJobExecutions(jobInstance))
+                .thenReturn(List.of(completedExecution));
+        when(preventConcurrentJobLauncher.getCurrentRunningJobExecution(Costanti.FDR_ACQUISITION_JOB_NAME))
+                .thenReturn(runningExecution);
+
+        ResponseEntity<NextExecutionInfo> response = batchController.getNextExecution();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("scheduler", response.getBody().getSchedulingMode());
+        assertNull(response.getBody().getNextExecutionTime());
     }
 }

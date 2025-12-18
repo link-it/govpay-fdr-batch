@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -479,16 +478,16 @@ class FdrAnomaliesIntegrationTest {
             .codPsp(PSP_ID)
             .codFlusso(FDR_ID)
             .stato("ACQUISITO")
-            .dataOraFlusso(response.getFdrDate().toInstant())
-            .dataRegolamento(response.getRegulationDate().atStartOfDay().toInstant(ZoneOffset.UTC))
+            .dataOraFlusso(response.getFdrDate().toLocalDateTime())
+            .dataRegolamento(response.getRegulationDate().atStartOfDay())
             .numeroPagamenti(response.getTotPayments())
             .importoTotalePagamenti(response.getSumPayments())
             .codBicRiversamento(response.getBicCodePouringBank())
             .iur(response.getRegulation())
             .ragioneSocialePsp(response.getSender() != null ? response.getSender().getPspName() : null)
             .ragioneSocialeDominio(response.getReceiver() != null ? response.getReceiver().getOrganizationName() : null)
-            .dataOraPubblicazione(response.getPublished() != null ? response.getPublished().toInstant() : null)
-            .dataOraAggiornamento(response.getUpdated() != null ? response.getUpdated().toInstant() : null)
+            .dataOraPubblicazione(response.getPublished() != null ? response.getPublished().toLocalDateTime() : null)
+            .dataOraAggiornamento(response.getUpdated() != null ? response.getUpdated().toLocalDateTime() : null)
             .revisione(response.getRevision())
             .build();
     }

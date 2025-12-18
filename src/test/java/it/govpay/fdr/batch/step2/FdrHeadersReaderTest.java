@@ -5,7 +5,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,16 +45,16 @@ class FdrHeadersReaderTest {
         List<Object[]> dominioInfos = new ArrayList<>();
 
         Dominio dominio1 = Dominio.builder().id(1L).codDominio("12345678901").build();
-        Instant instant1 = Instant.parse("2025-01-27T10:00:00Z");
-        dominioInfos.add(new Object[]{dominio1, instant1});
+        LocalDateTime localDateTime1 = LocalDateTime.of(2025, 1, 27, 10, 0, 0);
+        dominioInfos.add(new Object[]{dominio1, localDateTime1});
 
         Dominio dominio2 = Dominio.builder().id(2L).codDominio("12345678902").build();
-        Instant instant2 = Instant.parse("2025-01-27T11:00:00Z");
-        dominioInfos.add(new Object[]{dominio2, instant2});
+        LocalDateTime localDateTime2 = LocalDateTime.of(2025, 1, 27, 11, 0, 0);
+        dominioInfos.add(new Object[]{dominio2, localDateTime2});
 
         Dominio dominio3 = Dominio.builder().id(3L).codDominio("12345678903").build();
-        Instant instant3 = null; // No previous acquisition
-        dominioInfos.add(new Object[]{dominio3, instant3});
+        LocalDateTime localDateTime3 = null; // No previous acquisition
+        dominioInfos.add(new Object[]{dominio3, localDateTime3});
 
         when(dominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(dominioInfos);
 
@@ -68,12 +68,12 @@ class FdrHeadersReaderTest {
         assertThat(ctx1).isNotNull();
         assertThat(ctx1.getDominioId()).isEqualTo(1L);
         assertThat(ctx1.getCodDominio()).isEqualTo("12345678901");
-        assertThat(ctx1.getLastPublicationDate()).isEqualTo(instant1);
+        assertThat(ctx1.getLastPublicationDate()).isEqualTo(localDateTime1);
 
         assertThat(ctx2).isNotNull();
         assertThat(ctx2.getDominioId()).isEqualTo(2L);
         assertThat(ctx2.getCodDominio()).isEqualTo("12345678902");
-        assertThat(ctx2.getLastPublicationDate()).isEqualTo(instant2);
+        assertThat(ctx2.getLastPublicationDate()).isEqualTo(localDateTime2);
 
         assertThat(ctx3).isNotNull();
         assertThat(ctx3.getDominioId()).isEqualTo(3L);
@@ -106,8 +106,8 @@ class FdrHeadersReaderTest {
         // Given: Single domain
         List<Object[]> dominioInfos = new ArrayList<>();
         Dominio dominio = Dominio.builder().id(1L).codDominio("12345678901").build();
-        Instant instant = Instant.parse("2025-01-27T10:00:00Z");
-        dominioInfos.add(new Object[]{dominio, instant});
+        LocalDateTime localDateTime = LocalDateTime.of(2025, 1, 27, 10, 0, 0);
+        dominioInfos.add(new Object[]{dominio, localDateTime});
 
         when(dominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(dominioInfos);
 
@@ -127,7 +127,7 @@ class FdrHeadersReaderTest {
         // Given
         List<Object[]> dominioInfos = new ArrayList<>();
         Dominio dominio = Dominio.builder().id(1L).codDominio("12345678901").build();
-        dominioInfos.add(new Object[]{dominio, Instant.now()});
+        dominioInfos.add(new Object[]{dominio, LocalDateTime.now()});
 
         when(dominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(dominioInfos);
 

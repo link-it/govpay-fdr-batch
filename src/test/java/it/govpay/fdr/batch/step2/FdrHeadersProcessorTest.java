@@ -6,9 +6,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,12 +33,14 @@ class FdrHeadersProcessorTest {
 
     @Mock
     private FdrApiService fdrApiService;
+    
+    private static final ZoneId ZONE_ID = ZoneId.of("Europe/Rome");
 
     private FdrHeadersProcessor processor;
 
     @BeforeEach
     void setUp() {
-        processor = new FdrHeadersProcessor(fdrApiService);
+        processor = new FdrHeadersProcessor(fdrApiService, ZONE_ID);
     }
 
     @Test
@@ -46,7 +48,7 @@ class FdrHeadersProcessorTest {
     void testProcessWithMultipleFlows() throws Exception {
         // Given: Domain with 3 flows
         String codDominio = "12345678901";
-        Instant lastPubDate = Instant.parse("2025-01-27T10:00:00Z");
+        LocalDateTime lastPubDate = LocalDateTime.of(2025, 1, 27, 10, 0, 0);
         DominioProcessingContext context = DominioProcessingContext.builder()
             .dominioId(1L)
             .codDominio(codDominio)
@@ -84,7 +86,7 @@ class FdrHeadersProcessorTest {
         DominioProcessingContext context = DominioProcessingContext.builder()
             .dominioId(1L)
             .codDominio("12345678901")
-            .lastPublicationDate(Instant.now())
+            .lastPublicationDate(LocalDateTime.now())
             .build();
 
         when(fdrApiService.getAllPublishedFlows(any(), any())).thenReturn(new ArrayList<>());
@@ -103,7 +105,7 @@ class FdrHeadersProcessorTest {
         DominioProcessingContext context = DominioProcessingContext.builder()
             .dominioId(1L)
             .codDominio("12345678901")
-            .lastPublicationDate(Instant.now())
+            .lastPublicationDate(LocalDateTime.now())
             .build();
 
         when(fdrApiService.getAllPublishedFlows(any(), any()))
@@ -122,7 +124,7 @@ class FdrHeadersProcessorTest {
         DominioProcessingContext context = DominioProcessingContext.builder()
             .dominioId(1L)
             .codDominio("12345678901")
-            .lastPublicationDate(Instant.now())
+            .lastPublicationDate(LocalDateTime.now())
             .build();
 
         List<FlowByPSP> flows = new ArrayList<>();

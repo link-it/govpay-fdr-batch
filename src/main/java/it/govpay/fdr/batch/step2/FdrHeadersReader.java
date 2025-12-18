@@ -1,6 +1,6 @@
 package it.govpay.fdr.batch.step2;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.batch.core.StepExecution;
@@ -59,7 +59,7 @@ public class FdrHeadersReader implements ItemReader<DominioProcessingContext>, S
             return DominioProcessingContext.builder()
                 .dominioId(dominio.getId())
                 .codDominio(dominio.getCodDominio())
-                .lastPublicationDate((Instant) dominioInfos[1])
+                .lastPublicationDate((LocalDateTime) dominioInfos[1])
                 .build();
         }
 

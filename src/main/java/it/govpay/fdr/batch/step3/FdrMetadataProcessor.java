@@ -11,10 +11,10 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 
 /**
  * Processor to fetch FDR metadata from pagoPA API
@@ -24,9 +24,11 @@ import java.time.ZoneOffset;
 public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataProcessor.FdrCompleteData> {
 
     private final FdrApiService fdrApiService;
+    private final ZoneId applicationZoneId;
 
-    public FdrMetadataProcessor(FdrApiService fdrApiService) {
+    public FdrMetadataProcessor(FdrApiService fdrApiService, ZoneId applicationZoneId) {
         this.fdrApiService = fdrApiService;
+        this.applicationZoneId = applicationZoneId;
     }
 
     @Override
@@ -49,8 +51,8 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
                 .codDominio(frTemp.getCodDominio())
                 .codFlusso(frTemp.getCodFlusso())
                 .iur(flowDetails.getRegulation())
-                .dataOraFlusso(convertToInstant(flowDetails.getFdrDate()))
-                .dataRegolamento(convertToInstant(flowDetails.getRegulationDate()))
+                .dataOraFlusso(convertToLocalDateTime(flowDetails.getFdrDate()))
+                .dataRegolamento(convertToLocalDateTime(flowDetails.getRegulationDate()))
                 .numeroPagamenti(flowDetails.getTotPayments())
                 .importoTotalePagamenti(flowDetails.getSumPayments())
                 .codBicRiversamento(flowDetails.getBicCodePouringBank())
@@ -59,8 +61,8 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
                 .ragioneSocialeDominio(flowDetails.getReceiver() != null ? flowDetails.getReceiver().getOrganizationName() : null)
                 .codIntermediarioPsp(flowDetails.getSender() != null ? flowDetails.getSender().getPspBrokerId() : null)
                 .codCanale(flowDetails.getSender() != null ? flowDetails.getSender().getChannelId() : null)
-                .dataOraPubblicazione(convertToInstant(flowDetails.getPublished()))
-                .dataOraAggiornamento(convertToInstant(flowDetails.getUpdated()))
+                .dataOraPubblicazione(convertToLocalDateTime(flowDetails.getPublished()))
+                .dataOraAggiornamento(convertToLocalDateTime(flowDetails.getUpdated()))
                 .revisione(frTemp.getRevisione())
                 .stato(flowDetails.getStatus() != null ? flowDetails.getStatus().name() : null)
                 .build();
@@ -71,18 +73,18 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
         }
     }
 
-    private Instant convertToInstant(OffsetDateTime offsetDateTime) {
+    private LocalDateTime convertToLocalDateTime(OffsetDateTime offsetDateTime) {
         if (offsetDateTime == null) {
             return null;
         }
-        return offsetDateTime.toInstant();
+        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime();
     }
 
-    private Instant convertToInstant(LocalDate localDate) {
+    private LocalDateTime convertToLocalDateTime(LocalDate localDate) {
         if (localDate == null) {
             return null;
         }
-        return localDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+        return localDate.atStartOfDay();
     }
 
     /**
@@ -97,8 +99,8 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
         private String codDominio;
         private String codFlusso;
         private String iur;
-        private Instant dataOraFlusso;
-        private Instant dataRegolamento;
+        private LocalDateTime dataOraFlusso;
+        private LocalDateTime dataRegolamento;
         private Long numeroPagamenti;
         private Double importoTotalePagamenti;
         private String codBicRiversamento;
@@ -107,8 +109,8 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
         private String ragioneSocialeDominio;
         private String codIntermediarioPsp;
         private String codCanale;
-        private Instant dataOraPubblicazione;
-        private Instant dataOraAggiornamento;
+        private LocalDateTime dataOraPubblicazione;
+        private LocalDateTime dataOraAggiornamento;
         private Long revisione;
         private String stato;
     }
