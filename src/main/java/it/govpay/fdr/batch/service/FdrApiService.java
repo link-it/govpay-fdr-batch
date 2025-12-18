@@ -1,7 +1,8 @@
 package it.govpay.fdr.batch.service;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,11 +33,13 @@ public class FdrApiService {
     private final OrganizationsApi organizationsApi;
     private final PagoPAProperties pagoPAProperties;
     private final GdeService gdeService;
+    private final ZoneId applicationZoneId;
 
     public FdrApiService(RestTemplate fdrApiRestTemplate, PagoPAProperties pagoPAProperties,
-                         @Autowired(required = false) GdeService gdeService) {
+                         @Autowired(required = false) GdeService gdeService, ZoneId applicationZoneId) {
         this.pagoPAProperties = pagoPAProperties;
         this.gdeService = gdeService;
+        this.applicationZoneId = applicationZoneId;
 
         ApiClient apiClient = new ApiClient(fdrApiRestTemplate);
         apiClient.setBasePath(pagoPAProperties.getBaseUrl());
@@ -47,7 +50,7 @@ public class FdrApiService {
     /**
      * Get all published flows for a domain with pagination
      */
-    public List<FlowByPSP> getAllPublishedFlows(String organizationId, Instant publishedGt) throws RestClientException {
+    public List<FlowByPSP> getAllPublishedFlows(String organizationId, LocalDateTime publishedGt) throws RestClientException {
 
         log.debug("Recupero dei flussi pubblicati per l'organizzazione {} con publishedGt {}", organizationId, publishedGt);
 
@@ -57,7 +60,7 @@ public class FdrApiService {
         boolean hasMorePages = true;
         ResponseEntity<PaginatedFlowsResponse> lastResponseEntity = null;
 
-        OffsetDateTime publishedGtOffset = publishedGt != null ? OffsetDateTime.ofInstant(publishedGt, ZoneOffset.UTC) : null;
+        OffsetDateTime publishedGtOffset = publishedGt != null ? publishedGt.atZone(applicationZoneId).toOffsetDateTime() : null;
         try {
             while (hasMorePages) {
                 PageFetchResult<PaginatedFlowsResponse> result = fetchFlowsPage(
@@ -159,7 +162,7 @@ public class FdrApiService {
 		    response.getMetadata());
 	}
 
-	private void saveGetPublishedFlowsKo(String organizationId, Instant publishedGt, OffsetDateTime startTime,
+	private void saveGetPublishedFlowsKo(String organizationId, LocalDateTime publishedGt, OffsetDateTime startTime,
 			ResponseEntity<PaginatedFlowsResponse> lastResponseEntity, RestClientException e) {
 		// Send failure event to GDE
 		if (gdeService != null) {
@@ -170,7 +173,7 @@ public class FdrApiService {
 		}
 	}
 
-	private void saveGetPublishedFlowsOk(String organizationId, Instant publishedGt, OffsetDateTime startTime,
+	private void saveGetPublishedFlowsOk(String organizationId, LocalDateTime publishedGt, OffsetDateTime startTime,
 			List<FlowByPSP> allFlows, ResponseEntity<PaginatedFlowsResponse> lastResponseEntity) {
 		// Send success event to GDE
 		if (gdeService != null) {

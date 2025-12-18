@@ -16,8 +16,9 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +46,7 @@ class FdrApiServiceGdeIntegrationTest {
 
     private PagoPAProperties pagoPAProperties;
     private FdrApiService fdrApiService;
+    private static final ZoneId ZONE_ID = ZoneId.of("Europe/Rome");
 
     @BeforeEach
     void setUp() {
@@ -54,7 +56,7 @@ class FdrApiServiceGdeIntegrationTest {
         pagoPAProperties.setDebugging(false);
 
         // Create service and inject mocked OrganizationsApi
-        fdrApiService = new FdrApiService(restTemplate, pagoPAProperties, gdeService);
+        fdrApiService = new FdrApiService(restTemplate, pagoPAProperties, gdeService, ZONE_ID);
         ReflectionTestUtils.setField(fdrApiService, "organizationsApi", organizationsApi);
     }
 
@@ -62,7 +64,7 @@ class FdrApiServiceGdeIntegrationTest {
     void testGetAllPublishedFlowsWithGdeTrackingSuccess() throws Exception {
         // Given
         String organizationId = "ORG123";
-        Instant publishedGt = Instant.now().minusSeconds(3600);
+        LocalDateTime publishedGt = LocalDateTime.now().minusHours(1);
 
         PaginatedFlowsResponse response = new PaginatedFlowsResponse();
         List<FlowByPSP> flows = new ArrayList<>();
@@ -106,7 +108,7 @@ class FdrApiServiceGdeIntegrationTest {
     void testGetAllPublishedFlowsWithGdeTrackingFailure() throws Exception {
         // Given
         String organizationId = "ORG123";
-        Instant publishedGt = Instant.now().minusSeconds(3600);
+        LocalDateTime publishedGt = LocalDateTime.now().minusHours(1);
 
         when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
             eq(organizationId), isNull(), eq(1L), isNull(), any(OffsetDateTime.class), eq(100L)))
@@ -209,7 +211,7 @@ class FdrApiServiceGdeIntegrationTest {
     void testGetAllPublishedFlowsWithNullGdeService() throws Exception {
         // Given - service without GDE
         FdrApiService serviceWithoutGde = new FdrApiService(
-            restTemplate, pagoPAProperties, null);
+            restTemplate, pagoPAProperties, null, ZONE_ID);
         ReflectionTestUtils.setField(serviceWithoutGde, "organizationsApi", organizationsApi);
 
         String organizationId = "ORG123";

@@ -3,6 +3,7 @@ package it.govpay.fdr.batch.controller;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -41,6 +42,7 @@ public class BatchController {
     private final PreventConcurrentJobLauncher preventConcurrentJobLauncher;
     private final Job fdrAcquisitionJob;
     private final Environment environment;
+    private final ZoneId applicationZoneId;
 
     @Value("${govpay.batch.cluster-id:GovPay-FDR-Batch}")
     private String clusterId;
@@ -53,12 +55,14 @@ public class BatchController {
             JobExplorer jobExplorer,
             PreventConcurrentJobLauncher preventConcurrentJobLauncher,
             @Qualifier("fdrAcquisitionJob") Job fdrAcquisitionJob,
-            Environment environment) {
+            Environment environment,
+            ZoneId applicationZoneId) {
         this.jobLauncher = jobLauncher;
         this.jobExplorer = jobExplorer;
         this.preventConcurrentJobLauncher = preventConcurrentJobLauncher;
         this.fdrAcquisitionJob = fdrAcquisitionJob;
         this.environment = environment;
+        this.applicationZoneId = applicationZoneId;
     }
 
     /**
@@ -169,7 +173,7 @@ public class BatchController {
     private ResponseEntity<Object> avviaJobAsincrono() {
         JobParameters params = new JobParametersBuilder()
                 .addString(Costanti.GOVPAY_BATCH_JOB_ID, Costanti.FDR_ACQUISITION_JOB_NAME)
-                .addString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_WHEN, OffsetDateTime.now().toString())
+                .addString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_WHEN, OffsetDateTime.now(applicationZoneId).toString())
                 .addString(Costanti.GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID, this.clusterId)
                 .toJobParameters();
 
@@ -210,7 +214,7 @@ public class BatchController {
         // Calcola la durata dell'esecuzione
         Long runningSeconds = null;
         if (currentExecution.getStartTime() != null) {
-            Duration duration = Duration.between(currentExecution.getStartTime(), LocalDateTime.now());
+            Duration duration = Duration.between(currentExecution.getStartTime(), LocalDateTime.now(applicationZoneId));
             runningSeconds = duration.getSeconds();
         }
 
@@ -332,19 +336,20 @@ public class BatchController {
         }
 
         // Se non c'è mai stata un'esecuzione, la prossima sarà immediata (o quasi)
+        LocalDateTime now = LocalDateTime.now(applicationZoneId);
         if (nextExecutionTime == null) {
-            nextExecutionTime = LocalDateTime.now();
+            nextExecutionTime = now;
         }
 
         // Se la prossima esecuzione è nel passato, significa che il batch è in attesa
-        if (nextExecutionTime.isBefore(LocalDateTime.now())) {
+        if (nextExecutionTime.isBefore(now)) {
             // Verifica se c'è un job in esecuzione
             JobExecution currentExecution = this.preventConcurrentJobLauncher
                     .getCurrentRunningJobExecution(Costanti.FDR_ACQUISITION_JOB_NAME);
             if (currentExecution != null) {
                 nextExecutionTime = null; // In esecuzione, non c'è prossima schedulata
             } else {
-                nextExecutionTime = LocalDateTime.now(); // Dovrebbe partire a breve
+                nextExecutionTime = now; // Dovrebbe partire a breve
             }
         }
 

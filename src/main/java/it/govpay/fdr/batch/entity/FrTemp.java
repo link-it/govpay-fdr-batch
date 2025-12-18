@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * Temporary entity for storing FDR headers during batch processing
@@ -45,13 +45,13 @@ public class FrTemp {
     private String iur;
 
     @Column(name = "data_ora_flusso")
-    private Instant dataOraFlusso;
+    private LocalDateTime dataOraFlusso;
 
     @Column(name = "data_regolamento")
-    private Instant dataRegolamento;
+    private LocalDateTime dataRegolamento;
 
     @Column(name = "data_ora_aggiornamento")
-    private Instant dataOraAggiornamento;
+    private LocalDateTime dataOraAggiornamento;
 
     @Column(name = "stato", length = 35)
     private String stato;
@@ -72,7 +72,7 @@ public class FrTemp {
     private String ragioneSocialeDominio;
 
     @Column(name = "data_ora_pubblicazione")
-    private Instant dataOraPubblicazione;
+    private LocalDateTime dataOraPubblicazione;
 
     @Column(name = "revisione", nullable = false)
     private Long revisione;

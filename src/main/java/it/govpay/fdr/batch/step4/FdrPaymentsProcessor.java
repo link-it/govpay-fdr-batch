@@ -12,8 +12,9 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -24,9 +25,11 @@ import java.util.List;
 public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsProcessor.FdrCompleteData> {
 
     private final FdrApiService fdrApiService;
+    private final ZoneId applicationZoneId;
 
-    public FdrPaymentsProcessor(FdrApiService fdrApiService) {
+    public FdrPaymentsProcessor(FdrApiService fdrApiService, ZoneId applicationZoneId) {
         this.fdrApiService = fdrApiService;
+        this.applicationZoneId = applicationZoneId;
     }
 
     @Override
@@ -95,7 +98,7 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
             .indiceDati(payment.getIndex())
             .importoPagato(payment.getPay())
             .esito(convertPayStatusToInteger(payment.getPayStatus()))
-            .data(convertToInstant(payment.getPayDate()))
+            .data(convertToLocalDateTime(payment.getPayDate()))
             .build();
     }
 
@@ -116,11 +119,11 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
         };
     }
 
-    private Instant convertToInstant(OffsetDateTime offsetDateTime) {
+    private LocalDateTime convertToLocalDateTime(OffsetDateTime offsetDateTime) {
         if (offsetDateTime == null) {
             return null;
         }
-        return offsetDateTime.toInstant();
+        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime();
     }
 
     /**
@@ -135,8 +138,8 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
         private String codDominio;
         private String codFlusso;
         private String iur;
-        private Instant dataOraFlusso;
-        private Instant dataRegolamento;
+        private LocalDateTime dataOraFlusso;
+        private LocalDateTime dataRegolamento;
         private Long numeroPagamenti;
         private Double importoTotalePagamenti;
         private String codBicRiversamento;
@@ -145,8 +148,8 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
         private String ragioneSocialeDominio;
         private String codIntermediarioPsp;
         private String codCanale;
-        private Instant dataOraPubblicazione;
-        private Instant dataOraAggiornamento;
+        private LocalDateTime dataOraPubblicazione;
+        private LocalDateTime dataOraAggiornamento;
         private Long revisione;
         private String stato;
         private List<PaymentData> payments;
@@ -160,6 +163,6 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
         private Long indiceDati;
         private Double importoPagato;
         private Integer esito;
-        private Instant data;
+        private LocalDateTime data;
     }
 }

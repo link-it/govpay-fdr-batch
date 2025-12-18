@@ -10,7 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -106,7 +106,7 @@ class FdrPaymentsWriterTest {
             .indiceDati(1L)
             .importoPagato(100.00)
             .esito(Costanti.PAYMENT_EXECUTED)
-            .data(Instant.now())
+            .data(LocalDateTime.now())
             .build());
 
         return FdrPaymentsProcessor.FdrCompleteData.builder()
@@ -115,15 +115,15 @@ class FdrPaymentsWriterTest {
             .codDominio("12345678901")
             .codFlusso("FDR-TEST-001")
             .iur("IUR-FLUSSO")
-            .dataOraFlusso(Instant.now())
-            .dataRegolamento(Instant.now())
+            .dataOraFlusso(LocalDateTime.now())
+            .dataRegolamento(LocalDateTime.now())
             .numeroPagamenti(1L)
             .importoTotalePagamenti(100.00)
             .codBicRiversamento("BIC001")
             .ragioneSocialePsp("PSP Test")
             .ragioneSocialeDominio("Dominio Test")
-            .dataOraPubblicazione(Instant.now())
-            .dataOraAggiornamento(Instant.now())
+            .dataOraPubblicazione(LocalDateTime.now())
+            .dataOraAggiornamento(LocalDateTime.now())
             .revisione(1L)
             .stato("PUBLISHED")
             .payments(payments)
@@ -290,7 +290,7 @@ class FdrPaymentsWriterTest {
                 .indiceDati(1L)
                 .importoPagato(-100.00) // Negative for revoca
                 .esito(Costanti.PAYMENT_REVOKED)
-                .data(Instant.now())
+                .data(LocalDateTime.now())
                 .build());
 
             FdrPaymentsProcessor.FdrCompleteData revokedData = FdrPaymentsProcessor.FdrCompleteData.builder()
@@ -299,8 +299,8 @@ class FdrPaymentsWriterTest {
                 .codDominio("12345678901")
                 .codFlusso("FDR-TEST-002")
                 .iur("IUR-FLUSSO")
-                .dataOraFlusso(Instant.now())
-                .dataRegolamento(Instant.now())
+                .dataOraFlusso(LocalDateTime.now())
+                .dataRegolamento(LocalDateTime.now())
                 .numeroPagamenti(1L)
                 .importoTotalePagamenti(-100.00)
                 .revisione(1L)
@@ -358,7 +358,7 @@ class FdrPaymentsWriterTest {
                 .indiceDati(1L)
                 .importoPagato(-50.00) // Different from revoked amount
                 .esito(Costanti.PAYMENT_REVOKED)
-                .data(Instant.now())
+                .data(LocalDateTime.now())
                 .build());
 
             FdrPaymentsProcessor.FdrCompleteData revokedData = FdrPaymentsProcessor.FdrCompleteData.builder()
@@ -466,7 +466,7 @@ class FdrPaymentsWriterTest {
                 .indiceDati(1L)
                 .importoPagato(-100.00)
                 .esito(Costanti.PAYMENT_REVOKED)
-                .data(Instant.now())
+                .data(LocalDateTime.now())
                 .build());
 
             FdrPaymentsProcessor.FdrCompleteData revokedData = FdrPaymentsProcessor.FdrCompleteData.builder()
@@ -543,7 +543,7 @@ class FdrPaymentsWriterTest {
                 .indiceDati(1L)
                 .importoPagato(100.00)
                 .esito(Costanti.PAYMENT_EXECUTED)
-                .data(Instant.now())
+                .data(LocalDateTime.now())
                 .build());
 
             FdrPaymentsProcessor.FdrCompleteData externalIuvData = FdrPaymentsProcessor.FdrCompleteData.builder()
@@ -603,7 +603,7 @@ class FdrPaymentsWriterTest {
                 .indiceDati(1L)
                 .importoPagato(100.00)
                 .esito(Costanti.PAYMENT_NO_RPT)
-                .data(Instant.now())
+                .data(LocalDateTime.now())
                 .build());
 
             FdrPaymentsProcessor.FdrCompleteData noRptData = FdrPaymentsProcessor.FdrCompleteData.builder()
@@ -665,7 +665,7 @@ class FdrPaymentsWriterTest {
                 .indiceDati(1L)
                 .importoPagato(100.00)
                 .esito(Costanti.PAYMENT_STAND_IN_NO_RPT)
-                .data(Instant.now())
+                .data(LocalDateTime.now())
                 .build());
 
             FdrPaymentsProcessor.FdrCompleteData standInNoRptData = FdrPaymentsProcessor.FdrCompleteData.builder()

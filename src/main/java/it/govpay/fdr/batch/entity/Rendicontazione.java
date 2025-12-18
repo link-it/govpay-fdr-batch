@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * Entity representing a single payment in a FDR
@@ -52,7 +52,7 @@ public class Rendicontazione {
     private Integer esito;
 
     @Column(name = "data")
-    private Instant data;
+    private LocalDateTime data;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "stato", length = 35, nullable = false)

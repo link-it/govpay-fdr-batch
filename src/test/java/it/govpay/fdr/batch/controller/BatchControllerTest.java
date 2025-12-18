@@ -15,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -60,11 +61,12 @@ class BatchControllerTest {
     private BatchController batchController;
 
     private static final String CLUSTER_ID = "TestCluster";
+    private static final ZoneId ZONE_ID = ZoneId.of("Europe/Rome");
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        batchController = new BatchController(jobLauncher, jobExplorer, preventConcurrentJobLauncher, fdrAcquisitionJob, environment);
+        batchController = new BatchController(jobLauncher, jobExplorer, preventConcurrentJobLauncher, fdrAcquisitionJob, environment, ZONE_ID);
         ReflectionTestUtils.setField(batchController, "clusterId", CLUSTER_ID);
         ReflectionTestUtils.setField(batchController, "schedulerIntervalMillis", 7200000L);
     }

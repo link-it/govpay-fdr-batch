@@ -1,5 +1,6 @@
 package it.govpay.fdr.batch.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,6 +24,7 @@ import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.TimeZone;
 
 /**
  * Configuration for FDR API client with authentication
@@ -32,6 +34,9 @@ import java.time.OffsetDateTime;
 public class FdrApiClientConfig {
 
     private final PagoPAProperties pagoPAProperties;
+
+    @Value("${spring.jackson.time-zone:Europe/Rome}")
+    private String timezone;
 
     public FdrApiClientConfig(PagoPAProperties pagoPAProperties) {
         this.pagoPAProperties = pagoPAProperties;
@@ -67,11 +72,15 @@ public class FdrApiClientConfig {
      * - Deserialization: accepts variable-length milliseconds (1-9 digits) for security
      * - Fallback: if timezone is missing, defaults to CET
      * - Dates: written as ISO-8601 strings (not timestamps) with zone ID
+     * - Timezone: configured from spring.jackson.time-zone property
      *
      * @return configured ObjectMapper for pagoPA API
      */
     private ObjectMapper createPagoPAObjectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
+
+        // Set timezone from configuration
+        objectMapper.setTimeZone(TimeZone.getTimeZone(timezone));
 
         // Set date format for java.util.Date (legacy support)
         objectMapper.setDateFormat(

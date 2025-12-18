@@ -1,21 +1,34 @@
 package it.govpay.fdr.batch.step4;
 
-import it.govpay.fdr.batch.Costanti;
-import it.govpay.fdr.batch.entity.*;
-import it.govpay.fdr.batch.repository.*;
-import it.govpay.fdr.batch.utils.IuvUtils;
-import lombok.extern.slf4j.Slf4j;
+import java.text.MessageFormat;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.text.MessageFormat;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import it.govpay.fdr.batch.Costanti;
+import it.govpay.fdr.batch.entity.Dominio;
+import it.govpay.fdr.batch.entity.Fr;
+import it.govpay.fdr.batch.entity.Pagamento;
+import it.govpay.fdr.batch.entity.Rendicontazione;
+import it.govpay.fdr.batch.entity.SingoloVersamento;
+import it.govpay.fdr.batch.entity.StatoFr;
+import it.govpay.fdr.batch.entity.StatoRendicontazione;
+import it.govpay.fdr.batch.entity.Versamento;
+import it.govpay.fdr.batch.repository.DominioRepository;
+import it.govpay.fdr.batch.repository.FrRepository;
+import it.govpay.fdr.batch.repository.FrTempRepository;
+import it.govpay.fdr.batch.repository.PagamentoRepository;
+import it.govpay.fdr.batch.repository.SingoloVersamentoRepository;
+import it.govpay.fdr.batch.repository.VersamentoRepository;
+import it.govpay.fdr.batch.utils.IuvUtils;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Writer to save FDR complete data to FR and RENDICONTAZIONI tables
@@ -186,7 +199,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    .iur(data.getIur())
 		    .dataOraFlusso(data.getDataOraFlusso())
 		    .dataRegolamento(data.getDataRegolamento())
-		    .dataAcquisizione(Instant.now())
+		    .dataAcquisizione(LocalDateTime.now())
 		    .numeroPagamenti(data.getNumeroPagamenti())
 		    .importoTotalePagamenti(data.getImportoTotalePagamenti())
 		    .codBicRiversamento(data.getCodBicRiversamento())
