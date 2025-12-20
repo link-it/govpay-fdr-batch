@@ -247,52 +247,87 @@ public class BatchController {
     public ResponseEntity<LastExecutionInfo> getLastExecution() {
         log.debug("Richiesta ultima esecuzione del batch {}", Costanti.FDR_ACQUISITION_JOB_NAME);
 
-        // Trova l'ultima istanza del job
-        List<JobInstance> jobInstances = jobExplorer.getJobInstances(Costanti.FDR_ACQUISITION_JOB_NAME, 0, 10);
+        JobExecution lastCompletedExecution = findLastCompletedExecution();
 
-        if (jobInstances.isEmpty()) {
+        if (lastCompletedExecution == null) {
             return ResponseEntity.ok(LastExecutionInfo.builder().build());
         }
 
-        // Cerca l'ultima esecuzione completata (non STARTED)
+        return ResponseEntity.ok(buildLastExecutionInfo(lastCompletedExecution));
+    }
+
+    /**
+     * Trova l'ultima esecuzione completata del job.
+     */
+    private JobExecution findLastCompletedExecution() {
+        List<JobInstance> jobInstances = jobExplorer.getJobInstances(Costanti.FDR_ACQUISITION_JOB_NAME, 0, 10);
+
         for (JobInstance jobInstance : jobInstances) {
             List<JobExecution> executions = jobExplorer.getJobExecutions(jobInstance);
             for (JobExecution execution : executions) {
-                if (execution.getStatus() != BatchStatus.STARTED
-                        && execution.getStatus() != BatchStatus.STARTING
-                        && execution.getStatus() != BatchStatus.STOPPING) {
-
-                    Long durationSeconds = null;
-                    if (execution.getStartTime() != null && execution.getEndTime() != null) {
-                        Duration duration = Duration.between(execution.getStartTime(), execution.getEndTime());
-                        durationSeconds = duration.getSeconds();
-                    }
-
-                    String exitDescription = execution.getExitStatus() != null
-                            ? execution.getExitStatus().getExitDescription()
-                            : null;
-                    // Truncate exit description if too long
-                    if (exitDescription != null && exitDescription.length() > 500) {
-                        exitDescription = exitDescription.substring(0, 500) + "...";
-                    }
-
-                    String runningClusterId = this.preventConcurrentJobLauncher.getClusterIdFromExecution(execution);
-
-                    return ResponseEntity.ok(LastExecutionInfo.builder()
-                            .executionId(execution.getId())
-                            .clusterId(runningClusterId)
-                            .startTime(execution.getStartTime())
-                            .endTime(execution.getEndTime())
-                            .durationSeconds(durationSeconds)
-                            .status(execution.getStatus().name())
-                            .exitCode(execution.getExitStatus() != null ? execution.getExitStatus().getExitCode() : null)
-                            .exitDescription(exitDescription)
-                            .build());
+                if (isCompletedExecution(execution)) {
+                    return execution;
                 }
             }
         }
+        return null;
+    }
 
-        return ResponseEntity.ok(LastExecutionInfo.builder().build());
+    /**
+     * Verifica se un'esecuzione è in uno stato completato (non in corso).
+     */
+    private boolean isCompletedExecution(JobExecution execution) {
+        BatchStatus status = execution.getStatus();
+        return status != BatchStatus.STARTED
+            && status != BatchStatus.STARTING
+            && status != BatchStatus.STOPPING;
+    }
+
+    /**
+     * Costruisce l'oggetto LastExecutionInfo da una JobExecution.
+     */
+    private LastExecutionInfo buildLastExecutionInfo(JobExecution execution) {
+        return LastExecutionInfo.builder()
+                .executionId(execution.getId())
+                .clusterId(this.preventConcurrentJobLauncher.getClusterIdFromExecution(execution))
+                .startTime(execution.getStartTime())
+                .endTime(execution.getEndTime())
+                .durationSeconds(calculateDurationSeconds(execution))
+                .status(execution.getStatus().name())
+                .exitCode(getExitCode(execution))
+                .exitDescription(getTruncatedExitDescription(execution))
+                .build();
+    }
+
+    /**
+     * Calcola la durata in secondi di un'esecuzione.
+     */
+    private Long calculateDurationSeconds(JobExecution execution) {
+        if (execution.getStartTime() == null || execution.getEndTime() == null) {
+            return null;
+        }
+        return Duration.between(execution.getStartTime(), execution.getEndTime()).getSeconds();
+    }
+
+    /**
+     * Ottiene l'exit code di un'esecuzione.
+     */
+    private String getExitCode(JobExecution execution) {
+        return execution.getExitStatus() != null ? execution.getExitStatus().getExitCode() : null;
+    }
+
+    /**
+     * Ottiene l'exit description troncata a 500 caratteri.
+     */
+    private String getTruncatedExitDescription(JobExecution execution) {
+        if (execution.getExitStatus() == null) {
+            return null;
+        }
+        String description = execution.getExitStatus().getExitDescription();
+        if (description != null && description.length() > 500) {
+            return description.substring(0, 500) + "...";
+        }
+        return description;
     }
 
     /**
