@@ -45,7 +45,8 @@ public class Fr {
     @Column(name = "stato", length = 35)
     private StatoFr stato;
 
-    @Column(name = "descrizione_stato", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "descrizione_stato")
     private String descrizioneStato;
 
     @Column(name = "iur", length = 35)

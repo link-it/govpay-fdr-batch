@@ -1,3 +1,28 @@
+2025-01-20  Giuliano Pintori <pintori@link.it>
+
+	* Avanzamento versione 1.0.3
+
+2025-01-20  Giuliano Pintori <pintori@link.it>
+
+	* [Security]
+	Risolto Bug - CVE-2025-68161
+	Aggiornata dipendenza log4j alla versione 2.25.3 per risolvere la vulnerabilità CVE-2025-68161
+	relativa alla mancata verifica dell'hostname TLS nel SocketAppender.
+
+2025-01-20  Giuliano Pintori <pintori@link.it>
+
+	* [Database]
+	Risolto Bug - Compatibilità Oracle
+	Corrette annotazioni JPA nelle entity Fr e Rendicontazione per compatibilità con Oracle.
+	Sostituito `columnDefinition = "TEXT"` con annotazione `@Lob` per i campi:
+	- Fr.descrizioneStato
+	- Rendicontazione.anomalie
+	L'annotazione @Lob garantisce il mapping corretto su tutti i database supportati:
+	- Oracle: CLOB
+	- PostgreSQL: TEXT
+	- MySQL: LONGTEXT
+	- SQL Server: NVARCHAR(MAX)
+
 2025-12-17  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.0.2

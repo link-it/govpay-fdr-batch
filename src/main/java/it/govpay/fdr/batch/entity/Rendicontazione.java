@@ -58,6 +58,7 @@ public class Rendicontazione {
     @Column(name = "stato", length = 35, nullable = false)
     private StatoRendicontazione stato;
 
-    @Column(name = "anomalie", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "anomalie")
     private String anomalie;
 }
