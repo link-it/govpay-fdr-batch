@@ -27,6 +27,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <openapi-generator.version>7.10.0</openapi-generator.version>
         <hibernate.version>6.6.4.Final</hibernate.version>
+        <log4j2.version>2.25.3</log4j2.version>
 
         <!-- Code Coverage -->
         <jacoco.version>0.8.13</jacoco.version>
