@@ -1,3 +1,18 @@
+2025-01-22  Giuliano Pintori <pintori@link.it>
+
+	* Avanzamento versione 1.0.4
+
+2025-01-22  Giuliano Pintori <pintori@link.it>
+
+	* [Database]
+	Modifica configurazione - Rimossa proprietà ddl-auto
+	Rimossa la proprietà 'spring.jpa.hibernate.ddl-auto' dai file application.properties e
+	application-local.properties per utilizzare i default di Spring Boot:
+	- Database embedded (H2, HSQLDB): create-drop
+	- Database esterni (PostgreSQL, Oracle, MySQL, SQL Server): none
+	Questo garantisce che lo schema non venga modificato in produzione, mentre in sviluppo
+	con database embedded lo schema viene ricreato automaticamente.
+
 2025-01-20  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.0.3

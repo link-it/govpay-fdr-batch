@@ -28,6 +28,7 @@ GovPay FDR Batch è un componente del progetto [GovPay](https://github.com/link-
 - `1.0.1`
 - `1.0.2`
 - `1.0.3`
+- `1.0.4`
 
 Storico completo delle modifiche consultabile nel [ChangeLog](https://github.com/link-it/govpay-fdr-batch/blob/main/ChangeLog) del progetto.
 
