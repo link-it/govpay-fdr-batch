@@ -1,6 +1,22 @@
-2025-01-22  Giuliano Pintori <pintori@link.it>
+2025-01-28  Giuliano Pintori <pintori@link.it>
 
-	* Avanzamento versione 1.0.4
+	* Avanzamento versione 1.0.5
+
+2025-01-28  Giuliano Pintori <pintori@link.it>
+
+	* [Database]
+	Risolto Bug - Mapping campi TEXT/CLOB multi-database
+	Sostituita annotazione @Lob con @JdbcTypeCode(SqlTypes.LONGVARCHAR) per i campi di testo lungo
+	nelle entity Fr e Rendicontazione:
+	- Fr.descrizioneStato
+	- Rendicontazione.anomalie
+	L'annotazione @Lob causava problemi su PostgreSQL dove il contenuto veniva salvato come
+	OID (Large Object) invece che come stringa TEXT. La nuova annotazione @JdbcTypeCode
+	di Hibernate 6 garantisce il mapping corretto su tutti i database supportati:
+	- PostgreSQL: TEXT
+	- Oracle: CLOB
+	- MySQL: LONGTEXT
+	- SQL Server: VARCHAR(MAX)
 
 2025-01-22  Giuliano Pintori <pintori@link.it>
 

@@ -65,6 +65,7 @@ done
 rm -rf buildcontext
 mkdir -p buildcontext/
 cp -fr commons buildcontext/
+cp -fr ../src/main/resources/sql buildcontext/
 
 DOCKERBUILD_OPT=()
 DOCKERBUILD_OPTS=(${DOCKERBUILD_OPTS[@]} '--build-arg' "govpay_fdr_fullversion=${VER:-${LATEST_GOVPAY_FDR_RELEASE}}")
