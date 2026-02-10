@@ -63,4 +63,8 @@ public class Rendicontazione {
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(name = "anomalie")
     private String anomalie;
+
+    @Column(name = "esegui_recupero_rt", nullable = false)
+    @Builder.Default
+    private Boolean eseguiRecuperoRt = false;
 }

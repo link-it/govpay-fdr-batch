@@ -186,6 +186,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    .esito(paymentData.getEsito())
 		    .data(paymentData.getData())
 		    .stato(StatoRendicontazione.OK)
+		    .eseguiRecuperoRt(true)
 		    .build();
 	}
 

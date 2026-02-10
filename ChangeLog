@@ -1,3 +1,16 @@
+2026-02-10  Giuliano Pintori <pintori@link.it>
+
+	* Avanzamento versione 1.1.0
+
+2026-02-10  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #29 - Supporto batch recupero RT
+	Aggiunto campo 'esegui_recupero_rt' (boolean, default false) all'entity Rendicontazione
+	per marcare le rendicontazioni che devono essere processate dal batch di recupero RT.
+	Il campo viene impostato a true durante l'acquisizione FDR nel FdrPaymentsWriter,
+	in modo che il batch recupero-rt sappia quali record processare.
+
 2025-01-28  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.0.5
