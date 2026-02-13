@@ -20,11 +20,11 @@ import org.springframework.web.client.RestClientException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import it.govpay.common.client.gde.HttpDataHolder;
 import it.govpay.fdr.batch.Costanti;
-import it.govpay.fdr.batch.utils.ResponseBodyHolder;
-import it.govpay.gde.client.model.DettaglioRisposta;
-import it.govpay.gde.client.model.Header;
-import it.govpay.gde.client.model.NuovoEvento;
+import it.govpay.gde.client.beans.DettaglioRisposta;
+import it.govpay.gde.client.beans.Header;
+import it.govpay.gde.client.beans.NuovoEvento;
 
 import java.util.List;
 import org.springframework.http.HttpHeaders;
@@ -115,7 +115,7 @@ class GdeUtilsTest {
     void testSerializzaPayloadWithRestClientExceptionAndCapturedBody() {
         // Given
         String capturedBody = "{\"error\":\"Deserialization failed\",\"details\":\"Invalid date format\"}";
-        ResponseBodyHolder.setResponseBody(capturedBody.getBytes(StandardCharsets.UTF_8));
+        HttpDataHolder.setResponseBody(capturedBody.getBytes(StandardCharsets.UTF_8));
 
         RestClientException exception = new RestClientException("Failed to deserialize");
 
@@ -127,7 +127,7 @@ class GdeUtilsTest {
         assertThat(decodedPayload).isEqualTo(capturedBody);
 
         // Verify ThreadLocal was cleared
-        assertThat(ResponseBodyHolder.getResponseBody()).isNull();
+        assertThat(HttpDataHolder.getResponseBody()).isNull();
     }
 
     @Test
@@ -137,7 +137,7 @@ class GdeUtilsTest {
         String errorMessage = "Connection timeout";
         RestClientException exception = new RestClientException(errorMessage);
         // Ensure no captured body
-        ResponseBodyHolder.clear();
+        HttpDataHolder.clear();
 
         // When
         GdeUtils.serializzaPayload(objectMapper, nuovoEvento, null, exception);
@@ -154,7 +154,7 @@ class GdeUtilsTest {
         String errorMessage = "";
         RestClientException exception = new RestClientException(errorMessage);
         // Ensure no captured body
-        ResponseBodyHolder.clear();
+        HttpDataHolder.clear();
 
         // When
         GdeUtils.serializzaPayload(objectMapper, nuovoEvento, null, exception);
@@ -165,10 +165,10 @@ class GdeUtilsTest {
     }
 
     @Test
-    @DisplayName("serializzaPayload should clear ResponseBodyHolder even on success")
-    void testSerializzaPayloadClearsResponseBodyHolderOnSuccess() {
+    @DisplayName("serializzaPayload should clear HttpDataHolder even on success")
+    void testSerializzaPayloadClearsHttpDataHolderOnSuccess() {
         // Given - set a captured body that shouldn't be used
-        ResponseBodyHolder.setResponseBody("captured body".getBytes(StandardCharsets.UTF_8));
+        HttpDataHolder.setResponseBody("captured body".getBytes(StandardCharsets.UTF_8));
         ResponseEntity<String> response = ResponseEntity.ok("success response");
 
         // When
@@ -179,7 +179,7 @@ class GdeUtilsTest {
         assertThat(decodedPayload).contains("success response");
 
         // Verify ThreadLocal was cleared
-        assertThat(ResponseBodyHolder.getResponseBody()).isNull();
+        assertThat(HttpDataHolder.getResponseBody()).isNull();
     }
 
     // ========== Tests for serializzaPayload with ResponseEntity ==========
@@ -355,7 +355,7 @@ class GdeUtilsTest {
         httpHeaders.add("Ocp-Apim-Subscription-Key", "test-subscription-key");
         httpHeaders.add("Accept", "application/json");
         httpHeaders.add("Content-Type", "application/json");
-        ResponseBodyHolder.setRequestHeaders(httpHeaders);
+        HttpDataHolder.setRequestHeaders(httpHeaders);
 
         // When
         List<Header> result = GdeUtils.getCapturedRequestHeaders();
@@ -376,14 +376,14 @@ class GdeUtilsTest {
             "application/json".equals(h.getValore()));
 
         // Cleanup
-        ResponseBodyHolder.clear();
+        HttpDataHolder.clear();
     }
 
     @Test
     @DisplayName("getCapturedRequestHeaders should return empty list when no headers set")
     void testGetCapturedRequestHeadersWithNoHeaders() {
         // Given
-        ResponseBodyHolder.clear();
+        HttpDataHolder.clear();
 
         // When
         List<Header> result = GdeUtils.getCapturedRequestHeaders();
@@ -400,7 +400,7 @@ class GdeUtilsTest {
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.add("Accept", "application/json");
         httpHeaders.add("Accept", "text/plain");
-        ResponseBodyHolder.setRequestHeaders(httpHeaders);
+        HttpDataHolder.setRequestHeaders(httpHeaders);
 
         // When
         List<Header> result = GdeUtils.getCapturedRequestHeaders();
@@ -412,7 +412,7 @@ class GdeUtilsTest {
         assertThat(result.get(0).getValore()).isEqualTo("application/json, text/plain");
 
         // Cleanup
-        ResponseBodyHolder.clear();
+        HttpDataHolder.clear();
     }
 
     @Test
@@ -422,7 +422,7 @@ class GdeUtilsTest {
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.add("X-Custom-Header", "value");
         // Add header with empty list would not be added by HttpHeaders
-        ResponseBodyHolder.setRequestHeaders(httpHeaders);
+        HttpDataHolder.setRequestHeaders(httpHeaders);
 
         // When
         List<Header> result = GdeUtils.getCapturedRequestHeaders();
@@ -432,7 +432,7 @@ class GdeUtilsTest {
         assertThat(result).hasSize(1);
 
         // Cleanup
-        ResponseBodyHolder.clear();
+        HttpDataHolder.clear();
     }
 
     // ========== Helper classes for testing ==========

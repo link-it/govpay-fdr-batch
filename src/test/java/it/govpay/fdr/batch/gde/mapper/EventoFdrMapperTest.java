@@ -1,7 +1,7 @@
 package it.govpay.fdr.batch.gde.mapper;
 
 import it.govpay.fdr.batch.entity.Fr;
-import it.govpay.gde.client.model.*;
+import it.govpay.gde.client.beans.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;

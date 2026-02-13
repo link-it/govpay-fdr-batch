@@ -1,5 +1,6 @@
 package it.govpay.fdr.batch.entity;
 
+import it.govpay.common.entity.DominioEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -32,7 +33,7 @@ public class Versamento {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_dominio", nullable = false)
-    private Dominio dominio;
+    private DominioEntity dominio;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_applicazione", nullable = false)

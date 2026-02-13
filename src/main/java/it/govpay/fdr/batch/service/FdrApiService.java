@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import it.govpay.fdr.batch.config.PagoPAProperties;
+import it.govpay.common.client.model.Connettore;
+import it.govpay.common.client.service.ConnettoreService;
+import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.gde.service.GdeService;
 import it.govpay.fdr.client.ApiClient;
 import it.govpay.fdr.client.api.OrganizationsApi;
@@ -31,19 +33,20 @@ import lombok.extern.slf4j.Slf4j;
 public class FdrApiService {
 
     private final OrganizationsApi organizationsApi;
-    private final PagoPAProperties pagoPAProperties;
+    private final BatchProperties batchProperties;
     private final GdeService gdeService;
     private final ZoneId applicationZoneId;
 
-    public FdrApiService(RestTemplate fdrApiRestTemplate, PagoPAProperties pagoPAProperties,
+    public FdrApiService(RestTemplate fdrApiRestTemplate, BatchProperties batchProperties,
+                         ConnettoreService connettoreService,
                          @Autowired(required = false) GdeService gdeService, ZoneId applicationZoneId) {
-        this.pagoPAProperties = pagoPAProperties;
+        this.batchProperties = batchProperties;
         this.gdeService = gdeService;
         this.applicationZoneId = applicationZoneId;
 
+        Connettore connettore = connettoreService.getConnettore(batchProperties.getConnettorePagopaFdr());
         ApiClient apiClient = new ApiClient(fdrApiRestTemplate);
-        apiClient.setBasePath(pagoPAProperties.getBaseUrl());
-        apiClient.setDebugging(pagoPAProperties.isDebugging());
+        apiClient.setBasePath(connettore.getUrl());
         this.organizationsApi = new OrganizationsApi(apiClient);
     }
 
@@ -116,7 +119,7 @@ public class FdrApiService {
                     currentPage,    // page
                     null,           // pspId
                     publishedGtOffset,    // publishedGt
-                    (long) pagoPAProperties.getPageSize()  // size
+                    (long) batchProperties.getPageSize()  // size
                 );
 
             return new PageFetchResult<>(responseEntity, true);
@@ -342,7 +345,7 @@ public class FdrApiService {
                     pspId,
                     revision,
                     currentPage,
-                    (long) pagoPAProperties.getPageSize()
+                    (long) batchProperties.getPageSize()
                 );
 
             return new PageFetchResult<>(responseEntity, true);

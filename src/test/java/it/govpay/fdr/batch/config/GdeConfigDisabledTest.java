@@ -1,6 +1,6 @@
 package it.govpay.fdr.batch.config;
 
-import it.govpay.gde.client.api.EventiApi;
+import it.govpay.fdr.batch.gde.service.GdeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,7 +11,7 @@ import org.springframework.test.context.TestPropertySource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Test class for GdeConfig when GDE is disabled.
+ * Test class for GDE configuration when GDE is disabled.
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -25,14 +25,14 @@ class GdeConfigDisabledTest {
     private ApplicationContext applicationContext;
 
     @Autowired(required = false)
-    private EventiApi eventiApi;
+    private GdeService gdeService;
 
     @Test
-    void testGdeEventiApiBeanNotCreatedWhenDisabled() {
+    void testGdeServiceBeanNotCreatedWhenDisabled() {
         // Given GDE is disabled in properties
         // When context is loaded
-        // Then EventiApi bean should NOT be created
-        assertThat(eventiApi).isNull();
-        assertThat(applicationContext.containsBean("gdeEventiApi")).isFalse();
+        // Then GdeService bean should NOT be created
+        assertThat(gdeService).isNull();
+        assertThat(applicationContext.containsBean("gdeService")).isFalse();
     }
 }

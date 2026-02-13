@@ -1,7 +1,6 @@
 package it.govpay.fdr.batch.gde.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -10,13 +9,13 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.concurrent.Executor;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,17 +24,18 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
+import it.govpay.common.client.model.Connettore;
+import it.govpay.common.client.service.ConnettoreService;
 import it.govpay.fdr.batch.Costanti;
-import it.govpay.fdr.batch.config.PagoPAProperties;
+import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
-import it.govpay.gde.client.ApiException;
-import it.govpay.gde.client.api.EventiApi;
-import it.govpay.gde.client.model.EsitoEvento;
-import it.govpay.gde.client.model.NuovoEvento;
+import it.govpay.gde.client.beans.EsitoEvento;
+import it.govpay.gde.client.beans.NuovoEvento;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -46,28 +46,44 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 class GdeServiceTest {
 
     @Mock
-    private EventiApi eventiApi;
-
-    @Mock
     private EventoFdrMapper eventoFdrMapper;
 
     @Mock
     private ObjectMapper objectMapper;
 
     @Mock
-    private PagoPAProperties pagoPAProperties;
+    private ConnettoreService connettoreService;
+
+    @Mock
+    private RestTemplate gdeRestTemplate;
 
     @Captor
     private ArgumentCaptor<NuovoEvento> eventoCaptor;
 
+    /** Synchronous executor for deterministic testing (no Awaitility needed) */
+    private final Executor syncExecutor = Runnable::run;
+
     private GdeService gdeService;
+    private BatchProperties batchProperties;
     private Fr testFr;
 
     @BeforeEach
     void setUp() {
-        lenient().when(pagoPAProperties.getBaseUrl()).thenReturn("https://api.pagopa.it");
-        gdeService = new GdeService(eventiApi, eventoFdrMapper, objectMapper, pagoPAProperties);
-        ReflectionTestUtils.setField(gdeService, "gdeEnabled", true);
+        batchProperties = new BatchProperties();
+        batchProperties.setConnettorePagopaFdr("PAGOPA_FDR");
+        batchProperties.setConnettoreGde("GDE");
+
+        Connettore pagopaConnettore = new Connettore();
+        pagopaConnettore.setUrl("https://api.pagopa.it");
+        lenient().when(connettoreService.getConnettore("PAGOPA_FDR")).thenReturn(pagopaConnettore);
+
+        Connettore gdeConnettore = new Connettore();
+        gdeConnettore.setUrl("http://localhost:10002/api/v1");
+        lenient().when(connettoreService.getConnettore("GDE")).thenReturn(gdeConnettore);
+
+        lenient().when(connettoreService.getRestTemplate("GDE")).thenReturn(gdeRestTemplate);
+
+        gdeService = new GdeService(objectMapper, syncExecutor, eventoFdrMapper, connettoreService, batchProperties);
 
         testFr = Fr.builder()
             .id(1L)
@@ -79,53 +95,55 @@ class GdeServiceTest {
     }
 
     @Test
-    void testInviaEventoWhenEnabled() throws Exception {
+    void testSendEventAsync() {
         // Given
         NuovoEvento evento = new NuovoEvento();
         evento.setTipoEvento("TEST_EVENT");
-        doNothing().when(eventiApi).addEvento(any(NuovoEvento.class));
+        when(gdeRestTemplate.postForEntity(anyString(), any(), eq(Void.class)))
+            .thenReturn(ResponseEntity.ok().build());
 
         // When
-        gdeService.inviaEvento(evento);
+        gdeService.sendEventAsync(evento);
 
-        // Then - wait for async execution
-        await().untilAsserted(() ->
-            verify(eventiApi, times(1)).addEvento(evento)
-        );
+        // Then
+        verify(gdeRestTemplate, times(1)).postForEntity(
+            eq("http://localhost:10002/api/v1/eventi"), eq(evento), eq(Void.class));
     }
 
     @Test
-    void testInviaEventoWhenDisabled() {
-        // Given
-        ReflectionTestUtils.setField(gdeService, "gdeEnabled", false);
-        NuovoEvento evento = new NuovoEvento();
-        evento.setTipoEvento("TEST_EVENT");
-
-        // When
-        gdeService.inviaEvento(evento);
-
-        // Then - should not call API
-        await().untilAsserted(() ->
-        verify(eventiApi, never()).addEvento(any())
-        );
-        
-    }
-
-    @Test
-    void testInviaEventoHandlesException() throws Exception {
+    void testSendEventAsyncHandlesException() {
         // Given
         NuovoEvento evento = new NuovoEvento();
         evento.setTipoEvento("TEST_EVENT");
-        doThrow(new ApiException("API Error")).when(eventiApi).addEvento(any());
+        doThrow(new RestClientException("Connection refused"))
+            .when(gdeRestTemplate).postForEntity(anyString(), any(), eq(Void.class));
 
         // When
-        gdeService.inviaEvento(evento);
+        gdeService.sendEventAsync(evento);
 
         // Then - should not throw exception (error is logged)
-        await().untilAsserted(() ->
-            verify(eventiApi, times(1)).addEvento(evento)
-        );
-        // No exception should be thrown to the caller
+        verify(gdeRestTemplate, times(1)).postForEntity(
+            eq("http://localhost:10002/api/v1/eventi"), eq(evento), eq(Void.class));
+    }
+
+    @Test
+    void testGetGdeEndpoint() {
+        // The endpoint should be the GDE connettore URL + "/eventi"
+        // Verified indirectly via sendEventAsync test above
+        // Also verify via direct call
+        Connettore gdeConnettore = new Connettore();
+        gdeConnettore.setUrl("http://gde-host:8080/api/v1");
+        when(connettoreService.getConnettore("GDE")).thenReturn(gdeConnettore);
+
+        NuovoEvento evento = new NuovoEvento();
+        evento.setTipoEvento("TEST");
+        when(gdeRestTemplate.postForEntity(anyString(), any(), eq(Void.class)))
+            .thenReturn(ResponseEntity.ok().build());
+
+        gdeService.sendEventAsync(evento);
+
+        verify(gdeRestTemplate).postForEntity(
+            eq("http://gde-host:8080/api/v1/eventi"), eq(evento), eq(Void.class));
     }
 
     @Test
@@ -151,12 +169,10 @@ class GdeServiceTest {
         gdeService.saveGetPublishedFlowsOk(organizationId, pspId, flowDate, start, end, flowsCount, null);
 
         // Then
-        await().untilAsserted(() -> {
-            verify(eventoFdrMapper).createEventoOk(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
-                anyString(), eq(start), eq(end));
-            verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
-                eq("https://api.pagopa.it/organizations/ORG001/fdrs"), eq("GET"), anyList());
-        });
+        verify(eventoFdrMapper).createEventoOk(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
+            anyString(), eq(start), eq(end));
+        verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
+            eq("https://api.pagopa.it/organizations/ORG001/fdrs"), eq("GET"), anyList());
 
         // Verify idDominio is always set (it's always known)
         assertThat(mockEvento.getIdDominio()).isEqualTo(organizationId);
@@ -165,6 +181,9 @@ class GdeServiceTest {
         assertThat(mockEvento.getDatiPagoPA()).isNotNull();
         assertThat(mockEvento.getDatiPagoPA().getIdDominio()).isEqualTo(organizationId);
         assertThat(mockEvento.getDatiPagoPA().getIdPsp()).isEqualTo(pspId);
+
+        // Verify event was sent via RestTemplate
+        verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }
 
     @Test
@@ -188,15 +207,16 @@ class GdeServiceTest {
         gdeService.saveGetPublishedFlowsKo(organizationId, pspId, flowDate, start, end, null, exception);
 
         // Then
-        await().untilAsserted(() -> {
-            verify(eventoFdrMapper).createEventoKo(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
-                anyString(), eq(start), eq(end), isNull(), eq(exception));
-        });
+        verify(eventoFdrMapper).createEventoKo(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
+            anyString(), eq(start), eq(end), isNull(), eq(exception));
 
         // Verify datiPagoPA is always set with idDominio and idPsp
         assertThat(mockEvento.getDatiPagoPA()).isNotNull();
         assertThat(mockEvento.getDatiPagoPA().getIdDominio()).isEqualTo(organizationId);
         assertThat(mockEvento.getDatiPagoPA().getIdPsp()).isNull(); // pspId was null in this test
+
+        // Verify event was sent via RestTemplate
+        verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }
 
     @Test
@@ -218,15 +238,15 @@ class GdeServiceTest {
         gdeService.saveGetFlowDetailsOk(testFr, start, end, paymentsCount, null);
 
         // Then
-        await().untilAsserted(() -> {
-            verify(eventoFdrMapper).createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
-                anyString(), eq(start), eq(end));
-            verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
-                eq("https://api.pagopa.it/organizations/12345678901/fdrs/FDR-TEST-001/revisions/1/psps/PSP001"),
-                eq("GET"), anyList());
-        });
+        verify(eventoFdrMapper).createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
+            anyString(), eq(start), eq(end));
+        verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
+            eq("https://api.pagopa.it/organizations/12345678901/fdrs/FDR-TEST-001/revisions/1/psps/PSP001"),
+            eq("GET"), anyList());
         assertThat(mockEvento.getSottotipoEvento()).contains("fdr=FDR-TEST-001");
         assertThat(mockEvento.getDettaglioEsito()).contains("10 payments");
+
+        verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }
 
     @Test
@@ -247,10 +267,9 @@ class GdeServiceTest {
         gdeService.saveGetFlowDetailsKo(testFr, start, end, null, exception);
 
         // Then
-        await().untilAsserted(() -> {
-            verify(eventoFdrMapper).createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
-                anyString(), eq(start), eq(end), isNull(), eq(exception));
-        });
+        verify(eventoFdrMapper).createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
+            anyString(), eq(start), eq(end), isNull(), eq(exception));
+        verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }
 
     @Test
@@ -273,14 +292,14 @@ class GdeServiceTest {
         gdeService.saveGetPaymentsOk(testFr, start, end, paymentsCount, null);
 
         // Then
-        await().untilAsserted(() -> {
-            verify(eventoFdrMapper).createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
-                anyString(), eq(start), eq(end));
-            verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
-                eq("https://api.pagopa.it/organizations/12345678901/fdrs/FDR-TEST-001/revisions/1/psps/PSP001/payments"),
-                eq("GET"), anyList());
-        });
+        verify(eventoFdrMapper).createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
+            anyString(), eq(start), eq(end));
+        verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
+            eq("https://api.pagopa.it/organizations/12345678901/fdrs/FDR-TEST-001/revisions/1/psps/PSP001/payments"),
+            eq("GET"), anyList());
         assertThat(mockEvento.getDettaglioEsito()).contains("25 payments");
+
+        verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }
 
     @Test
@@ -303,35 +322,12 @@ class GdeServiceTest {
         gdeService.saveGetPaymentsKo(testFr, start, end, null, exception);
 
         // Then
-        await().untilAsserted(() -> {
-            verify(eventoFdrMapper).createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
-                anyString(), eq(start), eq(end), isNull(), eq(exception));
-            verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
-                eq("https://api.pagopa.it/organizations/12345678901/fdrs/FDR-TEST-001/revisions/1/psps/PSP001/payments"),
-                eq("GET"), anyList());
-        });
+        verify(eventoFdrMapper).createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
+            anyString(), eq(start), eq(end), isNull(), eq(exception));
+        verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
+            eq("https://api.pagopa.it/organizations/12345678901/fdrs/FDR-TEST-001/revisions/1/psps/PSP001/payments"),
+            eq("GET"), anyList());
+
+        verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }
-
-    @Test
-    void testInviaEventoWhenEventiApiIsNull() throws Exception {
-        // Given - GdeService with null EventiApi
-        GdeService gdeServiceNullApi = new GdeService(null, eventoFdrMapper, objectMapper, pagoPAProperties);
-        ReflectionTestUtils.setField(gdeServiceNullApi, "gdeEnabled", true);
-
-        NuovoEvento evento = new NuovoEvento();
-        evento.setTipoEvento("TEST_EVENT");
-
-        // When
-        gdeServiceNullApi.inviaEvento(evento);
-
-        // Then - should not throw exception, API should never be called
-        // Give time for async execution that should not happen
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        verify(eventiApi, never()).addEvento(any());
-    }
-
 }

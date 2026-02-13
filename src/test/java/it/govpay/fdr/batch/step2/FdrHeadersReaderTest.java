@@ -16,9 +16,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import it.govpay.common.entity.DominioEntity;
 import it.govpay.fdr.batch.dto.DominioProcessingContext;
-import it.govpay.fdr.batch.entity.Dominio;
-import it.govpay.fdr.batch.repository.DominioRepository;
+import it.govpay.fdr.batch.repository.FdrDominioRepository;
 
 /**
  * Unit tests for FdrHeadersReader
@@ -27,7 +27,7 @@ import it.govpay.fdr.batch.repository.DominioRepository;
 class FdrHeadersReaderTest {
 
     @Mock
-    private DominioRepository dominioRepository;
+    private FdrDominioRepository fdrDominioRepository;
 
     private FdrHeadersReader reader;
 
@@ -35,7 +35,7 @@ class FdrHeadersReaderTest {
     void setUp() {
         // Reset static queue before each test
         FdrHeadersReader.resetQueue();
-        reader = new FdrHeadersReader(dominioRepository);
+        reader = new FdrHeadersReader(fdrDominioRepository);
     }
 
     @Test
@@ -44,19 +44,19 @@ class FdrHeadersReaderTest {
         // Given: 3 domains with last publication dates
         List<Object[]> dominioInfos = new ArrayList<>();
 
-        Dominio dominio1 = Dominio.builder().id(1L).codDominio("12345678901").build();
+        DominioEntity dominio1 = DominioEntity.builder().id(1L).codDominio("12345678901").build();
         LocalDateTime localDateTime1 = LocalDateTime.of(2025, 1, 27, 10, 0, 0);
         dominioInfos.add(new Object[]{dominio1, localDateTime1});
 
-        Dominio dominio2 = Dominio.builder().id(2L).codDominio("12345678902").build();
+        DominioEntity dominio2 = DominioEntity.builder().id(2L).codDominio("12345678902").build();
         LocalDateTime localDateTime2 = LocalDateTime.of(2025, 1, 27, 11, 0, 0);
         dominioInfos.add(new Object[]{dominio2, localDateTime2});
 
-        Dominio dominio3 = Dominio.builder().id(3L).codDominio("12345678903").build();
+        DominioEntity dominio3 = DominioEntity.builder().id(3L).codDominio("12345678903").build();
         LocalDateTime localDateTime3 = null; // No previous acquisition
         dominioInfos.add(new Object[]{dominio3, localDateTime3});
 
-        when(dominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(dominioInfos);
+        when(fdrDominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(dominioInfos);
 
         // When: Read all domains
         DominioProcessingContext ctx1 = reader.read();
@@ -83,21 +83,21 @@ class FdrHeadersReaderTest {
         assertThat(ctx4).isNull(); // End of data
 
         // Verify repository was called only once (on first read)
-        verify(dominioRepository, times(1)).findDominioWithMaxDataOraPubblicazione();
+        verify(fdrDominioRepository, times(1)).findDominioWithMaxDataOraPubblicazione();
     }
 
     @Test
     @DisplayName("Should return null when no domains found")
     void testReadNoDomains() throws Exception {
         // Given: No domains
-        when(dominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(new ArrayList<>());
+        when(fdrDominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(new ArrayList<>());
 
         // When: Read
         DominioProcessingContext result = reader.read();
 
         // Then: Should return null immediately
         assertThat(result).isNull();
-        verify(dominioRepository, times(1)).findDominioWithMaxDataOraPubblicazione();
+        verify(fdrDominioRepository, times(1)).findDominioWithMaxDataOraPubblicazione();
     }
 
     @Test
@@ -105,11 +105,11 @@ class FdrHeadersReaderTest {
     void testReadSingleDomain() throws Exception {
         // Given: Single domain
         List<Object[]> dominioInfos = new ArrayList<>();
-        Dominio dominio = Dominio.builder().id(1L).codDominio("12345678901").build();
+        DominioEntity dominio = DominioEntity.builder().id(1L).codDominio("12345678901").build();
         LocalDateTime localDateTime = LocalDateTime.of(2025, 1, 27, 10, 0, 0);
         dominioInfos.add(new Object[]{dominio, localDateTime});
 
-        when(dominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(dominioInfos);
+        when(fdrDominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(dominioInfos);
 
         // When: Read twice
         DominioProcessingContext ctx1 = reader.read();
@@ -126,10 +126,10 @@ class FdrHeadersReaderTest {
     void testInitializeOnce() throws Exception {
         // Given
         List<Object[]> dominioInfos = new ArrayList<>();
-        Dominio dominio = Dominio.builder().id(1L).codDominio("12345678901").build();
+        DominioEntity dominio = DominioEntity.builder().id(1L).codDominio("12345678901").build();
         dominioInfos.add(new Object[]{dominio, LocalDateTime.now()});
 
-        when(dominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(dominioInfos);
+        when(fdrDominioRepository.findDominioWithMaxDataOraPubblicazione()).thenReturn(dominioInfos);
 
         // When: Read multiple times
         reader.read();
@@ -137,6 +137,6 @@ class FdrHeadersReaderTest {
         reader.read();
 
         // Then: Repository should be called only once
-        verify(dominioRepository, times(1)).findDominioWithMaxDataOraPubblicazione();
+        verify(fdrDominioRepository, times(1)).findDominioWithMaxDataOraPubblicazione();
     }
 }

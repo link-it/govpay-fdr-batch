@@ -3,30 +3,36 @@ package it.govpay.fdr.batch.gde.service;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import it.govpay.common.client.gde.HttpDataHolder;
+import it.govpay.common.client.model.Connettore;
+import it.govpay.common.client.service.ConnettoreService;
+import it.govpay.common.gde.AbstractGdeService;
+import it.govpay.common.gde.GdeEventInfo;
 import it.govpay.fdr.batch.Costanti;
-import it.govpay.fdr.batch.config.PagoPAProperties;
+import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
 import it.govpay.fdr.batch.gde.utils.GdeUtils;
-import it.govpay.gde.client.api.EventiApi;
-import it.govpay.gde.client.model.NuovoEvento;
-import lombok.RequiredArgsConstructor;
+import it.govpay.gde.client.beans.DatiPagoPA;
+import it.govpay.gde.client.beans.NuovoEvento;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Service for sending FDR acquisition events to the GDE microservice.
  * <p>
- * This service tracks all FDR batch operations by sending events asynchronously
- * to GDE for monitoring, auditing, and debugging purposes.
+ * Extends {@link AbstractGdeService} from govpay-common for RestTemplate-based
+ * async event sending via ConnettoreService.
  * <p>
  * Events include:
  * - IOrganizationsController_getAllPublishedFlows: Fetching list of published flows
@@ -36,82 +42,84 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @ConditionalOnProperty(name = "govpay.gde.enabled", havingValue = "true", matchIfMissing = false)
-public class GdeService {
+public class GdeService extends AbstractGdeService {
 
     private static final String PLACEHOLDER_PSP_ID = "{pspId}";
 	private static final String PLACEHOLDER_REVISION = "{revision}";
 	private static final String PLACEHOLDER_FDR = "{fdr}";
 	private static final String PLACEHOLDER_ORGANIZATION_ID = "{organizationId}";
-	
-	private final EventiApi eventiApi;
-    private final EventoFdrMapper eventoFdrMapper;
-    private final ObjectMapper objectMapper;
-    private final PagoPAProperties pagoPAProperties;
-    
-    @Value("${govpay.gde.enabled:false}")
-    private Boolean gdeEnabled;
-    
+
+	private final EventoFdrMapper eventoFdrMapper;
+    private final ConnettoreService connettoreService;
+    private final BatchProperties batchProperties;
+    private final String pagoPABaseUrl;
+
+    public GdeService(ObjectMapper objectMapper,
+                      @Qualifier("asyncHttpExecutor") Executor asyncHttpExecutor,
+                      EventoFdrMapper eventoFdrMapper,
+                      ConnettoreService connettoreService,
+                      BatchProperties batchProperties) {
+        super(objectMapper, asyncHttpExecutor);
+        this.eventoFdrMapper = eventoFdrMapper;
+        this.connettoreService = connettoreService;
+        this.batchProperties = batchProperties;
+        Connettore connettore = connettoreService.getConnettore(batchProperties.getConnettorePagopaFdr());
+        this.pagoPABaseUrl = connettore.getUrl();
+    }
+
+    @Override
+    protected String getGdeEndpoint() {
+        return connettoreService.getConnettore(batchProperties.getConnettoreGde()).getUrl() + "/eventi";
+    }
+
+    @Override
+    protected RestTemplate getGdeRestTemplate() {
+        return connettoreService.getRestTemplate(batchProperties.getConnettoreGde());
+    }
+
+    @Override
+    protected NuovoEvento convertToGdeEvent(GdeEventInfo eventInfo) {
+        throw new UnsupportedOperationException(
+                "GdeService usa sendEventAsync(NuovoEvento) direttamente, non il pattern GdeEventInfo");
+    }
+
     /**
-     * Sends an event to GDE asynchronously.
-     * <p>
-     * If GDE is disabled or the event fails to send, the error is logged
-     * but does not interrupt the batch processing.
+     * Sends an event to GDE asynchronously using the inherited async executor
+     * and RestTemplate from ConnettoreService.
      *
      * @param nuovoEvento Event to send
      */
-    public void inviaEvento(NuovoEvento nuovoEvento) {
-        if (Boolean.FALSE.equals(gdeEnabled)) {
-            log.debug("GDE disabilitato, salto evento: {}", nuovoEvento.getTipoEvento());
-            return;
-        }
-
-        if (eventiApi == null) {
-            log.debug("EventiApi non configurato, salto evento: {}", nuovoEvento.getTipoEvento());
-            return;
-        }
-
+    public void sendEventAsync(NuovoEvento nuovoEvento) {
         CompletableFuture.runAsync(() -> {
             try {
-                eventiApi.addEvento(nuovoEvento);
+                getGdeRestTemplate().postForEntity(getGdeEndpoint(), nuovoEvento, Void.class);
                 log.debug("Evento {} inviato con successo al GDE", nuovoEvento.getTipoEvento());
             } catch (Exception ex) {
-                // Log come warning per non interrompere il batch
-                // L'invio eventi GDE è best-effort: se fallisce, il batch continua
                 log.warn("Impossibile inviare evento {} al GDE (il batch continua normalmente): {}",
                         nuovoEvento.getTipoEvento(), ex.getMessage());
                 log.debug("Dettaglio errore GDE:", ex);
+            } finally {
+                HttpDataHolder.clear();
             }
-        });
+        }, this.asyncExecutor);
     }
 
     /**
      * Records a successful GET_PUBLISHED_FLOWS operation.
-     *
-     * @param organizationId Organization identifier
-     * @param pspId          PSP identifier (optional)
-     * @param flowDate       Flow date filter
-     * @param dataStart      Operation start time
-     * @param dataEnd        Operation end time
-     * @param url            Request URL
-     * @param flowsCount     Number of flows retrieved
      */
     public void saveGetPublishedFlowsOk(String organizationId, String pspId, String flowDate,
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
                                           int flowsCount, ResponseEntity<?> responseEntity) {
         String transactionId = UUID.randomUUID().toString();
-        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
+        String url = pagoPABaseUrl + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
                 .replace(PLACEHOLDER_ORGANIZATION_ID, organizationId);
-        // Create event without Fr entity (list operation)
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd);
 
-        // Always set idDominio - it's always known
         nuovoEvento.setIdDominio(organizationId);
 
-        // Always set datiPagoPA with idDominio and idPsp
-        it.govpay.gde.client.model.DatiPagoPA datiPagoPA = new it.govpay.gde.client.model.DatiPagoPA();
+        DatiPagoPA datiPagoPA = new DatiPagoPA();
         datiPagoPA.setIdDominio(organizationId);
         datiPagoPA.setIdPsp(pspId);
         nuovoEvento.setDatiPagoPA(datiPagoPA);
@@ -123,37 +131,27 @@ public class GdeService {
 
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
 
-        inviaEvento(nuovoEvento);
+        sendEventAsync(nuovoEvento);
     }
 
     /**
      * Records a failed GET_PUBLISHED_FLOWS operation.
-     *
-     * @param organizationId Organization identifier
-     * @param pspId          PSP identifier (optional)
-     * @param flowDate       Flow date filter
-     * @param dataStart      Operation start time
-     * @param dataEnd        Operation end time
-     * @param url            Request URL
-     * @param exception      Exception that occurred
      */
     public void saveGetPublishedFlowsKo(String organizationId, String pspId, String flowDate,
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
                                          ResponseEntity<?> responseEntity, RestClientException exception) {
         String transactionId = UUID.randomUUID().toString();
 
-        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
+        String url = pagoPABaseUrl + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
                 .replace(PLACEHOLDER_ORGANIZATION_ID, organizationId);
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd,
                 null, exception);
 
-        // Always set idDominio - it's always known
         nuovoEvento.setIdDominio(organizationId);
 
-        // Always set datiPagoPA with idDominio and idPsp
-        it.govpay.gde.client.model.DatiPagoPA datiPagoPA = new it.govpay.gde.client.model.DatiPagoPA();
+        DatiPagoPA datiPagoPA = new DatiPagoPA();
         datiPagoPA.setIdDominio(organizationId);
         datiPagoPA.setIdPsp(pspId);
         nuovoEvento.setDatiPagoPA(datiPagoPA);
@@ -161,27 +159,20 @@ public class GdeService {
 
         eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
-        
+
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
 
-        inviaEvento(nuovoEvento);
+        sendEventAsync(nuovoEvento);
     }
 
     /**
      * Records a successful GET_FLOW_DETAILS operation.
-     *
-     * @param fr             Fr entity with flow data
-     * @param dataStart      Operation start time
-     * @param dataEnd        Operation end time
-     * @param url            Request URL
-     * @param paymentsCount  Number of payments in flow
-     * @param responseEntity HTTP response entity with payload
      */
     public void saveGetFlowDetailsOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
                                       int paymentsCount, ResponseEntity<?> responseEntity) {
         String transactionId = UUID.randomUUID().toString();
-        
-        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
+
+        String url = pagoPABaseUrl + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
                 .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
                 .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
                 .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
@@ -197,23 +188,17 @@ public class GdeService {
 
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
 
-        inviaEvento(nuovoEvento);
+        sendEventAsync(nuovoEvento);
     }
 
     /**
      * Records a failed GET_FLOW_DETAILS operation.
-     *
-     * @param fr             Fr entity with flow data
-     * @param dataStart      Operation start time
-     * @param dataEnd        Operation end time
-     * @param url            Request URL
-     * @param exception      Exception that occurred
      */
     public void saveGetFlowDetailsKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
                                       ResponseEntity<?> responseEntity, RestClientException exception) {
         String transactionId = UUID.randomUUID().toString();
-        
-        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
+
+        String url = pagoPABaseUrl + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
                 .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
                 .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
                 .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
@@ -229,24 +214,17 @@ public class GdeService {
 
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
 
-        inviaEvento(nuovoEvento);
+        sendEventAsync(nuovoEvento);
     }
 
     /**
      * Records a successful GET_PAYMENTS_FROM_PUBLISHED_FLOW operation.
-     *
-     * @param fr             Fr entity with flow data
-     * @param dataStart      Operation start time
-     * @param dataEnd        Operation end time
-     * @param url            Request URL
-     * @param paymentsCount  Number of payments retrieved
-     * @param responseEntity HTTP response entity with payload
      */
     public void saveGetPaymentsOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
                                    int paymentsCount, ResponseEntity<?> responseEntity) {
         String transactionId = UUID.randomUUID().toString();
-        
-        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
+
+        String url = pagoPABaseUrl + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
                 .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
                 .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
                 .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
@@ -262,24 +240,17 @@ public class GdeService {
 
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
 
-        inviaEvento(nuovoEvento);
+        sendEventAsync(nuovoEvento);
     }
 
     /**
      * Records a failed GET_PAYMENTS_FROM_PUBLISHED_FLOW operation.
-     *
-     * @param fr             Fr entity with flow data
-     * @param dataStart      Operation start time
-     * @param dataEnd        Operation end time
-     * @param url            Request URL
-     * @param responseEntity HTTP response entity with payload
-     * @param exception      Exception that occurred
      */
     public void saveGetPaymentsKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
                                    ResponseEntity<?> responseEntity, RestClientException exception) {
         String transactionId = UUID.randomUUID().toString();
-        
-        String url = pagoPAProperties.getBaseUrl() + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
+
+        String url = pagoPABaseUrl + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
                 .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
                 .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
                 .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
@@ -294,6 +265,6 @@ public class GdeService {
 
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
 
-        inviaEvento(nuovoEvento);
+        sendEventAsync(nuovoEvento);
     }
 }

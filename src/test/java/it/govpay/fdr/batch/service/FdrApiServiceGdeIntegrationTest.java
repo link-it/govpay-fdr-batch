@@ -1,6 +1,8 @@
 package it.govpay.fdr.batch.service;
 
-import it.govpay.fdr.batch.config.PagoPAProperties;
+import it.govpay.common.client.model.Connettore;
+import it.govpay.common.client.service.ConnettoreService;
+import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.service.GdeService;
 import it.govpay.fdr.client.api.OrganizationsApi;
@@ -44,19 +46,25 @@ class FdrApiServiceGdeIntegrationTest {
     @Mock
     private GdeService gdeService;
 
-    private PagoPAProperties pagoPAProperties;
+    @Mock
+    private ConnettoreService connettoreService;
+
+    private BatchProperties batchProperties;
     private FdrApiService fdrApiService;
     private static final ZoneId ZONE_ID = ZoneId.of("Europe/Rome");
 
     @BeforeEach
     void setUp() {
-        pagoPAProperties = new PagoPAProperties();
-        pagoPAProperties.setBaseUrl("http://api.test.com");
-        pagoPAProperties.setPageSize(100);
-        pagoPAProperties.setDebugging(false);
+        batchProperties = new BatchProperties();
+        batchProperties.setConnettorePagopaFdr("PAGOPA_FDR");
+        batchProperties.setPageSize(100);
+
+        Connettore connettore = new Connettore();
+        connettore.setUrl("http://api.test.com");
+        when(connettoreService.getConnettore("PAGOPA_FDR")).thenReturn(connettore);
 
         // Create service and inject mocked OrganizationsApi
-        fdrApiService = new FdrApiService(restTemplate, pagoPAProperties, gdeService, ZONE_ID);
+        fdrApiService = new FdrApiService(restTemplate, batchProperties, connettoreService, gdeService, ZONE_ID);
         ReflectionTestUtils.setField(fdrApiService, "organizationsApi", organizationsApi);
     }
 
@@ -211,7 +219,7 @@ class FdrApiServiceGdeIntegrationTest {
     void testGetAllPublishedFlowsWithNullGdeService() throws Exception {
         // Given - service without GDE
         FdrApiService serviceWithoutGde = new FdrApiService(
-            restTemplate, pagoPAProperties, null, ZONE_ID);
+            restTemplate, batchProperties, connettoreService, null, ZONE_ID);
         ReflectionTestUtils.setField(serviceWithoutGde, "organizationsApi", organizationsApi);
 
         String organizationId = "ORG123";

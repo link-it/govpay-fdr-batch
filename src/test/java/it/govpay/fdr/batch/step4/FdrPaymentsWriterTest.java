@@ -28,16 +28,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.batch.item.Chunk;
 
+import it.govpay.common.entity.DominioEntity;
+import it.govpay.common.repository.DominioRepository;
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.entity.Applicazione;
-import it.govpay.fdr.batch.entity.Dominio;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.entity.Pagamento;
 import it.govpay.fdr.batch.entity.SingoloVersamento;
 import it.govpay.fdr.batch.entity.StatoFr;
 import it.govpay.fdr.batch.entity.Versamento;
-import it.govpay.fdr.batch.repository.DominioRepository;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 import it.govpay.fdr.batch.repository.PagamentoRepository;
@@ -73,7 +73,7 @@ class FdrPaymentsWriterTest {
 
     private FdrPaymentsWriter writer;
 
-    private Dominio testDominio;
+    private DominioEntity testDominio;
     private FdrPaymentsProcessor.FdrCompleteData testData;
 
     @BeforeEach
@@ -87,7 +87,7 @@ class FdrPaymentsWriterTest {
             frTempRepository
         );
 
-        testDominio = Dominio.builder()
+        testDominio = DominioEntity.builder()
             .id(1L)
             .codDominio("12345678901")
             .auxDigit(0)
@@ -528,7 +528,7 @@ class FdrPaymentsWriterTest {
         @Test
         void testPaymentNotFoundWithIuvEsterno() {
             // Given - IUV not internal to dominio (will be marked as altro intermediario)
-            Dominio domAuxDigit3 = Dominio.builder()
+            DominioEntity domAuxDigit3 = DominioEntity.builder()
                 .id(1L)
                 .codDominio("12345678901")
                 .auxDigit(3)
@@ -588,7 +588,7 @@ class FdrPaymentsWriterTest {
         @Test
         void testPaymentNotFoundWithIuvInternoSenzaRPT() {
             // Given - internal IUV with NO_RPT status
-            Dominio domAuxDigit0 = Dominio.builder()
+            DominioEntity domAuxDigit0 = DominioEntity.builder()
                 .id(1L)
                 .codDominio("12345678901")
                 .auxDigit(0)
@@ -650,7 +650,7 @@ class FdrPaymentsWriterTest {
         @Test
         void testPaymentNotFoundWithIuvInternoStandInNoRpt() {
             // Given - internal IUV with STAND_IN_NO_RPT status and versamento with multiple singoli
-            Dominio domAuxDigit0 = Dominio.builder()
+            DominioEntity domAuxDigit0 = DominioEntity.builder()
                 .id(1L)
                 .codDominio("12345678901")
                 .auxDigit(0)
@@ -1182,7 +1182,7 @@ class FdrPaymentsWriterTest {
         @Test
         void testAssociazioneVersamentoConSingoloVersamento() {
             // Given - payment not found, but versamento exists with matching singolo versamento
-            Dominio domAuxDigit0 = Dominio.builder()
+            DominioEntity domAuxDigit0 = DominioEntity.builder()
                 .id(1L)
                 .codDominio("12345678901")
                 .auxDigit(0)
@@ -1259,7 +1259,7 @@ class FdrPaymentsWriterTest {
         @Test
         void testAssociazioneVersamentoConIndiceDatiNull() {
             // Given - payment not found, versamento exists, indiceDati is null (defaults to 1)
-            Dominio domAuxDigit0 = Dominio.builder()
+            DominioEntity domAuxDigit0 = DominioEntity.builder()
                 .id(1L)
                 .codDominio("12345678901")
                 .auxDigit(0)

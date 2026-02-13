@@ -12,11 +12,11 @@ import org.springframework.web.client.RestClientException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import it.govpay.common.client.gde.HttpDataHolder;
 import it.govpay.fdr.batch.Costanti;
-import it.govpay.fdr.batch.utils.ResponseBodyHolder;
-import it.govpay.gde.client.model.DettaglioRisposta;
-import it.govpay.gde.client.model.Header;
-import it.govpay.gde.client.model.NuovoEvento;
+import it.govpay.gde.client.beans.DettaglioRisposta;
+import it.govpay.gde.client.beans.Header;
+import it.govpay.gde.client.beans.NuovoEvento;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -29,7 +29,7 @@ public class GdeUtils {
 	 * <p>
 	 * Ordine di priorità per il payload:
 	 * 1. HttpStatusCodeException.getResponseBodyAsByteArray() - per errori HTTP (4xx, 5xx)
-	 * 2. ResponseBodyHolder.getResponseBody() - body catturato dall'interceptor (per errori di deserializzazione)
+	 * 2. HttpDataHolder.getResponseBody() - body catturato dall'interceptor (per errori di deserializzazione)
 	 * 3. response.getBody() serializzato - per risposte OK
 	 * 4. exception.getMessage() - fallback per altri errori
 	 *
@@ -50,7 +50,7 @@ public class GdeUtils {
 					} else {
 						// Caso 2: altro tipo di errore (es. deserializzazione fallita)
 						// Prova a recuperare il body catturato dall'interceptor
-						byte[] capturedBody = ResponseBodyHolder.getResponseBody();
+						byte[] capturedBody = HttpDataHolder.getResponseBody();
 						if (capturedBody != null && capturedBody.length > 0) {
 							log.debug("Usando body catturato dall'interceptor: {} bytes", capturedBody.length);
 							parametriRisposta.setPayload(Base64.getEncoder().encodeToString(capturedBody));
@@ -66,7 +66,7 @@ public class GdeUtils {
 				}
 			} finally {
 				// Pulisci sempre il ThreadLocal per evitare memory leak
-				ResponseBodyHolder.clear();
+				HttpDataHolder.clear();
 			}
 		}
 	}
@@ -78,7 +78,7 @@ public class GdeUtils {
 	 */
 	public static List<Header> getCapturedRequestHeaders() {
 		List<Header> headers = new ArrayList<>();
-		HttpHeaders httpHeaders = ResponseBodyHolder.getRequestHeaders();
+		HttpHeaders httpHeaders = HttpDataHolder.getRequestHeaders();
 
 		if (httpHeaders != null) {
 			httpHeaders.forEach((key, values) -> {

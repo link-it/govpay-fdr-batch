@@ -12,8 +12,10 @@ import org.springframework.batch.item.ItemWriter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import it.govpay.common.entity.DominioEntity;
+import it.govpay.common.repository.DominioRepository;
+import it.govpay.common.utils.IuvUtils;
 import it.govpay.fdr.batch.Costanti;
-import it.govpay.fdr.batch.entity.Dominio;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.entity.Pagamento;
 import it.govpay.fdr.batch.entity.Rendicontazione;
@@ -21,13 +23,11 @@ import it.govpay.fdr.batch.entity.SingoloVersamento;
 import it.govpay.fdr.batch.entity.StatoFr;
 import it.govpay.fdr.batch.entity.StatoRendicontazione;
 import it.govpay.fdr.batch.entity.Versamento;
-import it.govpay.fdr.batch.repository.DominioRepository;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 import it.govpay.fdr.batch.repository.PagamentoRepository;
 import it.govpay.fdr.batch.repository.SingoloVersamentoRepository;
 import it.govpay.fdr.batch.repository.VersamentoRepository;
-import it.govpay.fdr.batch.utils.IuvUtils;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -80,7 +80,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
                     markFrTempAsProcessed(data.getFrTempId());
                 } else {
 	                // Find domain
-	                Optional<Dominio> dominioOpt = dominioRepository.findByCodDominio(data.getCodDominio());
+	                Optional<DominioEntity> dominioOpt = dominioRepository.findByCodDominio(data.getCodDominio());
 	                if (!dominioOpt.isEmpty()) {
 	                    writeProcessedData(data, dominioOpt);
 
@@ -98,7 +98,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
         }
     }
 
-	private void writeProcessedData(FdrPaymentsProcessor.FdrCompleteData data, Optional<Dominio> dominioOpt) {
+	private void writeProcessedData(FdrPaymentsProcessor.FdrCompleteData data, Optional<DominioEntity> dominioOpt) {
 		log.info("Inizio scrittura FdrCompleteData sul DB - Flusso: {}, IUR: {}, Dominio: {}, PSP: {}, Revisione: {}, NumPagamenti: {}, ImportoTotale: {}, DataRegolamento: {}, DataPubblicazione: {}, Payments da salvare: {}",
 		    data.getCodFlusso(),
 		    data.getIur(),
@@ -111,7 +111,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    data.getDataOraPubblicazione(),
 		    data.getPayments() != null ? data.getPayments().size() : 0);
 
-		Dominio dominio = dominioOpt.get();
+		DominioEntity dominio = dominioOpt.get();
 
 		Fr fr = buildFR(data, dominio);
 
@@ -190,7 +190,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    .build();
 	}
 
-	private Fr buildFR(FdrPaymentsProcessor.FdrCompleteData data, Dominio dominio) {
+	private Fr buildFR(FdrPaymentsProcessor.FdrCompleteData data, DominioEntity dominio) {
 		// Create FR entity
 		return Fr.builder()
 		    .codPsp(data.getCodPsp())
@@ -258,7 +258,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		log.info("Controllo presenza rendicontazione duplicata all'interno del flusso: [Dominio:{} Iuv:{} Iur:{} Indice:{}] completato", fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati());
 	}
 
-	private void gestionePagamentoNoSingleMatch(Dominio dominio, Fr fr, List<Pagamento> pagamenti, Rendicontazione rendicontazione, List<String> anomalieFr, List<String> anomalieRnd) {
+	private void gestionePagamentoNoSingleMatch(DominioEntity dominio, Fr fr, List<Pagamento> pagamenti, Rendicontazione rendicontazione, List<String> anomalieFr, List<String> anomalieRnd) {
 		if (pagamenti.isEmpty()) {
 		    // Pagamento non trovato. Devo capire se ce' un errore.
 		    log.info("Pagamento [Dominio:{} Iuv:{} Iur:{} Indice:{}] non trovato: ricerco la causa...", fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati());

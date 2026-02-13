@@ -34,7 +34,7 @@ public class Costanti {
 	// Path delle operazioni FDR API (da fdr_organization.json)
 	// Questi sono path template fissi definiti dalla specifica OpenAPI di pagoPA.
 	// Non sono URI completi (mancano protocollo e host) ma template che vengono
-	// combinati con il baseUrl configurabile in PagoPAProperties.
+	// combinati con il baseUrl del connettore configurato in DB.
 	// Soppressione S1075: path template API fissi, non URI configurabili
 	@SuppressWarnings("java:S1075")
 	public static final String PATH_GET_ALL_PUBLISHED_FLOWS = "/organizations/{organizationId}/fdrs";

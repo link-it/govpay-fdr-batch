@@ -50,18 +50,15 @@ public class BatchJobConfiguration {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final BatchProperties batchProperties;
-    private final PagoPAProperties pagoPAProperties;
 
     public BatchJobConfiguration(
         JobRepository jobRepository,
         PlatformTransactionManager transactionManager,
-        BatchProperties batchProperties,
-        PagoPAProperties pagoPAProperties
+        BatchProperties batchProperties
     ) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.batchProperties = batchProperties;
-        this.pagoPAProperties = pagoPAProperties;
     }
 
 	private RetryPolicy retryPolicy() {
@@ -72,7 +69,7 @@ public class BatchJobConfiguration {
         retryableExceptions.put(IllegalArgumentException.class, false);
         retryableExceptions.put(NullPointerException.class, false);
         
-        return new SimpleRetryPolicy(pagoPAProperties.getMaxRetries(), retryableExceptions);
+        return new SimpleRetryPolicy(batchProperties.getMaxRetries(), retryableExceptions);
 	}
 
 	private BackOffPolicy backOffPolicy() {

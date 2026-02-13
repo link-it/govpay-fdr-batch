@@ -21,13 +21,13 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
-import it.govpay.fdr.batch.entity.Dominio;
+import it.govpay.common.entity.DominioEntity;
+import it.govpay.common.repository.DominioRepository;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.entity.Rendicontazione;
 import it.govpay.fdr.batch.entity.StatoFr;
 import it.govpay.fdr.batch.entity.StatoRendicontazione;
-import it.govpay.fdr.batch.repository.DominioRepository;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 import it.govpay.fdr.batch.repository.RendicontazioneRepository;
@@ -83,7 +83,7 @@ class FdrDownloadIntegrationTest {
     @MockBean
     private FdrApiService fdrApiService;
 
-    private Dominio testDominio;
+    private DominioEntity testDominio;
     private static final String ORG_ID = "12345678901";
     private static final String FDR_ID = "2025-01-27PSP001-0001";
     private static final Long REVISION = 1L;
@@ -92,9 +92,13 @@ class FdrDownloadIntegrationTest {
     @BeforeEach
     void setUp() {
         // Create test domain with auxDigit=0 (monointermediato, IUV 15 cifre)
-        testDominio = Dominio.builder()
+        testDominio = DominioEntity.builder()
             .codDominio(ORG_ID)
             .auxDigit(0)
+            .abilitato(true)
+            .ragioneSociale("Comune di Test")
+            .intermediato(true)
+            .scaricaFr(true)
             .build();
         testDominio = dominioRepository.save(testDominio);
     }
