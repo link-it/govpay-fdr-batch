@@ -7,7 +7,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
@@ -39,7 +38,7 @@ public class FdrApiService {
 
     public FdrApiService(RestTemplate fdrApiRestTemplate, BatchProperties batchProperties,
                          ConnettoreService connettoreService,
-                         @Autowired(required = false) GdeService gdeService, ZoneId applicationZoneId) {
+                         GdeService gdeService, ZoneId applicationZoneId) {
         this.batchProperties = batchProperties;
         this.gdeService = gdeService;
         this.applicationZoneId = applicationZoneId;
@@ -167,24 +166,18 @@ public class FdrApiService {
 
 	private void saveGetPublishedFlowsKo(String organizationId, LocalDateTime publishedGt, OffsetDateTime startTime,
 			ResponseEntity<PaginatedFlowsResponse> lastResponseEntity, RestClientException e) {
-		// Send failure event to GDE
-		if (gdeService != null) {
-		    OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-		    gdeService.saveGetPublishedFlowsKo(organizationId, null,
-		        publishedGt != null ? publishedGt.toString() : "all",
-		        startTime, endTime, lastResponseEntity, e);
-		}
+		OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
+		gdeService.saveGetPublishedFlowsKo(organizationId, null,
+		    publishedGt != null ? publishedGt.toString() : "all",
+		    startTime, endTime, lastResponseEntity, e);
 	}
 
 	private void saveGetPublishedFlowsOk(String organizationId, LocalDateTime publishedGt, OffsetDateTime startTime,
 			List<FlowByPSP> allFlows, ResponseEntity<PaginatedFlowsResponse> lastResponseEntity) {
-		// Send success event to GDE
-		if (gdeService != null) {
-		    OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-		    gdeService.saveGetPublishedFlowsOk(organizationId, null,
-		        publishedGt != null ? publishedGt.toString() : "all",
-		        startTime, endTime, allFlows.size(), lastResponseEntity);
-		}
+		OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
+		gdeService.saveGetPublishedFlowsOk(organizationId, null,
+		    publishedGt != null ? publishedGt.toString() : "all",
+		    startTime, endTime, allFlows.size(), lastResponseEntity);
 	}
 
     /**
@@ -208,10 +201,9 @@ public class FdrApiService {
             log.info("Recuperati dettagli flusso per fdr={}: {}", fdr, response);
 
             // Send success event to GDE
-            if (gdeService != null && response != null) {
+            if (response != null) {
                 OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
 
-                // Create minimal Fr object for event tracking
                 it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
                     .codFlusso(fdr)
                     .codPsp(pspId)
@@ -230,20 +222,17 @@ public class FdrApiService {
         } catch (Exception e) {
             log.error("Errore nel recupero dei dettagli del flusso per fdr={}: {}", fdr, e.getMessage());
 
-            // Send failure event to GDE
-            if (gdeService != null) {
-                OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
+            OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
 
-                it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
-                    .codFlusso(fdr)
-                    .codPsp(pspId)
-                    .codDominio(organizationId)
-                    .revisione(revision)
-                    .build();
+            it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
+                .codFlusso(fdr)
+                .codPsp(pspId)
+                .codDominio(organizationId)
+                .revisione(revision)
+                .build();
 
-                gdeService.saveGetFlowDetailsKo(frForEvent, startTime, endTime, responseEntity,
-                    e instanceof RestClientException restClientException ? restClientException : new RestClientException(e.getMessage(), e));
-            }
+            gdeService.saveGetFlowDetailsKo(frForEvent, startTime, endTime, responseEntity,
+                e instanceof RestClientException restClientException ? restClientException : new RestClientException(e.getMessage(), e));
 
             throw new RestClientException("Fallito il recupero dei dettagli del flusso per " + fdr, e);
         }
@@ -295,37 +284,30 @@ public class FdrApiService {
 
             log.info("Recuperati in totale {} pagamenti per fdr {}", allPayments.size(), fdr);
 
-            // Send success event to GDE
-            if (gdeService != null) {
-                OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
+            OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
 
-                // Create minimal Fr object for event tracking
-                it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
-                    .codFlusso(fdr)
-                    .codPsp(pspId)
-                    .codDominio(organizationId)
-                    .revisione(revision)
-                    .build();
+            it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
+                .codFlusso(fdr)
+                .codPsp(pspId)
+                .codDominio(organizationId)
+                .revisione(revision)
+                .build();
 
-                gdeService.saveGetPaymentsOk(frForEvent, startTime, endTime, allPayments.size(), lastResponseEntity);
-            }
+            gdeService.saveGetPaymentsOk(frForEvent, startTime, endTime, allPayments.size(), lastResponseEntity);
 
             return allPayments;
 
         } catch (RestClientException e) {
-            // Send failure event to GDE
-            if (gdeService != null) {
-                OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
+            OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
 
-                it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
-                    .codFlusso(fdr)
-                    .codPsp(pspId)
-                    .codDominio(organizationId)
-                    .revisione(revision)
-                    .build();
+            it.govpay.fdr.batch.entity.Fr frForEvent = it.govpay.fdr.batch.entity.Fr.builder()
+                .codFlusso(fdr)
+                .codPsp(pspId)
+                .codDominio(organizationId)
+                .revisione(revision)
+                .build();
 
-                gdeService.saveGetPaymentsKo(frForEvent, startTime, endTime, lastResponseEntity, e);
-            }
+            gdeService.saveGetPaymentsKo(frForEvent, startTime, endTime, lastResponseEntity, e);
             throw e;
         }
     }

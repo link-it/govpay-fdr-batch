@@ -62,7 +62,6 @@ import it.govpay.fdr.client.model.SingleFlowResponse;
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
     "spring.batch.job.enabled=false",
-    "govpay.gde.enabled=false"
 })
 @Transactional
 class FdrAnomaliesIntegrationTest {

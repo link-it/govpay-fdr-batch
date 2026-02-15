@@ -6,17 +6,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import it.govpay.common.client.gde.HttpDataHolder;
 import it.govpay.common.client.model.Connettore;
 import it.govpay.common.client.service.ConnettoreService;
+import it.govpay.common.configurazione.service.ConfigurazioneService;
 import it.govpay.common.gde.AbstractGdeService;
 import it.govpay.common.gde.GdeEventInfo;
 import it.govpay.fdr.batch.Costanti;
@@ -32,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
  * Service for sending FDR acquisition events to the GDE microservice.
  * <p>
  * Extends {@link AbstractGdeService} from govpay-common for RestTemplate-based
- * async event sending via ConnettoreService.
+ * async event sending via ConfigurazioneService.
  * <p>
  * Events include:
  * - IOrganizationsController_getAllPublishedFlows: Fetching list of published flows
@@ -42,7 +41,6 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "govpay.gde.enabled", havingValue = "true", matchIfMissing = false)
 public class GdeService extends AbstractGdeService {
 
     private static final String PLACEHOLDER_PSP_ID = "{pspId}";
@@ -51,31 +49,25 @@ public class GdeService extends AbstractGdeService {
 	private static final String PLACEHOLDER_ORGANIZATION_ID = "{organizationId}";
 
 	private final EventoFdrMapper eventoFdrMapper;
-    private final ConnettoreService connettoreService;
-    private final BatchProperties batchProperties;
+    private final ConfigurazioneService configurazioneService;
     private final String pagoPABaseUrl;
 
     public GdeService(ObjectMapper objectMapper,
                       @Qualifier("asyncHttpExecutor") Executor asyncHttpExecutor,
+                      ConfigurazioneService configurazioneService,
                       EventoFdrMapper eventoFdrMapper,
                       ConnettoreService connettoreService,
                       BatchProperties batchProperties) {
-        super(objectMapper, asyncHttpExecutor);
+        super(objectMapper, asyncHttpExecutor, configurazioneService);
         this.eventoFdrMapper = eventoFdrMapper;
-        this.connettoreService = connettoreService;
-        this.batchProperties = batchProperties;
+        this.configurazioneService = configurazioneService;
         Connettore connettore = connettoreService.getConnettore(batchProperties.getConnettorePagopaFdr());
         this.pagoPABaseUrl = connettore.getUrl();
     }
 
     @Override
     protected String getGdeEndpoint() {
-        return connettoreService.getConnettore(batchProperties.getConnettoreGde()).getUrl() + "/eventi";
-    }
-
-    @Override
-    protected RestTemplate getGdeRestTemplate() {
-        return connettoreService.getRestTemplate(batchProperties.getConnettoreGde());
+        return configurazioneService.getServizioGDE().getUrl() + "/eventi";
     }
 
     @Override
@@ -86,11 +78,15 @@ public class GdeService extends AbstractGdeService {
 
     /**
      * Sends an event to GDE asynchronously using the inherited async executor
-     * and RestTemplate from ConnettoreService.
+     * and RestTemplate from ConfigurazioneService.
      *
      * @param nuovoEvento Event to send
      */
     public void sendEventAsync(NuovoEvento nuovoEvento) {
+        if (!isAbilitato()) {
+            log.debug("Connettore GDE disabilitato, evento {} non inviato", nuovoEvento.getTipoEvento());
+            return;
+        }
         CompletableFuture.runAsync(() -> {
             try {
                 getGdeRestTemplate().postForEntity(getGdeEndpoint(), nuovoEvento, Void.class);

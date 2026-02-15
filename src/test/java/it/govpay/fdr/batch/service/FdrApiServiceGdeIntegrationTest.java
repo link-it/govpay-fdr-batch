@@ -216,37 +216,6 @@ class FdrApiServiceGdeIntegrationTest {
     }
 
     @Test
-    void testGetAllPublishedFlowsWithNullGdeService() throws Exception {
-        // Given - service without GDE
-        FdrApiService serviceWithoutGde = new FdrApiService(
-            restTemplate, batchProperties, connettoreService, null, ZONE_ID);
-        ReflectionTestUtils.setField(serviceWithoutGde, "organizationsApi", organizationsApi);
-
-        String organizationId = "ORG123";
-
-        PaginatedFlowsResponse response = new PaginatedFlowsResponse();
-        response.setData(new ArrayList<>());
-
-        Metadata metadata = new Metadata();
-        metadata.setPageNumber(1);
-        metadata.setTotPage(1);
-        response.setMetadata(metadata);
-
-        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
-            eq(organizationId), isNull(), eq(1L), isNull(), isNull(), eq(100L)))
-            .thenReturn(ResponseEntity.ok(response));
-
-        // When
-        List<FlowByPSP> result = serviceWithoutGde.getAllPublishedFlows(organizationId, null);
-
-        // Then - should work without GDE
-        assertThat(result).isEmpty();
-
-        // GDE service should not be called (it's null)
-        verifyNoInteractions(gdeService);
-    }
-
-    @Test
     void testGetSinglePublishedFlowWithResponseWithoutTotPayments() throws Exception {
         // Given
         String organizationId = "ORG123";

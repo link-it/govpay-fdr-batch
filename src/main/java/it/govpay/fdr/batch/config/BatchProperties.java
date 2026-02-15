@@ -48,11 +48,6 @@ public class BatchProperties {
     private String connettorePagopaFdr = "PAGOPA_FDR";
 
     /**
-     * Codice connettore per la connessione al servizio GDE (tabella connettori)
-     */
-    private String connettoreGde = "GDE";
-
-    /**
      * Number of retries for failed API calls
      */
     private int maxRetries = 3;

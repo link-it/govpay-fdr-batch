@@ -23,8 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @SpringBootTest
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
-    "spring.batch.job.enabled=false",
-    "govpay.gde.enabled=false"
+    "spring.batch.job.enabled=false"
 })
 class ObjectMapperConfigTest {
 

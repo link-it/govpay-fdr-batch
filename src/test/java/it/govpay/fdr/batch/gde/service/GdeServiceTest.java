@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,6 +31,7 @@ import org.springframework.web.client.RestTemplate;
 
 import it.govpay.common.client.model.Connettore;
 import it.govpay.common.client.service.ConnettoreService;
+import it.govpay.common.configurazione.service.ConfigurazioneService;
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.Fr;
@@ -55,6 +57,9 @@ class GdeServiceTest {
     private ConnettoreService connettoreService;
 
     @Mock
+    private ConfigurazioneService configurazioneService;
+
+    @Mock
     private RestTemplate gdeRestTemplate;
 
     @Captor
@@ -71,7 +76,6 @@ class GdeServiceTest {
     void setUp() {
         batchProperties = new BatchProperties();
         batchProperties.setConnettorePagopaFdr("PAGOPA_FDR");
-        batchProperties.setConnettoreGde("GDE");
 
         Connettore pagopaConnettore = new Connettore();
         pagopaConnettore.setUrl("https://api.pagopa.it");
@@ -79,11 +83,12 @@ class GdeServiceTest {
 
         Connettore gdeConnettore = new Connettore();
         gdeConnettore.setUrl("http://localhost:10002/api/v1");
-        lenient().when(connettoreService.getConnettore("GDE")).thenReturn(gdeConnettore);
+        gdeConnettore.setAbilitato(true);
+        lenient().when(configurazioneService.getServizioGDE()).thenReturn(gdeConnettore);
+        lenient().when(configurazioneService.isServizioGDEAbilitato()).thenReturn(true);
+        lenient().when(configurazioneService.getRestTemplateGDE()).thenReturn(gdeRestTemplate);
 
-        lenient().when(connettoreService.getRestTemplate("GDE")).thenReturn(gdeRestTemplate);
-
-        gdeService = new GdeService(objectMapper, syncExecutor, eventoFdrMapper, connettoreService, batchProperties);
+        gdeService = new GdeService(objectMapper, syncExecutor, configurazioneService, eventoFdrMapper, connettoreService, batchProperties);
 
         testFr = Fr.builder()
             .id(1L)
@@ -128,12 +133,10 @@ class GdeServiceTest {
 
     @Test
     void testGetGdeEndpoint() {
-        // The endpoint should be the GDE connettore URL + "/eventi"
-        // Verified indirectly via sendEventAsync test above
-        // Also verify via direct call
         Connettore gdeConnettore = new Connettore();
         gdeConnettore.setUrl("http://gde-host:8080/api/v1");
-        when(connettoreService.getConnettore("GDE")).thenReturn(gdeConnettore);
+        gdeConnettore.setAbilitato(true);
+        when(configurazioneService.getServizioGDE()).thenReturn(gdeConnettore);
 
         NuovoEvento evento = new NuovoEvento();
         evento.setTipoEvento("TEST");
@@ -329,5 +332,20 @@ class GdeServiceTest {
             eq("GET"), anyList());
 
         verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
+    }
+
+    @Test
+    void testSendEventAsyncSkipsWhenConnettoreDisabilitato() {
+        // Given: GDE connector disabled
+        when(configurazioneService.isServizioGDEAbilitato()).thenReturn(false);
+
+        NuovoEvento evento = new NuovoEvento();
+        evento.setTipoEvento("TEST_EVENT");
+
+        // When
+        gdeService.sendEventAsync(evento);
+
+        // Then: RestTemplate should NOT be called
+        verify(gdeRestTemplate, never()).postForEntity(anyString(), any(), any());
     }
 }
