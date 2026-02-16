@@ -30,10 +30,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import it.govpay.common.client.model.Connettore;
-import it.govpay.common.client.service.ConnettoreService;
 import it.govpay.common.configurazione.service.ConfigurazioneService;
 import it.govpay.fdr.batch.Costanti;
-import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
 import it.govpay.gde.client.beans.EsitoEvento;
@@ -54,9 +52,6 @@ class GdeServiceTest {
     private ObjectMapper objectMapper;
 
     @Mock
-    private ConnettoreService connettoreService;
-
-    @Mock
     private ConfigurazioneService configurazioneService;
 
     @Mock
@@ -69,18 +64,11 @@ class GdeServiceTest {
     private final Executor syncExecutor = Runnable::run;
 
     private GdeService gdeService;
-    private BatchProperties batchProperties;
     private Fr testFr;
+    private static final String PAGOPA_BASE_URL = "https://api.pagopa.it";
 
     @BeforeEach
     void setUp() {
-        batchProperties = new BatchProperties();
-        batchProperties.setConnettorePagopaFdr("PAGOPA_FDR");
-
-        Connettore pagopaConnettore = new Connettore();
-        pagopaConnettore.setUrl("https://api.pagopa.it");
-        lenient().when(connettoreService.getConnettore("PAGOPA_FDR")).thenReturn(pagopaConnettore);
-
         Connettore gdeConnettore = new Connettore();
         gdeConnettore.setUrl("http://localhost:10002/api/v1");
         gdeConnettore.setAbilitato(true);
@@ -88,7 +76,7 @@ class GdeServiceTest {
         lenient().when(configurazioneService.isServizioGDEAbilitato()).thenReturn(true);
         lenient().when(configurazioneService.getRestTemplateGDE()).thenReturn(gdeRestTemplate);
 
-        gdeService = new GdeService(objectMapper, syncExecutor, configurazioneService, eventoFdrMapper, connettoreService, batchProperties);
+        gdeService = new GdeService(objectMapper, syncExecutor, configurazioneService, eventoFdrMapper);
 
         testFr = Fr.builder()
             .id(1L)
@@ -169,7 +157,7 @@ class GdeServiceTest {
         doNothing().when(eventoFdrMapper).setParametriRisposta(any(), any(), any(), any());
 
         // When
-        gdeService.saveGetPublishedFlowsOk(organizationId, pspId, flowDate, start, end, flowsCount, null);
+        gdeService.saveGetPublishedFlowsOk(organizationId, pspId, flowDate, start, end, flowsCount, null, PAGOPA_BASE_URL);
 
         // Then
         verify(eventoFdrMapper).createEventoOk(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
@@ -207,7 +195,7 @@ class GdeServiceTest {
             anyString(), eq(start), eq(end), isNull(), eq(exception))).thenReturn(mockEvento);
 
         // When
-        gdeService.saveGetPublishedFlowsKo(organizationId, pspId, flowDate, start, end, null, exception);
+        gdeService.saveGetPublishedFlowsKo(organizationId, pspId, flowDate, start, end, null, exception, PAGOPA_BASE_URL);
 
         // Then
         verify(eventoFdrMapper).createEventoKo(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
@@ -238,7 +226,7 @@ class GdeServiceTest {
             anyString(), eq(start), eq(end))).thenReturn(mockEvento);
 
         // When
-        gdeService.saveGetFlowDetailsOk(testFr, start, end, paymentsCount, null);
+        gdeService.saveGetFlowDetailsOk(testFr, start, end, paymentsCount, null, PAGOPA_BASE_URL);
 
         // Then
         verify(eventoFdrMapper).createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
@@ -267,7 +255,7 @@ class GdeServiceTest {
             anyString(), eq(start), eq(end), isNull(), eq(exception))).thenReturn(mockEvento);
 
         // When
-        gdeService.saveGetFlowDetailsKo(testFr, start, end, null, exception);
+        gdeService.saveGetFlowDetailsKo(testFr, start, end, null, exception, PAGOPA_BASE_URL);
 
         // Then
         verify(eventoFdrMapper).createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
@@ -292,7 +280,7 @@ class GdeServiceTest {
         doNothing().when(eventoFdrMapper).setParametriRisposta(any(), any(), any(), any());
 
         // When
-        gdeService.saveGetPaymentsOk(testFr, start, end, paymentsCount, null);
+        gdeService.saveGetPaymentsOk(testFr, start, end, paymentsCount, null, PAGOPA_BASE_URL);
 
         // Then
         verify(eventoFdrMapper).createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
@@ -322,7 +310,7 @@ class GdeServiceTest {
         doNothing().when(eventoFdrMapper).setParametriRisposta(any(), any(), any(), any());
 
         // When
-        gdeService.saveGetPaymentsKo(testFr, start, end, null, exception);
+        gdeService.saveGetPaymentsKo(testFr, start, end, null, exception, PAGOPA_BASE_URL);
 
         // Then
         verify(eventoFdrMapper).createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),

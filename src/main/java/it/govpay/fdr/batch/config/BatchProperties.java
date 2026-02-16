@@ -43,11 +43,6 @@ public class BatchProperties {
     private boolean enabled = true;
 
     /**
-     * Codice connettore per la connessione a pagoPA FDR API (tabella connettori)
-     */
-    private String connettorePagopaFdr = "PAGOPA_FDR";
-
-    /**
      * Number of retries for failed API calls
      */
     private int maxRetries = 3;

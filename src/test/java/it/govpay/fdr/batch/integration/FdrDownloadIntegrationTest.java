@@ -22,7 +22,9 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 import it.govpay.common.entity.DominioEntity;
+import it.govpay.common.entity.StazioneEntity;
 import it.govpay.common.repository.DominioRepository;
+import it.govpay.common.repository.StazioneRepository;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.entity.Rendicontazione;
@@ -59,6 +61,9 @@ class FdrDownloadIntegrationTest {
     private DominioRepository dominioRepository;
 
     @Autowired
+    private StazioneRepository stazioneRepository;
+
+    @Autowired
     private FrTempRepository frTempRepository;
 
     @Autowired
@@ -90,6 +95,9 @@ class FdrDownloadIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        // Look up stazione inserted by import.sql (linked to intermediario with PAGOPA_FDR connector)
+        StazioneEntity stazione = stazioneRepository.findByCodStazione("12345678901_01").orElseThrow();
+
         // Create test domain with auxDigit=0 (monointermediato, IUV 15 cifre)
         testDominio = DominioEntity.builder()
             .codDominio(ORG_ID)
@@ -98,6 +106,7 @@ class FdrDownloadIntegrationTest {
             .ragioneSociale("Comune di Test")
             .intermediato(true)
             .scaricaFr(true)
+            .stazione(stazione)
             .build();
         testDominio = dominioRepository.save(testDominio);
     }

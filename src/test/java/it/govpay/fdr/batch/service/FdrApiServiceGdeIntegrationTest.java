@@ -2,7 +2,10 @@ package it.govpay.fdr.batch.service;
 
 import it.govpay.common.client.model.Connettore;
 import it.govpay.common.client.service.ConnettoreService;
+import it.govpay.common.entity.IntermediarioEntity;
+import it.govpay.common.repository.IntermediarioRepository;
 import it.govpay.fdr.batch.config.BatchProperties;
+import it.govpay.fdr.batch.config.FdrApiClientConfig;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.service.GdeService;
 import it.govpay.fdr.client.api.OrganizationsApi;
@@ -24,6 +27,8 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -38,9 +43,6 @@ import static org.mockito.Mockito.*;
 class FdrApiServiceGdeIntegrationTest {
 
     @Mock
-    private RestTemplate restTemplate;
-
-    @Mock
     private OrganizationsApi organizationsApi;
 
     @Mock
@@ -49,29 +51,57 @@ class FdrApiServiceGdeIntegrationTest {
     @Mock
     private ConnettoreService connettoreService;
 
+    @Mock
+    private IntermediarioRepository intermediarioRepository;
+
+    @Mock
+    private FdrApiClientConfig fdrApiClientConfig;
+
     private BatchProperties batchProperties;
     private FdrApiService fdrApiService;
     private static final ZoneId ZONE_ID = ZoneId.of("Europe/Rome");
+    private static final String ORG_ID = "ORG123";
+    private static final String COD_CONNETTORE = "PAGOPA_FDR";
+    private static final String BASE_URL = "http://api.test.com";
 
     @BeforeEach
     void setUp() {
         batchProperties = new BatchProperties();
-        batchProperties.setConnettorePagopaFdr("PAGOPA_FDR");
         batchProperties.setPageSize(100);
 
-        Connettore connettore = new Connettore();
-        connettore.setUrl("http://api.test.com");
-        when(connettoreService.getConnettore("PAGOPA_FDR")).thenReturn(connettore);
+        // Mock intermediario resolution
+        IntermediarioEntity intermediario = IntermediarioEntity.builder()
+            .codIntermediario("INT001")
+            .codConnettoreFr(COD_CONNETTORE)
+            .abilitato(true)
+            .build();
+        lenient().when(intermediarioRepository.findByCodDominio(ORG_ID)).thenReturn(Optional.of(intermediario));
 
-        // Create service and inject mocked OrganizationsApi
-        fdrApiService = new FdrApiService(restTemplate, batchProperties, connettoreService, gdeService, ZONE_ID);
-        ReflectionTestUtils.setField(fdrApiService, "organizationsApi", organizationsApi);
+        // Mock connettore
+        Connettore connettore = new Connettore();
+        connettore.setUrl(BASE_URL);
+        lenient().when(connettoreService.getConnettore(COD_CONNETTORE)).thenReturn(connettore);
+        lenient().when(connettoreService.getRestTemplate(COD_CONNETTORE)).thenReturn(new RestTemplate());
+
+        // Create service and inject mocked OrganizationsApi via cache
+        fdrApiService = new FdrApiService(batchProperties, connettoreService, intermediarioRepository,
+            gdeService, ZONE_ID, fdrApiClientConfig);
+
+        // Inject mocked OrganizationsApi into the cache
+        ConcurrentHashMap<String, OrganizationsApi> apiCache = new ConcurrentHashMap<>();
+        apiCache.put(COD_CONNETTORE, organizationsApi);
+        ReflectionTestUtils.setField(fdrApiService, "apiCache", apiCache);
+
+        // Inject base URL into the cache
+        ConcurrentHashMap<String, String> baseUrlCache = new ConcurrentHashMap<>();
+        baseUrlCache.put(COD_CONNETTORE, BASE_URL);
+        ReflectionTestUtils.setField(fdrApiService, "baseUrlCache", baseUrlCache);
     }
 
     @Test
     void testGetAllPublishedFlowsWithGdeTrackingSuccess() throws Exception {
         // Given
-        String organizationId = "ORG123";
+        String organizationId = ORG_ID;
         LocalDateTime publishedGt = LocalDateTime.now().minusHours(1);
 
         PaginatedFlowsResponse response = new PaginatedFlowsResponse();
@@ -98,7 +128,7 @@ class FdrApiServiceGdeIntegrationTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getFdr()).isEqualTo("FDR-001");
 
-        // Verify GDE event was sent
+        // Verify GDE event was sent with pagoPABaseUrl
         await().untilAsserted(() ->
             verify(gdeService).saveGetPublishedFlowsOk(
                 eq(organizationId),
@@ -107,7 +137,8 @@ class FdrApiServiceGdeIntegrationTest {
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 eq(1),
-                any()
+                any(),
+                eq(BASE_URL)
             )
         );
     }
@@ -115,7 +146,7 @@ class FdrApiServiceGdeIntegrationTest {
     @Test
     void testGetAllPublishedFlowsWithGdeTrackingFailure() throws Exception {
         // Given
-        String organizationId = "ORG123";
+        String organizationId = ORG_ID;
         LocalDateTime publishedGt = LocalDateTime.now().minusHours(1);
 
         when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
@@ -128,7 +159,7 @@ class FdrApiServiceGdeIntegrationTest {
             .isInstanceOf(RestClientException.class)
             .hasMessageContaining("Fallito il recupero dei flussi");
 
-        // Verify GDE error event was sent
+        // Verify GDE error event was sent with pagoPABaseUrl
         await().untilAsserted(() ->
             verify(gdeService).saveGetPublishedFlowsKo(
                 eq(organizationId),
@@ -137,7 +168,8 @@ class FdrApiServiceGdeIntegrationTest {
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 any(),
-                any(RestClientException.class)
+                any(RestClientException.class),
+                eq(BASE_URL)
             )
         );
     }
@@ -145,7 +177,7 @@ class FdrApiServiceGdeIntegrationTest {
     @Test
     void testGetSinglePublishedFlowWithGdeTrackingSuccess() throws Exception {
         // Given
-        String organizationId = "ORG123";
+        String organizationId = ORG_ID;
         String fdr = "FDR-001";
         Long revision = 1L;
         String pspId = "PSP001";
@@ -167,7 +199,7 @@ class FdrApiServiceGdeIntegrationTest {
         assertThat(result).isNotNull();
         assertThat(result.getFdr()).isEqualTo(fdr);
 
-        // Verify GDE event was sent
+        // Verify GDE event was sent with pagoPABaseUrl
         await().untilAsserted(() ->
             verify(gdeService).saveGetFlowDetailsOk(
                 argThat((Fr fr) -> fr.getCodFlusso().equals(fdr)
@@ -177,7 +209,8 @@ class FdrApiServiceGdeIntegrationTest {
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 eq(42),
-                any()
+                any(),
+                eq(BASE_URL)
             )
         );
     }
@@ -185,7 +218,7 @@ class FdrApiServiceGdeIntegrationTest {
     @Test
     void testGetSinglePublishedFlowWithGdeTrackingFailure() throws Exception {
         // Given
-        String organizationId = "ORG123";
+        String organizationId = ORG_ID;
         String fdr = "FDR-001";
         Long revision = 1L;
         String pspId = "PSP001";
@@ -200,7 +233,7 @@ class FdrApiServiceGdeIntegrationTest {
             .isInstanceOf(RestClientException.class)
             .hasMessageContaining("Fallito il recupero dei dettagli del flusso");
 
-        // Verify GDE error event was sent
+        // Verify GDE error event was sent with pagoPABaseUrl
         await().untilAsserted(() ->
             verify(gdeService).saveGetFlowDetailsKo(
                 argThat((Fr fr) -> fr.getCodFlusso().equals(fdr)
@@ -210,7 +243,8 @@ class FdrApiServiceGdeIntegrationTest {
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 any(),
-                any(RestClientException.class)
+                any(RestClientException.class),
+                eq(BASE_URL)
             )
         );
     }
@@ -218,7 +252,7 @@ class FdrApiServiceGdeIntegrationTest {
     @Test
     void testGetSinglePublishedFlowWithResponseWithoutTotPayments() throws Exception {
         // Given
-        String organizationId = "ORG123";
+        String organizationId = ORG_ID;
         String fdr = "FDR-001";
         Long revision = 1L;
         String pspId = "PSP001";
@@ -239,14 +273,15 @@ class FdrApiServiceGdeIntegrationTest {
         // Then
         assertThat(result).isNotNull();
 
-        // Verify GDE event was sent with 0 payments
+        // Verify GDE event was sent with 0 payments and pagoPABaseUrl
         await().untilAsserted(() ->
             verify(gdeService).saveGetFlowDetailsOk(
                 any(),
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 eq(0), // Should default to 0 when totPayments is null
-                any()
+                any(),
+                eq(BASE_URL)
             )
         );
     }

@@ -13,13 +13,10 @@ import org.springframework.web.client.RestClientException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import it.govpay.common.client.gde.HttpDataHolder;
-import it.govpay.common.client.model.Connettore;
-import it.govpay.common.client.service.ConnettoreService;
 import it.govpay.common.configurazione.service.ConfigurazioneService;
 import it.govpay.common.gde.AbstractGdeService;
 import it.govpay.common.gde.GdeEventInfo;
 import it.govpay.fdr.batch.Costanti;
-import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
 import it.govpay.fdr.batch.gde.utils.GdeUtils;
@@ -50,19 +47,14 @@ public class GdeService extends AbstractGdeService {
 
 	private final EventoFdrMapper eventoFdrMapper;
     private final ConfigurazioneService configurazioneService;
-    private final String pagoPABaseUrl;
 
     public GdeService(ObjectMapper objectMapper,
                       @Qualifier("asyncHttpExecutor") Executor asyncHttpExecutor,
                       ConfigurazioneService configurazioneService,
-                      EventoFdrMapper eventoFdrMapper,
-                      ConnettoreService connettoreService,
-                      BatchProperties batchProperties) {
+                      EventoFdrMapper eventoFdrMapper) {
         super(objectMapper, asyncHttpExecutor, configurazioneService);
         this.eventoFdrMapper = eventoFdrMapper;
         this.configurazioneService = configurazioneService;
-        Connettore connettore = connettoreService.getConnettore(batchProperties.getConnettorePagopaFdr());
-        this.pagoPABaseUrl = connettore.getUrl();
     }
 
     @Override
@@ -106,9 +98,10 @@ public class GdeService extends AbstractGdeService {
      */
     public void saveGetPublishedFlowsOk(String organizationId, String pspId, String flowDate,
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                          int flowsCount, ResponseEntity<?> responseEntity) {
+                                          int flowsCount, ResponseEntity<?> responseEntity,
+                                          String pagoPABaseUrl) {
         String transactionId = UUID.randomUUID().toString();
-        String url = buildGetAllPublishedFlowsUrl(organizationId, flowDate);
+        String url = buildGetAllPublishedFlowsUrl(pagoPABaseUrl, organizationId, flowDate);
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd);
 
@@ -134,10 +127,11 @@ public class GdeService extends AbstractGdeService {
      */
     public void saveGetPublishedFlowsKo(String organizationId, String pspId, String flowDate,
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                         ResponseEntity<?> responseEntity, RestClientException exception) {
+                                         ResponseEntity<?> responseEntity, RestClientException exception,
+                                         String pagoPABaseUrl) {
         String transactionId = UUID.randomUUID().toString();
 
-        String url = buildGetAllPublishedFlowsUrl(organizationId, flowDate);
+        String url = buildGetAllPublishedFlowsUrl(pagoPABaseUrl, organizationId, flowDate);
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd,
@@ -163,7 +157,8 @@ public class GdeService extends AbstractGdeService {
      * Records a successful GET_FLOW_DETAILS operation.
      */
     public void saveGetFlowDetailsOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                      int paymentsCount, ResponseEntity<?> responseEntity) {
+                                      int paymentsCount, ResponseEntity<?> responseEntity,
+                                      String pagoPABaseUrl) {
         String transactionId = UUID.randomUUID().toString();
 
         String url = pagoPABaseUrl + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
@@ -189,7 +184,8 @@ public class GdeService extends AbstractGdeService {
      * Records a failed GET_FLOW_DETAILS operation.
      */
     public void saveGetFlowDetailsKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                      ResponseEntity<?> responseEntity, RestClientException exception) {
+                                      ResponseEntity<?> responseEntity, RestClientException exception,
+                                      String pagoPABaseUrl) {
         String transactionId = UUID.randomUUID().toString();
 
         String url = pagoPABaseUrl + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
@@ -215,7 +211,8 @@ public class GdeService extends AbstractGdeService {
      * Records a successful GET_PAYMENTS_FROM_PUBLISHED_FLOW operation.
      */
     public void saveGetPaymentsOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                   int paymentsCount, ResponseEntity<?> responseEntity) {
+                                   int paymentsCount, ResponseEntity<?> responseEntity,
+                                   String pagoPABaseUrl) {
         String transactionId = UUID.randomUUID().toString();
 
         String url = pagoPABaseUrl + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
@@ -241,7 +238,8 @@ public class GdeService extends AbstractGdeService {
      * Records a failed GET_PAYMENTS_FROM_PUBLISHED_FLOW operation.
      */
     public void saveGetPaymentsKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
-                                   ResponseEntity<?> responseEntity, RestClientException exception) {
+                                   ResponseEntity<?> responseEntity, RestClientException exception,
+                                   String pagoPABaseUrl) {
         String transactionId = UUID.randomUUID().toString();
 
         String url = pagoPABaseUrl + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
@@ -262,7 +260,7 @@ public class GdeService extends AbstractGdeService {
         sendEventAsync(nuovoEvento);
     }
 
-    private String buildGetAllPublishedFlowsUrl(String organizationId, String flowDate) {
+    private String buildGetAllPublishedFlowsUrl(String pagoPABaseUrl, String organizationId, String flowDate) {
         String url = pagoPABaseUrl + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
                 .replace(PLACEHOLDER_ORGANIZATION_ID, organizationId);
         if (flowDate != null && !flowDate.isEmpty()) {

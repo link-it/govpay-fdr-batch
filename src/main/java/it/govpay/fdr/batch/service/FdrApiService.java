@@ -6,15 +6,21 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import it.govpay.common.client.model.Connettore;
 import it.govpay.common.client.service.ConnettoreService;
+import it.govpay.common.entity.IntermediarioEntity;
+import it.govpay.common.repository.IntermediarioRepository;
 import it.govpay.fdr.batch.config.BatchProperties;
+import it.govpay.fdr.batch.config.FdrApiClientConfig;
 import it.govpay.fdr.batch.gde.service.GdeService;
 import it.govpay.fdr.client.ApiClient;
 import it.govpay.fdr.client.api.OrganizationsApi;
@@ -25,28 +31,97 @@ import it.govpay.fdr.client.model.SingleFlowResponse;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Service for interacting with pagoPA FDR API
+ * Service for interacting with pagoPA FDR API.
+ * Resolves the FDR connector per-domain via IntermediarioRepository,
+ * following the chain: DominioEntity -> StazioneEntity -> IntermediarioEntity.codConnettoreFr
  */
 @Service
 @Slf4j
 public class FdrApiService {
 
-    private final OrganizationsApi organizationsApi;
     private final BatchProperties batchProperties;
     private final GdeService gdeService;
     private final ZoneId applicationZoneId;
+    private final IntermediarioRepository intermediarioRepository;
+    private final ConnettoreService connettoreService;
+    private final FdrApiClientConfig fdrApiClientConfig;
 
-    public FdrApiService(RestTemplate fdrApiRestTemplate, BatchProperties batchProperties,
+    /** Cache of OrganizationsApi instances keyed by connector code */
+    private final ConcurrentHashMap<String, OrganizationsApi> apiCache = new ConcurrentHashMap<>();
+    /** Cache of base URLs keyed by connector code */
+    private final ConcurrentHashMap<String, String> baseUrlCache = new ConcurrentHashMap<>();
+
+    public FdrApiService(BatchProperties batchProperties,
                          ConnettoreService connettoreService,
-                         GdeService gdeService, ZoneId applicationZoneId) {
+                         IntermediarioRepository intermediarioRepository,
+                         GdeService gdeService,
+                         ZoneId applicationZoneId,
+                         FdrApiClientConfig fdrApiClientConfig) {
         this.batchProperties = batchProperties;
+        this.connettoreService = connettoreService;
+        this.intermediarioRepository = intermediarioRepository;
         this.gdeService = gdeService;
         this.applicationZoneId = applicationZoneId;
+        this.fdrApiClientConfig = fdrApiClientConfig;
+    }
 
-        Connettore connettore = connettoreService.getConnettore(batchProperties.getConnettorePagopaFdr());
-        ApiClient apiClient = new ApiClient(fdrApiRestTemplate);
-        apiClient.setBasePath(connettore.getUrl());
-        this.organizationsApi = new OrganizationsApi(apiClient);
+    /**
+     * Resolves the connector code for the given domain via IntermediarioRepository.
+     */
+    private String resolveConnectorCode(String codDominio) {
+        Optional<IntermediarioEntity> intermediarioOpt = intermediarioRepository.findByCodDominio(codDominio);
+        IntermediarioEntity intermediario = intermediarioOpt.orElseThrow(() ->
+            new IllegalStateException("Nessun intermediario trovato per il dominio: " + codDominio));
+
+        String codConnettore = intermediario.getCodConnettoreFr();
+        if (codConnettore == null || codConnettore.isBlank()) {
+            throw new IllegalStateException(
+                "Connettore FDR non configurato per l'intermediario " + intermediario.getCodIntermediario()
+                + " (dominio: " + codDominio + ")");
+        }
+
+        log.debug("Dominio {} -> Intermediario {} -> Connettore FDR: {}",
+            codDominio, intermediario.getCodIntermediario(), codConnettore);
+        return codConnettore;
+    }
+
+    /**
+     * Gets or creates an OrganizationsApi instance for the given domain.
+     * Uses a cache keyed by connector code to avoid creating duplicate instances
+     * for domains sharing the same intermediary.
+     */
+    private OrganizationsApi getOrCreateApi(String codDominio) {
+        String codConnettore = resolveConnectorCode(codDominio);
+        return apiCache.computeIfAbsent(codConnettore, code -> {
+            RestTemplate restTemplate = connettoreService.getRestTemplate(code);
+
+            // Customize ObjectMapper for pagoPA date handling
+            MappingJackson2HttpMessageConverter converter =
+                new MappingJackson2HttpMessageConverter(fdrApiClientConfig.createPagoPAObjectMapper());
+            restTemplate.getMessageConverters().removeIf(MappingJackson2HttpMessageConverter.class::isInstance);
+            restTemplate.getMessageConverters().add(0, converter);
+
+            Connettore connettore = connettoreService.getConnettore(code);
+            ApiClient apiClient = new ApiClient(restTemplate);
+            apiClient.setBasePath(connettore.getUrl());
+
+            // Cache the base URL
+            baseUrlCache.put(code, connettore.getUrl());
+
+            log.info("Creata istanza OrganizationsApi per connettore {} (URL: {})", code, connettore.getUrl());
+            return new OrganizationsApi(apiClient);
+        });
+    }
+
+    /**
+     * Returns the pagoPA base URL for the given domain (for GDE event tracking).
+     */
+    private String getBaseUrl(String codDominio) {
+        String codConnettore = resolveConnectorCode(codDominio);
+        return baseUrlCache.computeIfAbsent(codConnettore, code -> {
+            Connettore connettore = connettoreService.getConnettore(code);
+            return connettore.getUrl();
+        });
     }
 
     /**
@@ -117,7 +192,7 @@ public class FdrApiService {
             log.debug("Chiamata API per l'organizzazione {} pagina {}", organizationId, currentPage);
 
             ResponseEntity<PaginatedFlowsResponse> responseEntity =
-                organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+                getOrCreateApi(organizationId).iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
                     organizationId,
                     null,           // flowDate
                     currentPage,    // page
@@ -174,7 +249,7 @@ public class FdrApiService {
 		OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
 		gdeService.saveGetPublishedFlowsKo(organizationId, null,
 		    publishedGt != null ? publishedGt.toString() : "all",
-		    startTime, endTime, lastResponseEntity, e);
+		    startTime, endTime, lastResponseEntity, e, getBaseUrl(organizationId));
 	}
 
 	private void saveGetPublishedFlowsOk(String organizationId, LocalDateTime publishedGt, OffsetDateTime startTime,
@@ -182,7 +257,7 @@ public class FdrApiService {
 		OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
 		gdeService.saveGetPublishedFlowsOk(organizationId, null,
 		    publishedGt != null ? publishedGt.toString() : "all",
-		    startTime, endTime, allFlows.size(), lastResponseEntity);
+		    startTime, endTime, allFlows.size(), lastResponseEntity, getBaseUrl(organizationId));
 	}
 
     /**
@@ -195,7 +270,7 @@ public class FdrApiService {
         OffsetDateTime startTime = OffsetDateTime.now(ZoneOffset.UTC);
         ResponseEntity<SingleFlowResponse> responseEntity = null;
         try {
-            responseEntity = organizationsApi.iOrganizationsControllerGetSinglePublishedFlowWithHttpInfo(
+            responseEntity = getOrCreateApi(organizationId).iOrganizationsControllerGetSinglePublishedFlowWithHttpInfo(
                 fdr,
                 organizationId,
                 pspId,
@@ -219,7 +294,8 @@ public class FdrApiService {
                 int paymentsCount = (response.getTotPayments() != null)
                     ? response.getTotPayments().intValue() : 0;
 
-                gdeService.saveGetFlowDetailsOk(frForEvent, startTime, endTime, paymentsCount, responseEntity);
+                gdeService.saveGetFlowDetailsOk(frForEvent, startTime, endTime, paymentsCount, responseEntity,
+                    getBaseUrl(organizationId));
             }
 
             return response;
@@ -237,7 +313,8 @@ public class FdrApiService {
                 .build();
 
             gdeService.saveGetFlowDetailsKo(frForEvent, startTime, endTime, responseEntity,
-                e instanceof RestClientException restClientException ? restClientException : new RestClientException(e.getMessage(), e));
+                e instanceof RestClientException restClientException ? restClientException : new RestClientException(e.getMessage(), e),
+                getBaseUrl(organizationId));
 
             throw new RestClientException("Fallito il recupero dei dettagli del flusso per " + fdr, e);
         }
@@ -298,7 +375,8 @@ public class FdrApiService {
                 .revisione(revision)
                 .build();
 
-            gdeService.saveGetPaymentsOk(frForEvent, startTime, endTime, allPayments.size(), lastResponseEntity);
+            gdeService.saveGetPaymentsOk(frForEvent, startTime, endTime, allPayments.size(), lastResponseEntity,
+                getBaseUrl(organizationId));
 
             return allPayments;
 
@@ -312,7 +390,8 @@ public class FdrApiService {
                 .revisione(revision)
                 .build();
 
-            gdeService.saveGetPaymentsKo(frForEvent, startTime, endTime, lastResponseEntity, e);
+            gdeService.saveGetPaymentsKo(frForEvent, startTime, endTime, lastResponseEntity, e,
+                getBaseUrl(organizationId));
             throw e;
         }
     }
@@ -326,7 +405,7 @@ public class FdrApiService {
 
         try {
             ResponseEntity<PaginatedPaymentsResponse> responseEntity =
-                organizationsApi.iOrganizationsControllerGetPaymentsFromPublishedFlowWithHttpInfo(
+                getOrCreateApi(organizationId).iOrganizationsControllerGetPaymentsFromPublishedFlowWithHttpInfo(
                     fdr,
                     organizationId,
                     pspId,

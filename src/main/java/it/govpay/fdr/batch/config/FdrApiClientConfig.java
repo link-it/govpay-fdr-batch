@@ -1,17 +1,13 @@
 package it.govpay.fdr.batch.config;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
-import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-import it.govpay.common.client.service.ConnettoreService;
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.utils.LocalDateFlexibleDeserializer;
 import it.govpay.fdr.batch.utils.OffsetDateTimeDeserializer;
@@ -25,37 +21,15 @@ import java.util.TimeZone;
 
 /**
  * Configuration for FDR API client.
- * Uses ConnettoreService to obtain a RestTemplate pre-configured with URL, auth, timeouts and GDE interceptor.
- * Customizes only the ObjectMapper for pagoPA date handling.
+ * Provides the custom ObjectMapper for pagoPA date handling,
+ * used by FdrApiService when creating per-domain RestTemplate instances.
  */
 @Slf4j
 @Configuration
 public class FdrApiClientConfig {
 
-    private final ConnettoreService connettoreService;
-    private final BatchProperties batchProperties;
-
     @Value("${spring.jackson.time-zone:Europe/Rome}")
     private String timezone;
-
-    public FdrApiClientConfig(ConnettoreService connettoreService, BatchProperties batchProperties) {
-        this.connettoreService = connettoreService;
-        this.batchProperties = batchProperties;
-    }
-
-    @Bean
-    public RestTemplate fdrApiRestTemplate() {
-        RestTemplate restTemplate = connettoreService.getRestTemplate(batchProperties.getConnettorePagopaFdr());
-
-        // Configure custom ObjectMapper for secure date handling from pagoPA API
-        // Remove default Jackson converter and add our custom one
-        ObjectMapper objectMapper = createPagoPAObjectMapper();
-        MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter(objectMapper);
-        restTemplate.getMessageConverters().removeIf(MappingJackson2HttpMessageConverter.class::isInstance);
-        restTemplate.getMessageConverters().add(0, converter);
-
-        return restTemplate;
-    }
 
     /**
      * Creates a custom ObjectMapper for pagoPA API client with enhanced date handling security.
@@ -69,7 +43,7 @@ public class FdrApiClientConfig {
      *
      * @return configured ObjectMapper for pagoPA API
      */
-    private ObjectMapper createPagoPAObjectMapper() {
+    public ObjectMapper createPagoPAObjectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
 
         // Set timezone from configuration

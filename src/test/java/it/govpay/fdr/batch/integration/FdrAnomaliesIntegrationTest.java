@@ -21,7 +21,9 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 import it.govpay.common.entity.DominioEntity;
+import it.govpay.common.entity.StazioneEntity;
 import it.govpay.common.repository.DominioRepository;
+import it.govpay.common.repository.StazioneRepository;
 import it.govpay.fdr.batch.entity.Applicazione;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.entity.FrTemp;
@@ -70,6 +72,9 @@ class FdrAnomaliesIntegrationTest {
     private DominioRepository dominioRepository;
 
     @Autowired
+    private StazioneRepository stazioneRepository;
+
+    @Autowired
     private ApplicazioneRepository applicazioneRepository;
 
     @Autowired
@@ -114,6 +119,9 @@ class FdrAnomaliesIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        // Look up stazione inserted by import.sql (linked to intermediario with PAGOPA_FDR connector)
+        StazioneEntity stazione = stazioneRepository.findByCodStazione("12345678901_01").orElseThrow();
+
         // Create test domain with auxDigit=0 (monointermediato, IUV 15 cifre)
         testDominio = DominioEntity.builder()
             .codDominio(ORG_ID)
@@ -122,6 +130,7 @@ class FdrAnomaliesIntegrationTest {
             .ragioneSociale("Comune di Test")
             .intermediato(true)
             .scaricaFr(true)
+            .stazione(stazione)
             .build();
         testDominio = dominioRepository.save(testDominio);
 

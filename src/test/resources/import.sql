@@ -10,3 +10,7 @@ INSERT INTO connettori (cod_connettore, cod_proprieta, valore) VALUES ('PAGOPA_F
 INSERT INTO connettori (cod_connettore, cod_proprieta, valore) VALUES ('govpay_gde_api', 'URL', 'http://localhost:10002/api/v1');
 INSERT INTO connettori (cod_connettore, cod_proprieta, valore) VALUES ('govpay_gde_api', 'ABILITATO', 'true');
 INSERT INTO connettori (cod_connettore, cod_proprieta, valore) VALUES ('govpay_gde_api', 'TIPOAUTENTICAZIONE', 'NONE');
+-- Test data for intermediari table (intermediario con connettore FDR)
+INSERT INTO intermediari (id, cod_intermediario, cod_connettore_fr, abilitato, denominazione) VALUES (1, '12345678901', 'PAGOPA_FDR', true, 'Intermediario di Test');
+-- Test data for stazioni table (stazione collegata all'intermediario)
+INSERT INTO stazioni (id, cod_stazione, abilitato, id_intermediario) VALUES (1, '12345678901_01', true, 1);
