@@ -175,7 +175,7 @@ class GdeServiceTest {
         verify(eventoFdrMapper).createEventoOk(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
             anyString(), eq(start), eq(end));
         verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
-            eq("https://api.pagopa.it/organizations/ORG001/fdrs"), eq("GET"), anyList());
+            eq("https://api.pagopa.it/organizations/ORG001/fdrs?publishedGt=2025-01-01"), eq("GET"), anyList());
 
         // Verify idDominio is always set (it's always known)
         assertThat(mockEvento.getIdDominio()).isEqualTo(organizationId);

@@ -108,8 +108,7 @@ public class GdeService extends AbstractGdeService {
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
                                           int flowsCount, ResponseEntity<?> responseEntity) {
         String transactionId = UUID.randomUUID().toString();
-        String url = pagoPABaseUrl + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
-                .replace(PLACEHOLDER_ORGANIZATION_ID, organizationId);
+        String url = buildGetAllPublishedFlowsUrl(organizationId, flowDate);
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd);
 
@@ -138,8 +137,7 @@ public class GdeService extends AbstractGdeService {
                                          ResponseEntity<?> responseEntity, RestClientException exception) {
         String transactionId = UUID.randomUUID().toString();
 
-        String url = pagoPABaseUrl + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
-                .replace(PLACEHOLDER_ORGANIZATION_ID, organizationId);
+        String url = buildGetAllPublishedFlowsUrl(organizationId, flowDate);
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd,
@@ -262,5 +260,14 @@ public class GdeService extends AbstractGdeService {
         GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
 
         sendEventAsync(nuovoEvento);
+    }
+
+    private String buildGetAllPublishedFlowsUrl(String organizationId, String flowDate) {
+        String url = pagoPABaseUrl + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
+                .replace(PLACEHOLDER_ORGANIZATION_ID, organizationId);
+        if (flowDate != null && !flowDate.isEmpty()) {
+            url += "?publishedGt=" + flowDate;
+        }
+        return url;
     }
 }

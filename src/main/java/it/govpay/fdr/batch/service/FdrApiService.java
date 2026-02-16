@@ -70,27 +70,27 @@ public class FdrApiService {
 
                 lastResponseEntity = result.responseEntity;
 
-                if (!result.success || lastResponseEntity == null) {
-                    break;
-                }
+                PaginatedFlowsResponse response = (result.success && lastResponseEntity != null)
+                    ? lastResponseEntity.getBody() : null;
 
-                PaginatedFlowsResponse response = lastResponseEntity.getBody();
                 if (response == null) {
-                    log.warn("Risposta con body vuoto per l'organizzazione {} alla pagina {}", organizationId, currentPage);
-                    break;
-                }
-
-                logInfoResponseOk(organizationId, response);
-                aggiungiFlussoRicevutoAllElenco(organizationId, allFlows, currentPage, response);
-
-                // Check if there are more pages
-                if (response.getMetadata() != null &&
-                    response.getMetadata().getPageNumber() != null &&
-                    response.getMetadata().getTotPage() != null) {
-                    hasMorePages = response.getMetadata().getPageNumber() < response.getMetadata().getTotPage();
-                    currentPage++;
-                } else {
+                    if (result.success && lastResponseEntity != null) {
+                        log.warn("Risposta con body vuoto per l'organizzazione {} alla pagina {}", organizationId, currentPage);
+                    }
                     hasMorePages = false;
+                } else {
+                    logInfoResponseOk(organizationId, response);
+                    aggiungiFlussoRicevutoAllElenco(organizationId, allFlows, currentPage, response);
+
+                    // Check if there are more pages
+                    if (response.getMetadata() != null &&
+                        response.getMetadata().getPageNumber() != null &&
+                        response.getMetadata().getTotPage() != null) {
+                        hasMorePages = response.getMetadata().getPageNumber() < response.getMetadata().getTotPage();
+                        currentPage++;
+                    } else {
+                        hasMorePages = false;
+                    }
                 }
             }
 
