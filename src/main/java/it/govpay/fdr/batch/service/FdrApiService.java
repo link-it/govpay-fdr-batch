@@ -48,8 +48,6 @@ public class FdrApiService {
 
     /** Cache of OrganizationsApi instances keyed by connector code */
     private final ConcurrentHashMap<String, OrganizationsApi> apiCache = new ConcurrentHashMap<>();
-    /** Cache of base URLs keyed by connector code */
-    private final ConcurrentHashMap<String, String> baseUrlCache = new ConcurrentHashMap<>();
 
     public FdrApiService(BatchProperties batchProperties,
                          ConnettoreService connettoreService,
@@ -105,9 +103,6 @@ public class FdrApiService {
             ApiClient apiClient = new ApiClient(restTemplate);
             apiClient.setBasePath(connettore.getUrl());
 
-            // Cache the base URL
-            baseUrlCache.put(code, connettore.getUrl());
-
             log.info("Creata istanza OrganizationsApi per connettore {} (URL: {})", code, connettore.getUrl());
             return new OrganizationsApi(apiClient);
         });
@@ -115,13 +110,11 @@ public class FdrApiService {
 
     /**
      * Returns the pagoPA base URL for the given domain (for GDE event tracking).
+     * Delegates to ConnettoreService which has its own internal caching.
      */
     private String getBaseUrl(String codDominio) {
         String codConnettore = resolveConnectorCode(codDominio);
-        return baseUrlCache.computeIfAbsent(codConnettore, code -> {
-            Connettore connettore = connettoreService.getConnettore(code);
-            return connettore.getUrl();
-        });
+        return connettoreService.getConnettore(codConnettore).getUrl();
     }
 
     /**

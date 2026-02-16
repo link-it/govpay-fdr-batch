@@ -1,6 +1,7 @@
 package it.govpay.fdr.batch.gde.service;
 
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -16,10 +17,10 @@ import it.govpay.common.client.gde.HttpDataHolder;
 import it.govpay.common.configurazione.service.ConfigurazioneService;
 import it.govpay.common.gde.AbstractGdeService;
 import it.govpay.common.gde.GdeEventInfo;
+import it.govpay.common.gde.GdeUtils;
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
-import it.govpay.fdr.batch.gde.utils.GdeUtils;
 import it.govpay.gde.client.beans.DatiPagoPA;
 import it.govpay.gde.client.beans.NuovoEvento;
 import lombok.extern.slf4j.Slf4j;
@@ -39,11 +40,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 public class GdeService extends AbstractGdeService {
-
-    private static final String PLACEHOLDER_PSP_ID = "{pspId}";
-	private static final String PLACEHOLDER_REVISION = "{revision}";
-	private static final String PLACEHOLDER_FDR = "{fdr}";
-	private static final String PLACEHOLDER_ORGANIZATION_ID = "{organizationId}";
 
 	private final EventoFdrMapper eventoFdrMapper;
     private final ConfigurazioneService configurazioneService;
@@ -114,10 +110,10 @@ public class GdeService extends AbstractGdeService {
 
         nuovoEvento.setDettaglioEsito(String.format("Retrieved %d flows", flowsCount));
 
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeadersAsGdeHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, responseEntity, null);
 
-        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
+        setResponsePayload(nuovoEvento, responseEntity, null);
 
         sendEventAsync(nuovoEvento);
     }
@@ -144,11 +140,10 @@ public class GdeService extends AbstractGdeService {
         datiPagoPA.setIdPsp(pspId);
         nuovoEvento.setDatiPagoPA(datiPagoPA);
 
-
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeadersAsGdeHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
 
-        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
+        setResponsePayload(nuovoEvento, responseEntity, exception);
 
         sendEventAsync(nuovoEvento);
     }
@@ -161,21 +156,17 @@ public class GdeService extends AbstractGdeService {
                                       String pagoPABaseUrl) {
         String transactionId = UUID.randomUUID().toString();
 
-        String url = pagoPABaseUrl + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
-                .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
-                .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
-                .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
-                .replace(PLACEHOLDER_PSP_ID, fr.getCodPsp());
+        String url = buildFlowUrl(pagoPABaseUrl, Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW, fr);
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 fr, Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW, transactionId, dataStart, dataEnd);
 
         nuovoEvento.setDettaglioEsito(String.format("Retrieved flow with %d payments", paymentsCount));
 
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeadersAsGdeHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, responseEntity, null);
 
-        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
+        setResponsePayload(nuovoEvento, responseEntity, null);
 
         sendEventAsync(nuovoEvento);
     }
@@ -188,21 +179,16 @@ public class GdeService extends AbstractGdeService {
                                       String pagoPABaseUrl) {
         String transactionId = UUID.randomUUID().toString();
 
-        String url = pagoPABaseUrl + Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW
-                .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
-                .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
-                .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
-                .replace(PLACEHOLDER_PSP_ID, fr.getCodPsp());
+        String url = buildFlowUrl(pagoPABaseUrl, Costanti.PATH_GET_SINGLE_PUBLISHED_FLOW, fr);
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
                 fr, Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW, transactionId, dataStart, dataEnd,
                 null, exception);
 
-
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeadersAsGdeHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
 
-        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
+        setResponsePayload(nuovoEvento, responseEntity, exception);
 
         sendEventAsync(nuovoEvento);
     }
@@ -215,21 +201,17 @@ public class GdeService extends AbstractGdeService {
                                    String pagoPABaseUrl) {
         String transactionId = UUID.randomUUID().toString();
 
-        String url = pagoPABaseUrl + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
-                .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
-                .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
-                .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
-                .replace(PLACEHOLDER_PSP_ID, fr.getCodPsp());
+        String url = buildFlowUrl(pagoPABaseUrl, Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW, fr);
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 fr, Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW, transactionId, dataStart, dataEnd);
 
         nuovoEvento.setDettaglioEsito(String.format("Retrieved %d payments", paymentsCount));
 
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeadersAsGdeHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, responseEntity, null);
 
-        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, null);
+        setResponsePayload(nuovoEvento, responseEntity, null);
 
         sendEventAsync(nuovoEvento);
     }
@@ -242,30 +224,52 @@ public class GdeService extends AbstractGdeService {
                                    String pagoPABaseUrl) {
         String transactionId = UUID.randomUUID().toString();
 
-        String url = pagoPABaseUrl + Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW
-                .replace(PLACEHOLDER_ORGANIZATION_ID, fr.getCodDominio())
-                .replace(PLACEHOLDER_FDR, fr.getCodFlusso())
-                .replace(PLACEHOLDER_REVISION, String.valueOf(fr.getRevisione()))
-                .replace(PLACEHOLDER_PSP_ID, fr.getCodPsp());
+        String url = buildFlowUrl(pagoPABaseUrl, Costanti.PATH_GET_PAYMENTS_FROM_PUBLISHED_FLOW, fr);
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
                 fr, Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW, transactionId, dataStart, dataEnd,
                 null, exception);
 
-        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeaders());
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento, url, "GET", GdeUtils.getCapturedRequestHeadersAsGdeHeaders());
         eventoFdrMapper.setParametriRisposta(nuovoEvento, dataEnd, null, exception);
 
-        GdeUtils.serializzaPayload(this.objectMapper, nuovoEvento, responseEntity, exception);
+        setResponsePayload(nuovoEvento, responseEntity, exception);
 
         sendEventAsync(nuovoEvento);
     }
 
-    private String buildGetAllPublishedFlowsUrl(String pagoPABaseUrl, String organizationId, String flowDate) {
-        String url = pagoPABaseUrl + Costanti.PATH_GET_ALL_PUBLISHED_FLOWS
-                .replace(PLACEHOLDER_ORGANIZATION_ID, organizationId);
-        if (flowDate != null && !flowDate.isEmpty()) {
-            url += "?publishedGt=" + flowDate;
+    /**
+     * Sets the response payload on the event using the common GdeUtils.extractResponsePayload().
+     */
+    private void setResponsePayload(NuovoEvento nuovoEvento, ResponseEntity<?> responseEntity,
+                                     RestClientException exception) {
+        if (nuovoEvento.getParametriRisposta() != null) {
+            nuovoEvento.getParametriRisposta().setPayload(
+                extractResponsePayload(responseEntity, exception));
         }
-        return url;
+    }
+
+    /**
+     * Builds the URL for getAllPublishedFlows using GdeUtils.buildUrl().
+     */
+    private String buildGetAllPublishedFlowsUrl(String pagoPABaseUrl, String organizationId, String flowDate) {
+        Map<String, String> pathParams = Map.of("{organizationId}", organizationId);
+        Map<String, String> queryParams = (flowDate != null && !flowDate.isEmpty())
+            ? Map.of("publishedGt", flowDate) : null;
+        return GdeUtils.buildUrl(pagoPABaseUrl, Costanti.PATH_GET_ALL_PUBLISHED_FLOWS, pathParams, queryParams);
+    }
+
+    /**
+     * Builds the URL for flow-specific operations (details, payments) using GdeUtils.buildUrl().
+     */
+    private String buildFlowUrl(String pagoPABaseUrl, String path, Fr fr) {
+        return GdeUtils.buildUrl(pagoPABaseUrl, path,
+            Map.of(
+                "{organizationId}", fr.getCodDominio(),
+                "{fdr}", fr.getCodFlusso(),
+                "{revision}", String.valueOf(fr.getRevisione()),
+                "{pspId}", fr.getCodPsp()
+            ),
+            null);
     }
 }

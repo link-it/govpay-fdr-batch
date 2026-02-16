@@ -91,11 +91,6 @@ class FdrApiServiceGdeIntegrationTest {
         ConcurrentHashMap<String, OrganizationsApi> apiCache = new ConcurrentHashMap<>();
         apiCache.put(COD_CONNETTORE, organizationsApi);
         ReflectionTestUtils.setField(fdrApiService, "apiCache", apiCache);
-
-        // Inject base URL into the cache
-        ConcurrentHashMap<String, String> baseUrlCache = new ConcurrentHashMap<>();
-        baseUrlCache.put(COD_CONNETTORE, BASE_URL);
-        ReflectionTestUtils.setField(fdrApiService, "baseUrlCache", baseUrlCache);
     }
 
     @Test
