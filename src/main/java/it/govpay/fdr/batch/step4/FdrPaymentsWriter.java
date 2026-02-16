@@ -81,7 +81,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
                 } else {
 	                // Find domain
 	                Optional<DominioEntity> dominioOpt = dominioRepository.findByCodDominio(data.getCodDominio());
-	                if (!dominioOpt.isEmpty()) {
+	                if (dominioOpt.isPresent()) {
 	                    writeProcessedData(data, dominioOpt);
 
 	                    // Mark FR_TEMP record as processed

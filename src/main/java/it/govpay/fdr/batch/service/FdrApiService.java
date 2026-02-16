@@ -69,9 +69,14 @@ public class FdrApiService {
                     organizationId, publishedGtOffset, currentPage);
 
                 lastResponseEntity = result.responseEntity;
-                PaginatedFlowsResponse response = result.responseEntity.getBody();
 
-                if (!result.success) {
+                if (!result.success || lastResponseEntity == null) {
+                    break;
+                }
+
+                PaginatedFlowsResponse response = lastResponseEntity.getBody();
+                if (response == null) {
+                    log.warn("Risposta con body vuoto per l'organizzazione {} alla pagina {}", organizationId, currentPage);
                     break;
                 }
 
@@ -138,7 +143,7 @@ public class FdrApiService {
 		// Gestione risposta vuota (connessione chiusa) - normale quando non ci sono flussi disponibili
 		if (e.getMessage() != null && e.getMessage().contains("closed")) {
 		    log.info("Nessun flusso disponibile per l'organizzazione {} (risposta vuota)", organizationId);
-		    return false;
+		    return true;
 		} else {
 		    log.error("Errore I/O nel recupero dei flussi per l'organizzazione {} alla pagina {}: {}",
 		        organizationId, currentPage, e.getMessage());
@@ -263,7 +268,7 @@ public class FdrApiService {
                     organizationId, fdr, revision, pspId, currentPage);
 
                 lastResponseEntity = result.responseEntity;
-                PaginatedPaymentsResponse response = result.responseEntity.getBody();
+                PaginatedPaymentsResponse response = lastResponseEntity != null ? lastResponseEntity.getBody() : null;
 
                 if (response != null && response.getData() != null && !response.getData().isEmpty()) {
                     allPayments.addAll(response.getData());
