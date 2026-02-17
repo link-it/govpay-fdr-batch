@@ -1,3 +1,52 @@
+2026-02-16  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #3 - Refactoring infrastruttura batch con libreria govpay-common
+	Refactoring completo dell'infrastruttura batch per utilizzare le classi astratte della
+	libreria govpay-common, eliminando codice duplicato e centralizzando la logica comune:
+	- BatchController estende AbstractBatchController (endpoint /eseguiJob, /status, /lastExecution, /nextExecution)
+	- ScheduledJobRunner estende AbstractScheduledJobRunner (scheduling periodico)
+	- CronJobRunner estende AbstractCronJobRunner (esecuzione singola da riga di comando)
+	- Rimosso PreventConcurrentJobLauncher, sostituito da JobConcurrencyService (govpay-common)
+	- Rimossi DTO locali (Problem, BatchStatusInfo, LastExecutionInfo, NextExecutionInfo),
+	  sostituiti dalle versioni della libreria govpay-common
+	- Rimossi costanti duplicate da Costanti.java (GOVPAY_BATCH_JOB_ID, GOVPAY_BATCH_JOB_PARAMETER_WHEN,
+	  GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID), ora in JobExecutionHelper
+	- Aggiunta configurazione BatchInfraConfig per i bean JobConcurrencyService e JobExecutionHelper
+	Aggiornati tutti i test unitari e di integrazione per la nuova architettura.
+
+2026-02-16  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #3 - Connettore pagoPA per dominio
+	Implementata risoluzione dinamica del connettore pagoPA FDR per ogni dominio,
+	sostituendo il connettore globale unico con un connettore specifico per intermediario:
+	- FdrApiService risolve il connettore tramite IntermediarioRepository.findByCodDominio()
+	- Ogni intermediario ha il proprio codice connettore (codConnettoreFr) con URL, credenziali e timeouts
+	- Cache ConcurrentHashMap per evitare lookup ripetuti per lo stesso connettore
+	- Rimossa proprietà globale 'govpay.batch.connettore-pagopa-fdr'
+	- GdeService riceve l'URL base pagoPA come parametro per dominio invece che come campo globale
+	Questo supporta scenari multi-intermediario con configurazioni di connessione diverse.
+
+2026-02-16  Giuliano Pintori <pintori@link.it>
+
+	* [GDE]
+	Aggiunta funzionalità #3 - Integrazione GDE tramite utilities govpay-common
+	Sostituite le utility GDE locali con le versioni centralizzate della libreria govpay-common:
+	- Utilizzato GdeUtils.buildUrl() per costruzione URL degli eventi GDE
+	- Utilizzato GdeUtils.getCapturedRequestHeadersAsGdeHeaders() per cattura headers HTTP
+	- Utilizzato GdeUtils.extractResponsePayload() per estrazione payload risposte
+	- Utilizzato HttpDataHolder per gestione thread-local dei dati HTTP
+	- Rimossa classe locale GdeUtils e cache baseUrlCache da FdrApiService
+	- GdeCapturingInterceptor aggiunto automaticamente da RestTemplateFactory (govpay-common)
+
+2026-02-16  Giuliano Pintori <pintori@link.it>
+
+	* [CodeQuality]
+	Risoluzione segnalazioni SonarQube #3
+	Risolte segnalazioni di code quality identificate da SonarQube relative
+	al codice di integrazione con la libreria govpay-common.
+
 2026-02-10  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.1.0

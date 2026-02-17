@@ -16,7 +16,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.RestClientException;
 
-import it.govpay.fdr.batch.config.PreventConcurrentJobLauncher;
+import it.govpay.common.batch.service.JobConcurrencyService;
 import it.govpay.fdr.batch.config.ScheduledJobRunner;
 import it.govpay.fdr.batch.config.TestScheduledJobRunnerConfig;
 import it.govpay.fdr.batch.dto.DominioProcessingContext;
@@ -64,7 +64,7 @@ class GovpayFdrBatchRetryTests {
 	ScheduledJobRunner batchScheduler;
 
 	@MockitoBean
-	private PreventConcurrentJobLauncher preventConcurrentJobLauncher = mock(PreventConcurrentJobLauncher.class);
+	private JobConcurrencyService jobConcurrencyService = mock(JobConcurrencyService.class);
 
 	private AtomicInteger headerProcessCounter = new AtomicInteger(0);
 	private AtomicInteger metadataProcessorCounter = new AtomicInteger(0);
@@ -108,8 +108,8 @@ class GovpayFdrBatchRetryTests {
 		paymentsProcessorCounter.set(0);
 		headerQueue.clear();
 
-		// Mock PreventConcurrentJobLauncher per permettere l'esecuzione del job
-		when(preventConcurrentJobLauncher.getCurrentRunningJobExecution(any())).thenReturn(null);
+		// Mock JobConcurrencyService per permettere l'esecuzione del job
+		when(jobConcurrencyService.getCurrentRunningJobExecution(any())).thenReturn(null);
 
 		// Mock FrTempRepository per supportare il partitioning
 		when(frTempRepository.findDistinctCodDominio()).thenReturn(Arrays.asList("12345678901"));
@@ -148,10 +148,10 @@ class GovpayFdrBatchRetryTests {
 			paymentsProcessorCounter.addAndGet(1);
 			return paymentsCompleteData;
 		});
-		
+
 		doNothing().when(paymentsWriter).write(any());
 	}
-	
+
 	@Test
 	void headerRetrySuccess() throws Exception {
 		// Il mock non intercetta il retry di Spring Batch, quindi il processor viene chiamato una sola volta
@@ -173,7 +173,7 @@ class GovpayFdrBatchRetryTests {
 		// Verifica che il metadataProcessor sia stato chiamato almeno una volta
 		assertThat(metadataProcessorCounter.get()).isGreaterThanOrEqualTo(1);
 	}
-	
+
 	@Test
 	void headerRetryAndSkip() throws Exception {
 		// Test che verifica che con eccezioni continue, l'item viene skippato dopo i retry esauriti

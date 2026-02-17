@@ -1,10 +1,11 @@
 package it.govpay.fdr.batch.config;
 
 import org.springframework.batch.core.Job;
-import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+
+import it.govpay.common.batch.runner.JobExecutionHelper;
 
 /**
  * Configurazione di test che fornisce il bean ScheduledJobRunner per il profilo "test".
@@ -17,9 +18,8 @@ public class TestScheduledJobRunnerConfig {
 
     @Bean
     public ScheduledJobRunner scheduledJobRunner(
-            JobLauncher jobLauncher,
-            PreventConcurrentJobLauncher preventConcurrentJobLauncher,
+            JobExecutionHelper jobExecutionHelper,
             @Qualifier("fdrAcquisitionJob") Job fdrAcquisitionJob) {
-        return new ScheduledJobRunner(jobLauncher, preventConcurrentJobLauncher, fdrAcquisitionJob);
+        return new ScheduledJobRunner(jobExecutionHelper, fdrAcquisitionJob);
     }
 }
