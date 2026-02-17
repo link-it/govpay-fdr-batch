@@ -1,6 +1,7 @@
 package it.govpay.fdr.batch.gde.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -324,6 +325,30 @@ class GdeServiceTest {
             eq("GET"), anyList());
 
         verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
+    }
+
+    @Test
+    void testConvertToGdeEventThrowsUnsupportedOperationException() {
+        assertThatThrownBy(() -> gdeService.convertToGdeEvent(null))
+            .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void testBuildGetAllPublishedFlowsUrlWithNullFlowDate() {
+        String url = gdeService.buildGetAllPublishedFlowsUrl(PAGOPA_BASE_URL, "ORG001", null);
+        assertThat(url).isEqualTo("https://api.pagopa.it/organizations/ORG001/fdrs");
+    }
+
+    @Test
+    void testBuildGetAllPublishedFlowsUrlWithEmptyFlowDate() {
+        String url = gdeService.buildGetAllPublishedFlowsUrl(PAGOPA_BASE_URL, "ORG001", "");
+        assertThat(url).isEqualTo("https://api.pagopa.it/organizations/ORG001/fdrs");
+    }
+
+    @Test
+    void testBuildGetAllPublishedFlowsUrlWithFlowDate() {
+        String url = gdeService.buildGetAllPublishedFlowsUrl(PAGOPA_BASE_URL, "ORG001", "2025-01-01");
+        assertThat(url).isEqualTo("https://api.pagopa.it/organizations/ORG001/fdrs?publishedGt=2025-01-01");
     }
 
     @Test
