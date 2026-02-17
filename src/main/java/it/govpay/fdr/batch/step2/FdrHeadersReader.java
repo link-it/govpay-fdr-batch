@@ -9,9 +9,9 @@ import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.stereotype.Component;
 
+import it.govpay.common.entity.DominioEntity;
 import it.govpay.fdr.batch.dto.DominioProcessingContext;
-import it.govpay.fdr.batch.entity.Dominio;
-import it.govpay.fdr.batch.repository.DominioRepository;
+import it.govpay.fdr.batch.repository.FdrDominioRepository;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -23,14 +23,14 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FdrHeadersReader implements ItemReader<DominioProcessingContext>, StepExecutionListener {
 
-    private final DominioRepository dominioRepository;
+    private final FdrDominioRepository dominioRepository;
 
     // Thread-safe queue shared across all reader instances within the same step execution
     private static final java.util.concurrent.atomic.AtomicReference<java.util.concurrent.ConcurrentLinkedQueue<Object[]>> dominioQueueRef =
         new java.util.concurrent.atomic.AtomicReference<>();
     private static final Object lock = new Object();
 
-    public FdrHeadersReader(DominioRepository dominioRepository) {
+    public FdrHeadersReader(FdrDominioRepository dominioRepository) {
         this.dominioRepository = dominioRepository;
     }
 
@@ -53,7 +53,7 @@ public class FdrHeadersReader implements ItemReader<DominioProcessingContext>, S
         // Each thread polls from the shared queue
         Object[] dominioInfos = queue.poll();
         if (dominioInfos != null) {
-            Dominio dominio = (Dominio) dominioInfos[0];
+            DominioEntity dominio = (DominioEntity) dominioInfos[0];
             log.debug("Lettura dominio: {} (thread: {})", dominio.getCodDominio(), Thread.currentThread().getName());
 
             return DominioProcessingContext.builder()

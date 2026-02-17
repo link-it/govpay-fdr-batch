@@ -1,7 +1,7 @@
 package it.govpay.fdr.batch.gde.mapper;
 
 import it.govpay.fdr.batch.entity.Fr;
-import it.govpay.gde.client.model.*;
+import it.govpay.gde.client.beans.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;

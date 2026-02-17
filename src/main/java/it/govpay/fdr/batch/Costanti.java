@@ -1,7 +1,5 @@
 package it.govpay.fdr.batch;
 
-import org.springframework.http.MediaType;
-
 import it.govpay.fdr.batch.entity.StatoFr;
 import it.govpay.fdr.batch.entity.StatoRendicontazione;
 
@@ -34,7 +32,7 @@ public class Costanti {
 	// Path delle operazioni FDR API (da fdr_organization.json)
 	// Questi sono path template fissi definiti dalla specifica OpenAPI di pagoPA.
 	// Non sono URI completi (mancano protocollo e host) ma template che vengono
-	// combinati con il baseUrl configurabile in PagoPAProperties.
+	// combinati con il baseUrl del connettore configurato in DB.
 	// Soppressione S1075: path template API fissi, non URI configurabili
 	@SuppressWarnings("java:S1075")
 	public static final String PATH_GET_ALL_PUBLISHED_FLOWS = "/organizations/{organizationId}/fdrs";
@@ -53,17 +51,6 @@ public class Costanti {
 
 	// Pattern per serializzazione date alle API esterne (3 cifre millisecondi senza timezone)
 	public static final String PATTERN_DATA_JSON_YYYY_MM_DD_T_HH_MM_SS_SSS = "yyyy-MM-dd'T'HH:mm:ss.SSS";
-
-	// Job parameters per gestione multi-nodo
-	public static final String GOVPAY_BATCH_JOB_ID = "JobID";
-	public static final String GOVPAY_BATCH_JOB_PARAMETER_WHEN = "When";
-	public static final String GOVPAY_BATCH_JOB_PARAMETER_CLUSTER_ID = "ClusterID";
-	
-	public static final String HEADER_X_REQUEST_ID = "X-Request-Id";
-	public static final String GOVPAY_GDE_HEADER_ACCEPT = MediaType.APPLICATION_JSON_VALUE;
-	public static final String GOVPAY_GDE_HEADER_CONTENT_TYPE = MediaType.APPLICATION_JSON_VALUE;
-	
-	public static final String MSG_PAYLOAD_NON_SERIALIZZABILE = "Payload non serializzabile";
 
 	// Nome job FDR acquisition
 	public static final String FDR_ACQUISITION_JOB_NAME = "fdrAcquisitionJob";

@@ -2,7 +2,6 @@ package it.govpay.fdr.batch.repository.specs;
 
 import org.springframework.data.jpa.domain.Specification;
 
-import it.govpay.fdr.batch.entity.Dominio_;
 import it.govpay.fdr.batch.entity.Versamento;
 import it.govpay.fdr.batch.entity.Versamento_;
 import jakarta.persistence.criteria.Predicate;
@@ -27,9 +26,9 @@ public class VersamentoSpecs {
 	 */
 	public static Specification<Versamento> hasCodDominioAndIuv(String codDominio, String iuv) {
 		return (root, query, criteriaBuilder) -> {
-			// dominio.codDominio = codDominio (using Metamodel)
+			// dominio.codDominio = codDominio (string-based: DominioEntity metamodel not available locally)
 			Predicate dominioCondition = criteriaBuilder.equal(
-				root.get(Versamento_.dominio).get(Dominio_.codDominio), codDominio
+				root.get(Versamento_.dominio).get("codDominio"), codDominio
 			);
 
 			// iuvVersamento = iuv OR iuvPagamento = iuv (using Metamodel)

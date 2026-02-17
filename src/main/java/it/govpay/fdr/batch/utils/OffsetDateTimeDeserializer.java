@@ -113,7 +113,7 @@ public class OffsetDateTimeDeserializer extends StdScalarDeserializer<OffsetDate
 			try {
 				return OffsetDateTime.parse(dateString, formatter);
 			} catch (DateTimeParseException e1) {
-				// Continue to next attempt
+				// Fallback: il formato principale non ha funzionato, provo con il formatter flessibile
 			}
 
 			// Second attempt: parse with flexible OffsetDateTime formatter
@@ -121,7 +121,7 @@ public class OffsetDateTimeDeserializer extends StdScalarDeserializer<OffsetDate
 			try {
 				return OffsetDateTime.parse(dateString, FLEXIBLE_OFFSET_FORMATTER);
 			} catch (DateTimeParseException e2) {
-				// Continue to next attempt
+				// Fallback: provo come LocalDateTime con timezone CET
 			}
 
 			// Third attempt: parse as LocalDateTime with flexible formatter and add CET offset
@@ -130,7 +130,7 @@ public class OffsetDateTimeDeserializer extends StdScalarDeserializer<OffsetDate
 				LocalDateTime localDateTime = LocalDateTime.parse(dateString, FLEXIBLE_LOCAL_FORMATTER);
 				return OffsetDateTime.of(localDateTime, offset);
 			} catch (DateTimeParseException e3) {
-				// Continue to next attempt
+				// Fallback: ultimo tentativo con il formatter originale come LocalDateTime
 			}
 
 			// Fourth attempt: try with original formatter as LocalDateTime

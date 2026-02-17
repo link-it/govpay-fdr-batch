@@ -50,18 +50,15 @@ public class BatchJobConfiguration {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final BatchProperties batchProperties;
-    private final PagoPAProperties pagoPAProperties;
 
     public BatchJobConfiguration(
         JobRepository jobRepository,
         PlatformTransactionManager transactionManager,
-        BatchProperties batchProperties,
-        PagoPAProperties pagoPAProperties
+        BatchProperties batchProperties
     ) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.batchProperties = batchProperties;
-        this.pagoPAProperties = pagoPAProperties;
     }
 
 	private RetryPolicy retryPolicy() {
@@ -72,14 +69,18 @@ public class BatchJobConfiguration {
         retryableExceptions.put(IllegalArgumentException.class, false);
         retryableExceptions.put(NullPointerException.class, false);
         
-        return new SimpleRetryPolicy(pagoPAProperties.getMaxRetries(), retryableExceptions);
+        return new SimpleRetryPolicy(batchProperties.getMaxRetries(), retryableExceptions);
 	}
+
+	private static final long RETRY_INITIAL_INTERVAL_MS = 2000L;
+	private static final double RETRY_MULTIPLIER = 2.0;
+	private static final long RETRY_MAX_INTERVAL_MS = 10000L;
 
 	private BackOffPolicy backOffPolicy() {
 		ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
-        backOffPolicy.setInitialInterval(2000L); // 2 seconds between retries
-        backOffPolicy.setMultiplier(2.0);
-        backOffPolicy.setMaxInterval(10000L);
+        backOffPolicy.setInitialInterval(RETRY_INITIAL_INTERVAL_MS);
+        backOffPolicy.setMultiplier(RETRY_MULTIPLIER);
+        backOffPolicy.setMaxInterval(RETRY_MAX_INTERVAL_MS);
         return backOffPolicy;
 	}
 

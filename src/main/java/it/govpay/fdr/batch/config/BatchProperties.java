@@ -41,4 +41,14 @@ public class BatchProperties {
      * Enable/disable automatic scheduling
      */
     private boolean enabled = true;
+
+    /**
+     * Number of retries for failed API calls
+     */
+    private int maxRetries = 3;
+
+    /**
+     * Page size for paginated requests to pagoPA API
+     */
+    private int pageSize = 1000;
 }
