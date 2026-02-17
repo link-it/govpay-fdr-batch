@@ -92,12 +92,11 @@ public class GdeService extends AbstractGdeService {
     /**
      * Records a successful GET_PUBLISHED_FLOWS operation.
      */
-    public void saveGetPublishedFlowsOk(String organizationId, String pspId, String flowDate,
+    public void saveGetPublishedFlowsOk(String organizationId, String pspId,
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
                                           int flowsCount, ResponseEntity<?> responseEntity,
-                                          String pagoPABaseUrl) {
+                                          String url) {
         String transactionId = UUID.randomUUID().toString();
-        String url = buildGetAllPublishedFlowsUrl(pagoPABaseUrl, organizationId, flowDate);
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd);
 
@@ -121,13 +120,11 @@ public class GdeService extends AbstractGdeService {
     /**
      * Records a failed GET_PUBLISHED_FLOWS operation.
      */
-    public void saveGetPublishedFlowsKo(String organizationId, String pspId, String flowDate,
+    public void saveGetPublishedFlowsKo(String organizationId, String pspId, 
                                          OffsetDateTime dataStart, OffsetDateTime dataEnd,
                                          ResponseEntity<?> responseEntity, RestClientException exception,
-                                         String pagoPABaseUrl) {
+                                         String url) {
         String transactionId = UUID.randomUUID().toString();
-
-        String url = buildGetAllPublishedFlowsUrl(pagoPABaseUrl, organizationId, flowDate);
 
         NuovoEvento nuovoEvento = eventoFdrMapper.createEventoKo(
                 null, Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS, transactionId, dataStart, dataEnd,
@@ -252,7 +249,7 @@ public class GdeService extends AbstractGdeService {
     /**
      * Builds the URL for getAllPublishedFlows using GdeUtils.buildUrl().
      */
-    private String buildGetAllPublishedFlowsUrl(String pagoPABaseUrl, String organizationId, String flowDate) {
+    public String buildGetAllPublishedFlowsUrl(String pagoPABaseUrl, String organizationId, String flowDate) {
         Map<String, String> pathParams = Map.of("{organizationId}", organizationId);
         Map<String, String> queryParams = (flowDate != null && !flowDate.isEmpty())
             ? Map.of("publishedGt", flowDate) : null;

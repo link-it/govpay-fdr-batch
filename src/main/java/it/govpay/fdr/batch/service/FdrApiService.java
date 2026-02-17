@@ -137,28 +137,15 @@ public class FdrApiService {
                     organizationId, publishedGtOffset, currentPage);
 
                 lastResponseEntity = result.responseEntity;
-
-                PaginatedFlowsResponse response = (result.success && lastResponseEntity != null)
-                    ? lastResponseEntity.getBody() : null;
+                PaginatedFlowsResponse response = extractFlowsResponse(result, organizationId, currentPage);
 
                 if (response == null) {
-                    if (result.success && lastResponseEntity != null) {
-                        log.warn("Risposta con body vuoto per l'organizzazione {} alla pagina {}", organizationId, currentPage);
-                    }
                     hasMorePages = false;
                 } else {
                     logInfoResponseOk(organizationId, response);
                     aggiungiFlussoRicevutoAllElenco(organizationId, allFlows, currentPage, response);
-
-                    // Check if there are more pages
-                    if (response.getMetadata() != null &&
-                        response.getMetadata().getPageNumber() != null &&
-                        response.getMetadata().getTotPage() != null) {
-                        hasMorePages = response.getMetadata().getPageNumber() < response.getMetadata().getTotPage();
-                        currentPage++;
-                    } else {
-                        hasMorePages = false;
-                    }
+                    hasMorePages = hasMoreFlowPages(response);
+                    currentPage++;
                 }
             }
 
@@ -230,6 +217,23 @@ public class FdrApiService {
 		}
 	}
 
+	private PaginatedFlowsResponse extractFlowsResponse(PageFetchResult<PaginatedFlowsResponse> result,
+			String organizationId, Long currentPage) {
+		PaginatedFlowsResponse response = (result.success && result.responseEntity != null)
+			? result.responseEntity.getBody() : null;
+		if (response == null && result.success && result.responseEntity != null) {
+			log.warn("Risposta con body vuoto per l'organizzazione {} alla pagina {}", organizationId, currentPage);
+		}
+		return response;
+	}
+
+	private boolean hasMoreFlowPages(PaginatedFlowsResponse response) {
+		return response.getMetadata() != null
+			&& response.getMetadata().getPageNumber() != null
+			&& response.getMetadata().getTotPage() != null
+			&& response.getMetadata().getPageNumber() < response.getMetadata().getTotPage();
+	}
+
 	private void logInfoResponseOk(String organizationId, PaginatedFlowsResponse response) {
 		log.info("Chiamata API completata per l'organizzazione {}, risposta ricevuta: data={}, metadata={}",
 		    organizationId,
@@ -240,17 +244,17 @@ public class FdrApiService {
 	private void saveGetPublishedFlowsKo(String organizationId, LocalDateTime publishedGt, OffsetDateTime startTime,
 			ResponseEntity<PaginatedFlowsResponse> lastResponseEntity, RestClientException e) {
 		OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
+		String urlEvento = gdeService.buildGetAllPublishedFlowsUrl(getBaseUrl(organizationId), organizationId, publishedGt != null ? publishedGt.toString() : "all");
 		gdeService.saveGetPublishedFlowsKo(organizationId, null,
-		    publishedGt != null ? publishedGt.toString() : "all",
-		    startTime, endTime, lastResponseEntity, e, getBaseUrl(organizationId));
+		    startTime, endTime, lastResponseEntity, e, urlEvento);
 	}
 
 	private void saveGetPublishedFlowsOk(String organizationId, LocalDateTime publishedGt, OffsetDateTime startTime,
 			List<FlowByPSP> allFlows, ResponseEntity<PaginatedFlowsResponse> lastResponseEntity) {
 		OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
-		gdeService.saveGetPublishedFlowsOk(organizationId, null,
-		    publishedGt != null ? publishedGt.toString() : "all",
-		    startTime, endTime, allFlows.size(), lastResponseEntity, getBaseUrl(organizationId));
+		String urlEvento = gdeService.buildGetAllPublishedFlowsUrl(getBaseUrl(organizationId), organizationId, publishedGt != null ? publishedGt.toString() : "all");
+		gdeService.saveGetPublishedFlowsOk(organizationId, null,		    
+		    startTime, endTime, allFlows.size(), lastResponseEntity, urlEvento);
 	}
 
     /**

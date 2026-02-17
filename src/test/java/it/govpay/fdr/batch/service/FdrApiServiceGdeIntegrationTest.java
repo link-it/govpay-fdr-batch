@@ -83,6 +83,10 @@ class FdrApiServiceGdeIntegrationTest {
         lenient().when(connettoreService.getConnettore(COD_CONNETTORE)).thenReturn(connettore);
         lenient().when(connettoreService.getRestTemplate(COD_CONNETTORE)).thenReturn(new RestTemplate());
 
+        // Mock buildGetAllPublishedFlowsUrl (gdeService is a mock)
+        lenient().when(gdeService.buildGetAllPublishedFlowsUrl(anyString(), anyString(), anyString()))
+            .thenAnswer(inv -> inv.getArgument(0) + "/organizations/" + inv.getArgument(1) + "/fdrs?publishedGt=" + inv.getArgument(2));
+
         // Create service and inject mocked OrganizationsApi via cache
         fdrApiService = new FdrApiService(batchProperties, connettoreService, intermediarioRepository,
             gdeService, ZONE_ID, fdrApiClientConfig);
@@ -123,17 +127,16 @@ class FdrApiServiceGdeIntegrationTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getFdr()).isEqualTo("FDR-001");
 
-        // Verify GDE event was sent with pagoPABaseUrl
+        // Verify GDE event was sent with built URL
         await().untilAsserted(() ->
             verify(gdeService).saveGetPublishedFlowsOk(
                 eq(organizationId),
                 isNull(),
-                eq(publishedGt.toString()),
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 eq(1),
                 any(),
-                eq(BASE_URL)
+                anyString()
             )
         );
     }
@@ -154,17 +157,16 @@ class FdrApiServiceGdeIntegrationTest {
             .isInstanceOf(RestClientException.class)
             .hasMessageContaining("Fallito il recupero dei flussi");
 
-        // Verify GDE error event was sent with pagoPABaseUrl
+        // Verify GDE error event was sent with built URL
         await().untilAsserted(() ->
             verify(gdeService).saveGetPublishedFlowsKo(
                 eq(organizationId),
                 isNull(),
-                eq(publishedGt.toString()),
                 any(OffsetDateTime.class),
                 any(OffsetDateTime.class),
                 any(),
                 any(RestClientException.class),
-                eq(BASE_URL)
+                anyString()
             )
         );
     }

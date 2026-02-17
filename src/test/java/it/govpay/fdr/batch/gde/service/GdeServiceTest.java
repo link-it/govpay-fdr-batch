@@ -156,8 +156,10 @@ class GdeServiceTest {
         doNothing().when(eventoFdrMapper).setParametriRichiesta(any(), anyString(), anyString(), anyList());
         doNothing().when(eventoFdrMapper).setParametriRisposta(any(), any(), any(), any());
 
+        String url = gdeService.buildGetAllPublishedFlowsUrl(PAGOPA_BASE_URL, organizationId, flowDate);
+
         // When
-        gdeService.saveGetPublishedFlowsOk(organizationId, pspId, flowDate, start, end, flowsCount, null, PAGOPA_BASE_URL);
+        gdeService.saveGetPublishedFlowsOk(organizationId, pspId, start, end, flowsCount, null, url);
 
         // Then
         verify(eventoFdrMapper).createEventoOk(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
@@ -194,8 +196,10 @@ class GdeServiceTest {
         when(eventoFdrMapper.createEventoKo(any(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
             anyString(), eq(start), eq(end), isNull(), eq(exception))).thenReturn(mockEvento);
 
+        String url = gdeService.buildGetAllPublishedFlowsUrl(PAGOPA_BASE_URL, organizationId, flowDate);
+
         // When
-        gdeService.saveGetPublishedFlowsKo(organizationId, pspId, flowDate, start, end, null, exception, PAGOPA_BASE_URL);
+        gdeService.saveGetPublishedFlowsKo(organizationId, pspId, start, end, null, exception, url);
 
         // Then
         verify(eventoFdrMapper).createEventoKo(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),

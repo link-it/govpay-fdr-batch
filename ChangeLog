@@ -1,3 +1,20 @@
+2026-02-17  Giuliano Pintori <pintori@link.it>
+
+	* [CodeQuality]
+	Risoluzione segnalazione SonarQube #3 - Cognitive Complexity FdrApiService
+	Ridotta la Cognitive Complexity del metodo getAllPublishedFlows da 18 a 6 (limite: 15).
+	Estratti metodi privati extractFlowsResponse() e hasMoreFlowPages() per
+	ridurre le condizioni annidate e le catene di operatori logici nel ciclo di paginazione.
+
+2026-02-17  Giuliano Pintori <pintori@link.it>
+
+	* [GDE]
+	Refactoring #3 - Costruzione URL evento GDE per getAllPublishedFlows
+	Spostata la costruzione dell'URL dell'evento GDE per getAllPublishedFlows
+	dal GdeService al chiamante (FdrApiService) tramite il metodo buildGetAllPublishedFlowsUrl().
+	Rimosso il parametro publishedGt dalle signature di saveGetPublishedFlowsOk e
+	saveGetPublishedFlowsKo, sostituito dall'URL completo già costruito.
+
 2026-02-16  Giuliano Pintori <pintori@link.it>
 
 	* [BatchCore]
