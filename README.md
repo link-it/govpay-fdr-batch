@@ -105,46 +105,48 @@ src/main/resources/sql/{dbms}/
 
 ## Configurazione
 
-### Parametri API pagoPA
-```properties
-# URL base API pagoPA
-pagopa.fdr.base-url=https://api.platform.pagopa.it/fdr-org/service/v1
+### Connessione API pagoPA
 
-# Chiave di sottoscrizione (obbligatoria)
-pagopa.fdr.subscription-key=${PAGOPA_SUBSCRIPTION_KEY}
+La configurazione della connessione verso le API pagoPA FDR (URL, credenziali, timeouts) viene gestita
+tramite la tabella `CONNETTORI` del database GovPay, utilizzando la libreria `govpay-common`.
 
-# Header per la chiave di sottoscrizione
-pagopa.fdr.subscription-key-header=Ocp-Apim-Subscription-Key
-
-# Timeout connessione (ms)
-pagopa.fdr.connection-timeout=10000
-
-# Timeout lettura (ms)
-pagopa.fdr.read-timeout=30000
-
-# Numero massimo di retry per chiamate fallite
-pagopa.fdr.max-retries=3
-
-# Dimensione pagina per richieste paginate
-pagopa.fdr.page-size=1000
-```
+Ogni intermediario ha il proprio connettore FDR configurato nel campo `cod_connettore_fr` della tabella
+`INTERMEDIARI`. Il batch risolve automaticamente il connettore corretto per ogni dominio seguendo la
+catena: **Dominio** &rarr; **Stazione** &rarr; **Intermediario** &rarr; **Connettore**.
 
 ### Parametri Batch
 ```properties
-# Abilitazione scheduling automatico
+# Abilitazione batch
 govpay.batch.enabled=true
 
-# Espressione cron per schedulazione (default: ogni giorno alle 02:00)
-govpay.batch.cron=0 0 2 * * ?
+# Identificativo del cluster per gestione multi-nodo
+govpay.batch.cluster-id=GovPay-FDR-Batch
+
+# Timeout (minuti) per rilevare esecuzioni bloccate
+govpay.batch.stale-threshold-minutes=120
 
 # Numero di thread per Step 2 (elaborazione parallela domini)
 govpay.batch.thread-pool-size=5
 
-# Dimensione chunk per elaborazione batch
-govpay.batch.chunk-size=100
+# Dimensione chunk per step (Headers / Metadata / Payments)
+govpay.batch.headers-chunk-size=1
+govpay.batch.metadata-chunk-size=100
+govpay.batch.payments-chunk-size=50
+
+# Dimensione pagina per richieste paginate verso API pagoPA
+govpay.batch.page-size=1000
+
+# Numero massimo di retry per chiamate API fallite
+govpay.batch.max-retries=3
 
 # Numero massimo di errori tollerati prima di fermare il job
 govpay.batch.skip-limit=10
+
+# Intervallo di scheduling (ms, default: 2 ore)
+scheduler.fdrAcquisitionJob.fixedDelayString=7200000
+
+# Ritardo iniziale prima della prima esecuzione (ms)
+scheduler.initialDelayString=1
 ```
 
 ### Database
@@ -171,22 +173,37 @@ mvn clean install
 
 ### Esecuzione
 ```bash
-# Avvio applicazione
+# Avvio applicazione (modalità schedulata - profilo default)
 java -jar target/govpay-fdr-batch-1.0.0-SNAPSHOT.jar
 
-# Con variabili d'ambiente
-export PAGOPA_SUBSCRIPTION_KEY=your-subscription-key
-java -jar target/govpay-fdr-batch-1.0.0-SNAPSHOT.jar
+# Esecuzione singola (profilo cron - esegue una volta e termina)
+java -jar target/govpay-fdr-batch-1.0.0-SNAPSHOT.jar --spring.profiles.active=cron
 ```
 
-### Trigger Manuale
-Il job può essere eseguito manualmente tramite il profilo `cron` che esegue il batch una sola volta al startup.
+### Trigger Manuale via REST
+Il job può essere avviato manualmente tramite endpoint REST:
+```bash
+# Avvio job
+curl http://localhost:8080/api/batch/eseguiJob
+
+# Forzare esecuzione anche se in corso
+curl http://localhost:8080/api/batch/eseguiJob?force=true
+
+# Stato corrente del batch
+curl http://localhost:8080/api/batch/status
+
+# Ultima esecuzione
+curl http://localhost:8080/api/batch/lastExecution
+
+# Prossima esecuzione stimata
+curl http://localhost:8080/api/batch/nextExecution
+```
 
 ## Caratteristiche Implementate
 
 ### ✅ Autenticazione API
-- Header `Ocp-Apim-Subscription-Key` aggiunto automaticamente a tutte le richieste
-- Configurabile tramite properties
+- Autenticazione configurata per ogni connettore nella tabella `CONNETTORI` del database GovPay
+- Supporto multi-intermediario con credenziali diverse per ciascuno
 
 ### ✅ Paginazione
 - Gestione automatica della paginazione per:

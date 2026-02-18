@@ -27,8 +27,8 @@ Questa configurazione Docker fornisce:
 - `GOVPAY_DB_NAME`: Nome del database
 - `GOVPAY_DB_USER`: Username del database
 - `GOVPAY_DB_PASSWORD`: Password del database
-- `GOVPAY_FDR_ENV`: Ambiente GPD (prod, uat, collaudo) o `GOVPAY_FDR_CUSTOMURL` per URL personalizzato
-- `GOVPAY_FDR_SUBSCRIPTIONKEY`: Chiave di sottoscrizione API pagoPA
+
+**Nota:** La configurazione della connessione verso le API pagoPA FDR (URL, credenziali, timeouts) viene gestita tramite la tabella `CONNETTORI` del database GovPay, utilizzando la libreria `govpay-common`.
 
 ### 3. Avviare i Servizi
 
@@ -238,16 +238,6 @@ Quando `GOVPAY_FDR_GDE_URL` è impostato, l'integrazione GDE viene automaticamen
 | `GOVPAY_FDR_MAX_POOL` | No | `10` | Connessioni massime pool HikariCP |
 | `GOVPAY_DS_JDBC_LIBS` | No | `/opt/jdbc-drivers` | Percorso driver JDBC |
 
-### Variabili d'Ambiente - GPD (pagoPA)
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GOVPAY_FDR_ENV` | **Yes*** | - | Ambiente GPD: `prod`, `produzione`, `uat`, `collaudo`, `test`, `stage` |
-| `GOVPAY_FDR_CUSTOMURL` | **Yes*** | - | URL personalizzato GPD (alternativo a `GOVPAY_FDR_ENV`) |
-| `GOVPAY_FDR_SUBSCRIPTIONKEY` | **Yes** | - | Subscription Key API pagoPA |
-
-**Nota:* È richiesto `GOVPAY_FDR_ENV` **oppure** `GOVPAY_FDR_CUSTOMURL` (non entrambi)
-
 ### Variabili d'Ambiente - Modalità Deployment
 
 | Variable | Required | Default | Description |
@@ -341,31 +331,6 @@ govpay-fdr-batch/docker/
     └── init_fdr_db.sh            # Script inizializzazione Database
 ```
 
-## Ambienti PagoPA
-
-Il container supporta la configurazione automatica degli ambienti pagoPA tramite la variabile `GOVPAY_FDR_ENV`:
-
-### Produzione
-```env
-GOVPAY_FDR_ENV=prod
-# oppure
-GOVPAY_FDR_ENV=produzione
-```
-**URL generato:** `https://api.platform.pagopa.it/gpd/api/v1`
-
-### UAT/Collaudo
-```env
-GOVPAY_FDR_ENV=uat
-# oppure uno di: collaudo, test, stage
-```
-**URL generato:** `https://api.uat.platform.pagopa.it/gpd/api/v1`
-
-### URL Personalizzato
-Per ambienti non standard o on-premise:
-```env
-GOVPAY_FDR_CUSTOMURL=https://custom-gpd-server.example.com/gpd/api/v1
-```
-
 ## Esempi di Configurazione
 
 ### Esempio Minimo (PostgreSQL + UAT)
@@ -378,13 +343,11 @@ GOVPAY_DB_NAME=govpay
 GOVPAY_DB_USER=govpay
 GOVPAY_DB_PASSWORD=secret123
 
-# GPD pagoPA
-GOVPAY_FDR_ENV=uat
-GOVPAY_FDR_SUBSCRIPTIONKEY=your-subscription-key-here
-
 # Modalità auto-schedulata (ogni 5 minuti)
 GOVPAY_FDR_BATCH_USA_CRON=true
 ```
+
+**Nota:** La connessione verso le API pagoPA FDR viene configurata nella tabella `CONNETTORI` del database GovPay.
 
 ### Esempio Completo (Oracle + Produzione + Inizializzazione DB)
 
@@ -405,10 +368,6 @@ GOVPAY_FDR_MAX_POOL=20
 # Inizializzazione database
 GOVPAY_FDR_POP_DB_SKIP=FALSE
 GOVPAY_FDR_LIVE_DB_CHECK_MAX_RETRY=60
-
-# GPD pagoPA Produzione
-GOVPAY_FDR_ENV=prod
-GOVPAY_FDR_SUBSCRIPTIONKEY=prod-subscription-key
 
 # GDE
 GOVPAY_FDR_GDE_URL=https://govpay-gde.example.com

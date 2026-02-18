@@ -1,6 +1,9 @@
 package it.govpay.fdr.batch.gde.mapper;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import it.govpay.fdr.batch.entity.Fr;
+import it.govpay.fdr.client.model.ErrorMessage;
+import it.govpay.fdr.client.model.ErrorResponse;
 import it.govpay.gde.client.beans.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Mapper for creating GDE events from FDR batch operations.
@@ -25,6 +29,9 @@ import java.util.List;
 @Slf4j
 @Component
 public class EventoFdrMapper {
+
+    private static final int MAX_DETTAGLIO_ESITO_LENGTH = 1000;
+    private static final ObjectMapper ERROR_OBJECT_MAPPER = new ObjectMapper();
 
     @Value("${govpay.batch.cluster-id}")
     private String clusterId;
@@ -192,7 +199,7 @@ public class EventoFdrMapper {
                                        NuovoEvento nuovoEvento) {
         if (exception != null) {
             if (exception instanceof HttpStatusCodeException httpStatusCodeException) {
-                nuovoEvento.setDettaglioEsito(httpStatusCodeException.getResponseBodyAsString());
+                nuovoEvento.setDettaglioEsito(estraiDettaglioEsito(httpStatusCodeException.getResponseBodyAsString()));
                 nuovoEvento.setSottotipoEsito(httpStatusCodeException.getStatusCode().value() + "");
 
                 if (httpStatusCodeException.getStatusCode().is5xxServerError()) {
@@ -201,7 +208,7 @@ public class EventoFdrMapper {
                     nuovoEvento.setEsito(EsitoEvento.KO);
                 }
             } else {
-                nuovoEvento.setDettaglioEsito(exception.getMessage());
+                nuovoEvento.setDettaglioEsito(truncate(exception.getMessage(), MAX_DETTAGLIO_ESITO_LENGTH));
                 nuovoEvento.setSottotipoEsito("500");
                 nuovoEvento.setEsito(EsitoEvento.FAIL);
             }
@@ -215,5 +222,45 @@ public class EventoFdrMapper {
                 nuovoEvento.setEsito(EsitoEvento.KO);
             }
         }
+    }
+
+    String estraiDettaglioEsito(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return null;
+        }
+
+        try {
+            ErrorResponse errorResponse = ERROR_OBJECT_MAPPER.readValue(responseBody, ErrorResponse.class);
+
+            StringBuilder sb = new StringBuilder();
+            if (errorResponse.getHttpStatusDescription() != null) {
+                sb.append(errorResponse.getHttpStatusDescription());
+            }
+            if (errorResponse.getHttpStatusCode() != null) {
+                if (!sb.isEmpty()) sb.append(" ");
+                sb.append("(").append(errorResponse.getHttpStatusCode()).append(")");
+            }
+            if (errorResponse.getAppErrorCode() != null) {
+                if (!sb.isEmpty()) sb.append(" ");
+                sb.append("[").append(errorResponse.getAppErrorCode()).append("]");
+            }
+            if (errorResponse.getErrors() != null && !errorResponse.getErrors().isEmpty()) {
+                String messages = errorResponse.getErrors().stream()
+                        .map(ErrorMessage::getMessage)
+                        .collect(Collectors.joining(", "));
+                if (!sb.isEmpty()) sb.append(": ");
+                sb.append(messages);
+            }
+
+            String result = sb.toString();
+            return result.isEmpty() ? truncate(responseBody, MAX_DETTAGLIO_ESITO_LENGTH) : result;
+        } catch (Exception e) {
+            return truncate(responseBody, MAX_DETTAGLIO_ESITO_LENGTH);
+        }
+    }
+
+    static String truncate(String value, int maxLength) {
+        if (value == null) return null;
+        return value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 }
