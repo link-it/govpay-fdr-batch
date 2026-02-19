@@ -64,6 +64,16 @@ public class FdrApiService {
     }
 
     /**
+     * Clears the cached OrganizationsApi instances.
+     * Should be called when connector configuration changes in the database.
+     */
+    public void clearCache() {
+        int size = apiCache.size();
+        apiCache.clear();
+        log.info("Cache connettori API svuotata ({} entries rimosse)", size);
+    }
+
+    /**
      * Resolves the connector code for the given domain via IntermediarioRepository.
      */
     private String resolveConnectorCode(String codDominio) {

@@ -213,13 +213,8 @@ GOVPAY_FDR_READY_DB_CHECK_SLEEP_TIME=2
 
 ## Integrazione con GDE (Giornale degli Eventi)
 
-L'integrazione con GDE è disabilitata di default. Per abilitarla, specificare l'URL del servizio:
-
-```env
-GOVPAY_FDR_GDE_URL=http://govpay-gde-api:8080
-```
-
-Quando `GOVPAY_FDR_GDE_URL` è impostato, l'integrazione GDE viene automaticamente abilitata e il batch registrerà gli eventi nel giornale.
+L'integrazione con GDE (Giornale degli Eventi) viene configurata tramite la tabella `CONFIGURAZIONE` del database GovPay.
+Non sono necessarie variabili d'ambiente per abilitare o configurare il GDE.
 
 ## Configuration Reference
 
@@ -245,12 +240,6 @@ Quando `GOVPAY_FDR_GDE_URL` è impostato, l'integrazione GDE viene automaticamen
 | `GOVPAY_FDR_BATCH_USA_CRON` | No | `false` | Modalità CRON: `true`, `si`, `yes`, `1` |
 | `GOVPAY_FDR_BATCH_INTERVALLO_CRON` | No | `5` | Intervallo scheduler in minuti (modalità CRON) |
 | `SERVER_PORT` | No | `10001` | Porta Actuator (modalità CRON) |
-
-### Variabili d'Ambiente - Integrazione GDE
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GOVPAY_FDR_GDE_URL` | No | - | URL servizio GDE (se impostato, GDE viene abilitato) |
 
 ### Variabili d'Ambiente - Inizializzazione Database
 
@@ -368,9 +357,6 @@ GOVPAY_FDR_MAX_POOL=20
 # Inizializzazione database
 GOVPAY_FDR_POP_DB_SKIP=FALSE
 GOVPAY_FDR_LIVE_DB_CHECK_MAX_RETRY=60
-
-# GDE
-GOVPAY_FDR_GDE_URL=https://govpay-gde.example.com
 
 # Modalità gestita esternamente (CronJob K8s)
 GOVPAY_FDR_BATCH_USA_CRON=false

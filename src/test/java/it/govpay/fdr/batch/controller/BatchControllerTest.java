@@ -41,6 +41,7 @@ import it.govpay.common.batch.dto.Problem;
 import it.govpay.common.batch.runner.JobExecutionHelper;
 import it.govpay.common.batch.service.JobConcurrencyService;
 import it.govpay.fdr.batch.Costanti;
+import it.govpay.fdr.batch.service.FdrApiService;
 
 class BatchControllerTest {
 
@@ -57,6 +58,9 @@ class BatchControllerTest {
     private Job fdrAcquisitionJob;
 
     @Mock
+    private FdrApiService fdrApiService;
+
+    @Mock
     private Environment environment;
 
     private BatchController batchController;
@@ -70,7 +74,7 @@ class BatchControllerTest {
         MockitoAnnotations.openMocks(this);
         when(jobExecutionHelper.getJobConcurrencyService()).thenReturn(jobConcurrencyService);
         batchController = new BatchController(jobExecutionHelper, jobExplorer, fdrAcquisitionJob,
-                environment, ZONE_ID, SCHEDULER_INTERVAL_MILLIS);
+                fdrApiService, environment, ZONE_ID, SCHEDULER_INTERVAL_MILLIS);
     }
 
     private JobExecution createJobExecution(String clusterId, BatchStatus status) {

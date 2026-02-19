@@ -19,6 +19,7 @@ import it.govpay.common.batch.dto.LastExecutionInfo;
 import it.govpay.common.batch.dto.NextExecutionInfo;
 import it.govpay.common.batch.runner.JobExecutionHelper;
 import it.govpay.fdr.batch.Costanti;
+import it.govpay.fdr.batch.service.FdrApiService;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -30,16 +31,19 @@ import lombok.extern.slf4j.Slf4j;
 public class BatchController extends AbstractBatchController {
 
     private final Job fdrAcquisitionJob;
+    private final FdrApiService fdrApiService;
 
     public BatchController(
             JobExecutionHelper jobExecutionHelper,
             JobExplorer jobExplorer,
             @Qualifier("fdrAcquisitionJob") Job fdrAcquisitionJob,
+            FdrApiService fdrApiService,
             Environment environment,
             ZoneId applicationZoneId,
             @Value("${scheduler.fdrAcquisitionJob.fixedDelayString:7200000}") long schedulerIntervalMillis) {
         super(jobExecutionHelper, jobExplorer, environment, applicationZoneId, schedulerIntervalMillis);
         this.fdrAcquisitionJob = fdrAcquisitionJob;
+        this.fdrApiService = fdrApiService;
     }
 
     @Override
@@ -71,5 +75,11 @@ public class BatchController extends AbstractBatchController {
     @GetMapping("/nextExecution")
     public ResponseEntity<NextExecutionInfo> getNextExecutionEndpoint() {
         return getNextExecution();
+    }
+
+    @Override
+    protected ResponseEntity<String> clearCache() {
+        fdrApiService.clearCache();
+        return ResponseEntity.ok("Cache connettori svuotata");
     }
 }

@@ -135,23 +135,6 @@ GOVPAY_BATCH_CLUSTER_ID=$(grep -E "[[:space:]]${HOSTNAME}[[:space:]]*" /etc/host
 export GOVPAY_BATCH_CLUSTER_ID
 
 ##############################################################################
-# Configurazione Integrazione GDE
-##############################################################################
-
-# Integrazione GDE disabilitata di default a meno che non venga fornito GOVPAY_FDR_GDE_URL
-if [ -n "${GOVPAY_FDR_GDE_URL}" ]; then
-    GOVPAY_GDE_ENABLED=true
-    GOVPAY_GDE_BASE_URL="${GOVPAY_FDR_GDE_URL}"
-    export GOVPAY_GDE_ENABLED GOVPAY_GDE_BASE_URL
-    log_info "Integrazione GDE abilitata"
-    log_info "URL GDE: ${GOVPAY_GDE_BASE_URL}"
-else
-    GOVPAY_GDE_ENABLED=false
-    export GOVPAY_GDE_ENABLED
-    log_info "Integrazione GDE disabilitata"
-fi
-
-##############################################################################
 # Configurazione Modalità di Deploy
 ##############################################################################
 
@@ -209,7 +192,7 @@ log_info "========================================"
 log_info "Database: ${SPRING_DATASOURCE_URL}"
 log_info "Pool: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE}/${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE}"
 log_info "FDR API: connettore da DB (tabella CONNETTORI)"
-log_info "GDE: ${GOVPAY_GDE_ENABLED}"
+log_info "GDE: configurazione da DB (tabella CONFIGURAZIONE)"
 log_info "Cluster ID: ${GOVPAY_BATCH_CLUSTER_ID}"
 log_info "Java: MaxRAMPercentage=${GOVPAY_FDR_JVM_MAX_RAM_PERCENTAGE:-${DEFAULT_MAX_RAM_PERCENTAGE}}%"
 log_info "========================================"
