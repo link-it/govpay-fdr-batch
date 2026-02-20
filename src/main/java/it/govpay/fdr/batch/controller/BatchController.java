@@ -56,7 +56,7 @@ public class BatchController extends AbstractBatchController {
         return Costanti.FDR_ACQUISITION_JOB_NAME;
     }
 
-    @GetMapping("/eseguiJob")
+    @GetMapping("/run")
     public ResponseEntity<Object> eseguiJobEndpoint(
             @RequestParam(name = "force", required = false, defaultValue = "false") boolean force) {
         return eseguiJob(force);
