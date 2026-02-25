@@ -1,3 +1,22 @@
+2026-02-25  Giuliano Pintori <pintori@link.it>
+
+	* [GDE]
+	Refactoring #3 - Risoluzione informazioni dominio centralizzata in GdeService
+	Spostata la risoluzione delle informazioni dominio (codIntermediario, codStazione)
+	direttamente nel GdeService tramite DominioRepository, eliminando i parametri
+	codIntermediario e codStazione dalle signature dei metodi save*Ok/save*Ko.
+	Aggiunta cache ConcurrentHashMap per evitare query ripetute al DB.
+	Aggiunta costante OPERATION_SAVE_FLOW in Costanti per operazioni interne batch.
+	Aggiunto GdeService come dipendenza di FdrPaymentsWriter.
+	Aggiornati test unitari e di integrazione.
+
+2026-02-25  Giuliano Pintori <pintori@link.it>
+
+	* [Build]
+	Aggiornamento dipendenze per rilascio
+	Aggiornata versione govpay-bom da 1.1.2-SNAPSHOT a 1.1.2.
+	Aggiornata versione govpay-common da 1.0.0-SNAPSHOT a 1.0.0.
+
 2026-02-17  Giuliano Pintori <pintori@link.it>
 
 	* [CodeQuality]

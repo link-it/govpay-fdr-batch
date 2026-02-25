@@ -29,6 +29,9 @@ public class Costanti {
 	public static final String OPERATION_GET_SINGLE_PUBLISHED_FLOW = "IOrganizationsController_getSinglePublishedFlow";
 	public static final String OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW = "IOrganizationsController_getPaymentsFromPublishedFlow";
 
+	// Operazioni interne batch
+	public static final String OPERATION_SAVE_FLOW = "SAVE_FLOW";
+
 	// Path delle operazioni FDR API (da fdr_organization.json)
 	// Questi sono path template fissi definiti dalla specifica OpenAPI di pagoPA.
 	// Non sono URI completi (mancano protocollo e host) ma template che vengono

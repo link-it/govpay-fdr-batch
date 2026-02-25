@@ -49,6 +49,9 @@ public class FdrApiService {
     /** Cache of OrganizationsApi instances keyed by connector code */
     private final ConcurrentHashMap<String, OrganizationsApi> apiCache = new ConcurrentHashMap<>();
 
+    /** Domain info resolved from DominioEntity -> StazioneEntity -> IntermediarioEntity */
+    public record DomainInfo(String codIntermediario, String codStazione) {}
+
     public FdrApiService(BatchProperties batchProperties,
                          ConnettoreService connettoreService,
                          IntermediarioRepository intermediarioRepository,
@@ -58,19 +61,21 @@ public class FdrApiService {
         this.batchProperties = batchProperties;
         this.connettoreService = connettoreService;
         this.intermediarioRepository = intermediarioRepository;
+        
         this.gdeService = gdeService;
         this.applicationZoneId = applicationZoneId;
         this.fdrApiClientConfig = fdrApiClientConfig;
     }
 
     /**
-     * Clears the cached OrganizationsApi instances.
+     * Clears the cached OrganizationsApi instances and domain info.
      * Should be called when connector configuration changes in the database.
      */
     public void clearCache() {
-        int size = apiCache.size();
+        int apiSize = apiCache.size();
         apiCache.clear();
-        log.info("Cache connettori API svuotata ({} entries rimosse)", size);
+        log.info("Cache svuotata (API: {} entries rimosse)", apiSize);
+        this.gdeService.clearCache();
     }
 
     /**
@@ -263,7 +268,7 @@ public class FdrApiService {
 			List<FlowByPSP> allFlows, ResponseEntity<PaginatedFlowsResponse> lastResponseEntity) {
 		OffsetDateTime endTime = OffsetDateTime.now(ZoneOffset.UTC);
 		String urlEvento = gdeService.buildGetAllPublishedFlowsUrl(getBaseUrl(organizationId), organizationId, publishedGt != null ? publishedGt.toString() : "all");
-		gdeService.saveGetPublishedFlowsOk(organizationId, null,		    
+		gdeService.saveGetPublishedFlowsOk(organizationId, null,
 		    startTime, endTime, allFlows.size(), lastResponseEntity, urlEvento);
 	}
 

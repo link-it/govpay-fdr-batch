@@ -63,7 +63,7 @@ class EventoFdrMapperTest {
         assertThat(evento.getRuolo()).isEqualTo(RuoloEvento.CLIENT);
         assertThat(evento.getComponente()).isEqualTo(ComponenteEvento.API_PAGOPA);
         assertThat(evento.getDataEvento()).isEqualTo(start);
-        assertThat(evento.getDurataEvento()).isEqualTo(5L);
+        assertThat(evento.getDurataEvento()).isEqualTo(5000L);
 
         // Check DatiPagoPA
         assertThat(evento.getDatiPagoPA()).isNotNull();

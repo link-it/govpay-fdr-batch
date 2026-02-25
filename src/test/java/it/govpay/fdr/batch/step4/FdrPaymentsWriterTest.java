@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,6 +39,7 @@ import it.govpay.fdr.batch.entity.Pagamento;
 import it.govpay.fdr.batch.entity.SingoloVersamento;
 import it.govpay.fdr.batch.entity.StatoFr;
 import it.govpay.fdr.batch.entity.Versamento;
+import it.govpay.fdr.batch.gde.service.GdeService;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 import it.govpay.fdr.batch.repository.PagamentoRepository;
@@ -68,6 +70,9 @@ class FdrPaymentsWriterTest {
     @Mock
     private FrTempRepository frTempRepository;
 
+    @Mock
+    private GdeService gdeService;
+
     @Captor
     private ArgumentCaptor<Fr> frCaptor;
 
@@ -84,7 +89,8 @@ class FdrPaymentsWriterTest {
             pagamentoRepository,
             versamentoRepository,
             singoloVersamentoRepository,
-            frTempRepository
+            frTempRepository,
+            gdeService
         );
 
         testDominio = DominioEntity.builder()

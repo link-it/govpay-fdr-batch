@@ -32,9 +32,14 @@ import org.springframework.web.client.RestTemplate;
 
 import it.govpay.common.client.model.Connettore;
 import it.govpay.common.configurazione.service.ConfigurazioneService;
+import it.govpay.common.entity.DominioEntity;
+import it.govpay.common.entity.IntermediarioEntity;
+import it.govpay.common.entity.StazioneEntity;
+import it.govpay.common.repository.DominioRepository;
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
+import it.govpay.gde.client.beans.DatiPagoPA;
 import it.govpay.gde.client.beans.EsitoEvento;
 import it.govpay.gde.client.beans.NuovoEvento;
 
@@ -54,6 +59,9 @@ class GdeServiceTest {
 
     @Mock
     private ConfigurazioneService configurazioneService;
+
+    @Mock
+    private DominioRepository dominioRepository;
 
     @Mock
     private RestTemplate gdeRestTemplate;
@@ -77,7 +85,21 @@ class GdeServiceTest {
         lenient().when(configurazioneService.isServizioGDEAbilitato()).thenReturn(true);
         lenient().when(configurazioneService.getRestTemplateGDE()).thenReturn(gdeRestTemplate);
 
-        gdeService = new GdeService(objectMapper, syncExecutor, configurazioneService, eventoFdrMapper);
+        // Mock dominio -> stazione -> intermediario chain for domain info resolution
+        IntermediarioEntity intermediario = IntermediarioEntity.builder()
+            .codIntermediario("INT001")
+            .build();
+        StazioneEntity stazione = StazioneEntity.builder()
+            .codStazione("STAZ001")
+            .intermediario(intermediario)
+            .build();
+        DominioEntity dominio = DominioEntity.builder()
+            .codDominio("12345678901")
+            .stazione(stazione)
+            .build();
+        lenient().when(dominioRepository.findByCodDominio(anyString())).thenReturn(java.util.Optional.of(dominio));
+
+        gdeService = new GdeService(objectMapper, syncExecutor, configurazioneService, dominioRepository, eventoFdrMapper);
 
         testFr = Fr.builder()
             .id(1L)
@@ -171,10 +193,12 @@ class GdeServiceTest {
         // Verify idDominio is always set (it's always known)
         assertThat(mockEvento.getIdDominio()).isEqualTo(organizationId);
 
-        // Verify datiPagoPA is always set with idDominio and idPsp
+        // Verify datiPagoPA is always set with idDominio, idPsp, idIntermediario, idStazione
         assertThat(mockEvento.getDatiPagoPA()).isNotNull();
         assertThat(mockEvento.getDatiPagoPA().getIdDominio()).isEqualTo(organizationId);
         assertThat(mockEvento.getDatiPagoPA().getIdPsp()).isEqualTo(pspId);
+        assertThat(mockEvento.getDatiPagoPA().getIdIntermediario()).isEqualTo("INT001");
+        assertThat(mockEvento.getDatiPagoPA().getIdStazione()).isEqualTo("STAZ001");
 
         // Verify event was sent via RestTemplate
         verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
@@ -206,10 +230,12 @@ class GdeServiceTest {
         verify(eventoFdrMapper).createEventoKo(isNull(), eq(Costanti.OPERATION_GET_ALL_PUBLISHED_FLOWS),
             anyString(), eq(start), eq(end), isNull(), eq(exception));
 
-        // Verify datiPagoPA is always set with idDominio and idPsp
+        // Verify datiPagoPA is always set with idDominio, idPsp, idIntermediario, idStazione
         assertThat(mockEvento.getDatiPagoPA()).isNotNull();
         assertThat(mockEvento.getDatiPagoPA().getIdDominio()).isEqualTo(organizationId);
         assertThat(mockEvento.getDatiPagoPA().getIdPsp()).isNull(); // pspId was null in this test
+        assertThat(mockEvento.getDatiPagoPA().getIdIntermediario()).isEqualTo("INT001");
+        assertThat(mockEvento.getDatiPagoPA().getIdStazione()).isEqualTo("STAZ001");
 
         // Verify event was sent via RestTemplate
         verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
@@ -226,6 +252,7 @@ class GdeServiceTest {
         mockEvento.setTipoEvento(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW);
         mockEvento.setEsito(EsitoEvento.OK);
         mockEvento.setSottotipoEvento("fdr=" + testFr.getCodFlusso());
+        mockEvento.setDatiPagoPA(new DatiPagoPA());
 
         when(eventoFdrMapper.createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
             anyString(), eq(start), eq(end))).thenReturn(mockEvento);
@@ -242,6 +269,11 @@ class GdeServiceTest {
         assertThat(mockEvento.getSottotipoEvento()).contains("fdr=FDR-TEST-001");
         assertThat(mockEvento.getDettaglioEsito()).contains("10 payments");
 
+        // Verify idIntermediario and idStazione are set
+        assertThat(mockEvento.getDatiPagoPA()).isNotNull();
+        assertThat(mockEvento.getDatiPagoPA().getIdIntermediario()).isEqualTo("INT001");
+        assertThat(mockEvento.getDatiPagoPA().getIdStazione()).isEqualTo("STAZ001");
+
         verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }
 
@@ -255,6 +287,7 @@ class GdeServiceTest {
         NuovoEvento mockEvento = new NuovoEvento();
         mockEvento.setTipoEvento(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW);
         mockEvento.setEsito(EsitoEvento.KO);
+        mockEvento.setDatiPagoPA(new DatiPagoPA());
 
         when(eventoFdrMapper.createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
             anyString(), eq(start), eq(end), isNull(), eq(exception))).thenReturn(mockEvento);
@@ -265,6 +298,12 @@ class GdeServiceTest {
         // Then
         verify(eventoFdrMapper).createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_SINGLE_PUBLISHED_FLOW),
             anyString(), eq(start), eq(end), isNull(), eq(exception));
+
+        // Verify idIntermediario and idStazione are set
+        assertThat(mockEvento.getDatiPagoPA()).isNotNull();
+        assertThat(mockEvento.getDatiPagoPA().getIdIntermediario()).isEqualTo("INT001");
+        assertThat(mockEvento.getDatiPagoPA().getIdStazione()).isEqualTo("STAZ001");
+
         verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }
 
@@ -278,6 +317,7 @@ class GdeServiceTest {
         NuovoEvento mockEvento = new NuovoEvento();
         mockEvento.setTipoEvento(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW);
         mockEvento.setEsito(EsitoEvento.OK);
+        mockEvento.setDatiPagoPA(new DatiPagoPA());
 
         when(eventoFdrMapper.createEventoOk(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
             anyString(), eq(start), eq(end))).thenReturn(mockEvento);
@@ -295,6 +335,11 @@ class GdeServiceTest {
             eq("GET"), anyList());
         assertThat(mockEvento.getDettaglioEsito()).contains("25 payments");
 
+        // Verify idIntermediario and idStazione are set
+        assertThat(mockEvento.getDatiPagoPA()).isNotNull();
+        assertThat(mockEvento.getDatiPagoPA().getIdIntermediario()).isEqualTo("INT001");
+        assertThat(mockEvento.getDatiPagoPA().getIdStazione()).isEqualTo("STAZ001");
+
         verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }
 
@@ -308,6 +353,7 @@ class GdeServiceTest {
         NuovoEvento mockEvento = new NuovoEvento();
         mockEvento.setTipoEvento(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW);
         mockEvento.setEsito(EsitoEvento.KO);
+        mockEvento.setDatiPagoPA(new DatiPagoPA());
 
         when(eventoFdrMapper.createEventoKo(eq(testFr), eq(Costanti.OPERATION_GET_PAYMENTS_FROM_PUBLISHED_FLOW),
             anyString(), eq(start), eq(end), isNull(), eq(exception))).thenReturn(mockEvento);
@@ -323,6 +369,11 @@ class GdeServiceTest {
         verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento),
             eq("https://api.pagopa.it/organizations/12345678901/fdrs/FDR-TEST-001/revisions/1/psps/PSP001/payments"),
             eq("GET"), anyList());
+
+        // Verify idIntermediario and idStazione are set
+        assertThat(mockEvento.getDatiPagoPA()).isNotNull();
+        assertThat(mockEvento.getDatiPagoPA().getIdIntermediario()).isEqualTo("INT001");
+        assertThat(mockEvento.getDatiPagoPA().getIdStazione()).isEqualTo("STAZ001");
 
         verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }

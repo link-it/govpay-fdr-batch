@@ -272,7 +272,7 @@ class FdrApiServiceGdeIntegrationTest {
         // Then
         assertThat(result).isNotNull();
 
-        // Verify GDE event was sent with 0 payments and pagoPABaseUrl
+        // Verify GDE event was sent with 0 payments, pagoPABaseUrl
         await().untilAsserted(() ->
             verify(gdeService).saveGetFlowDetailsOk(
                 any(),

@@ -23,6 +23,7 @@ import it.govpay.fdr.batch.entity.SingoloVersamento;
 import it.govpay.fdr.batch.entity.StatoFr;
 import it.govpay.fdr.batch.entity.StatoRendicontazione;
 import it.govpay.fdr.batch.entity.Versamento;
+import it.govpay.fdr.batch.gde.service.GdeService;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 import it.govpay.fdr.batch.repository.PagamentoRepository;
@@ -43,6 +44,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
     private final VersamentoRepository versamentoRepository;
     private final SingoloVersamentoRepository singoloVersamentoRepository;
     private final FrTempRepository frTempRepository;
+    private final GdeService gdeService;
 
     public FdrPaymentsWriter(
         FrRepository frRepository,
@@ -50,7 +52,8 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
         PagamentoRepository pagamentoRepository,
         VersamentoRepository versamentoRepository,
         SingoloVersamentoRepository singoloVersamentoRepository,
-        FrTempRepository frTempRepository
+        FrTempRepository frTempRepository,
+        GdeService gdeService
     ) {
         this.frRepository = frRepository;
         this.dominioRepository = dominioRepository;
@@ -58,6 +61,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
         this.versamentoRepository = versamentoRepository;
         this.singoloVersamentoRepository = singoloVersamentoRepository;
         this.frTempRepository = frTempRepository;
+        this.gdeService = gdeService;
     }
 
     @Override
