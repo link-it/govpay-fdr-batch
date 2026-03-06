@@ -67,4 +67,8 @@ public class Rendicontazione {
     @Column(name = "esegui_recupero_rt", nullable = false)
     @Builder.Default
     private Boolean eseguiRecuperoRt = false;
+
+    @Column(name = "notifica_inviata", nullable = false)
+    @Builder.Default
+    private Boolean notificaInviata = false;
 }

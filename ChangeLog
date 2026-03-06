@@ -1,3 +1,16 @@
+2026-03-05  Giuliano Pintori <pintori@link.it>
+
+	* Avanzamento versione 1.1.1
+
+2026-03-05  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #32 - Supporto batch recupero notifiche
+	Aggiunto campo 'notifica_inviata' (boolean, default false) all'entity Rendicontazione
+	per marcare le rendicontazioni per cui è stata inviata la notifica.
+	Il campo viene impostato a false durante l'acquisizione FDR nel FdrPaymentsWriter,
+	in modo che il batch notifiche sappia quali record processare.
+
 2026-02-25  Giuliano Pintori <pintori@link.it>
 
 	* [GDE]

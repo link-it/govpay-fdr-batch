@@ -182,6 +182,7 @@ class FdrPaymentsWriterTest {
             assertThat(savedFr.getCodPsp()).isEqualTo("PSP001");
             assertThat(savedFr.getStato()).isEqualTo(StatoFr.ACCETTATA);
             assertThat(savedFr.getRendicontazioni()).hasSize(1);
+            assertThat(savedFr.getRendicontazioni().get(0).getNotificaInviata()).isFalse();
 
             verify(frTempRepository).delete(frTemp);
         }
