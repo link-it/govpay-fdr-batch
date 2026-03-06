@@ -25,3 +25,5 @@ third-party-licenses/
 .settings/
 *.sublime-workspace
 
+# Docker build context (generated)
+docker/buildcontext/
