@@ -1,74 +1,74 @@
 # JDBC Drivers
 
-Place JDBC driver JAR files in this directory. They will be mounted into the container at `/opt/jdbc-drivers`.
+I driver JDBC non sono inclusi nel fat jar dell'applicazione e devono essere forniti esternamente.
+Collocare i file JAR dei driver in questa directory: verranno montati nel container al path `/opt/jdbc-drivers`.
 
-## Required Drivers
+L'entrypoint del container imposta automaticamente `LOADER_PATH=/opt/jdbc-drivers` in modo che
+il `PropertiesLauncher` di Spring Boot carichi i driver a runtime.
 
-Download the JDBC driver for your database:
+## Driver supportati
+
+Scaricare il driver JDBC corrispondente al database utilizzato:
 
 ### PostgreSQL
 
 ```bash
-wget https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar
+wget https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.9/postgresql-42.7.9.jar
 ```
 
 **License**: BSD-2-Clause
 
-### MySQL/MariaDB
+### MySQL
 
 ```bash
-wget https://repo1.maven.org/maven2/org/mariadb/jdbc/mariadb-java-client/3.3.3/mariadb-java-client-3.3.3.jar
+wget https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.6.0/mysql-connector-j-9.6.0.jar
 ```
 
-**License**: LGPL-2.1
+**License**: GPL-2.0
 
 ### Oracle
 
 ```bash
-wget https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc11/23.3.0.23.09/ojdbc11-23.3.0.23.09.jar
+wget https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc11/23.26.1.0.0/ojdbc11-23.26.1.0.0.jar
 ```
 
 **License**: Oracle Free Use Terms and Conditions (FUTC)
-**Note**: Review Oracle's license terms before use in production
+**Note**: Verificare i termini di licenza Oracle prima dell'uso in produzione.
 
-## Verification
-
-After downloading, verify the driver is present:
+### SQL Server
 
 ```bash
-ls -lh
+wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.2.jre11/mssql-jdbc-12.8.2.jre11.jar
 ```
 
-You should see at least one `.jar` file.
+**License**: MIT
 
-## Multiple Databases
+## Verifica
 
-If you need to support multiple database types, you can place multiple drivers in this directory. The application will load the appropriate one based on the `GOVPAY_DB_TYPE` environment variable.
+Dopo il download, verificare che il driver sia presente:
 
-Example:
+```bash
+ls -lh *.jar
+```
+
+## Database multipli
+
+Se necessario supportare più tipi di database, è possibile collocare più driver in questa directory.
+L'applicazione caricherà quello appropriato in base alla configurazione `GOVPAY_DB_TYPE`.
+
+Esempio:
 ```
 jdbc-drivers/
-├── postgresql-42.7.3.jar
-├── mariadb-java-client-3.3.3.jar
-└── ojdbc11-23.3.0.23.09.jar
+├── postgresql-42.7.9.jar
+├── mysql-connector-j-9.6.0.jar
+└── ojdbc11-23.26.1.0.0.jar
 ```
 
 ## Troubleshooting
 
-If you see an error like "No suitable driver found", check:
+Se si ottiene l'errore "No suitable driver found", verificare che:
 
-1. The JAR file is in this directory
-2. The JAR file has correct permissions (readable)
-3. The `GOVPAY_DB_TYPE` matches your database
-4. The driver class name is correct for your database type
-
-## Alternative: Use .gitignore
-
-If committing to version control, add this to `.gitignore`:
-
-```
-jdbc-drivers/*.jar
-!jdbc-drivers/README.md
-```
-
-This prevents committing large driver files while keeping instructions.
+1. Il file JAR del driver sia presente in questa directory
+2. Il file JAR abbia i permessi corretti (leggibile)
+3. Il valore di `GOVPAY_DB_TYPE` corrisponda al database in uso
+4. Il nome della classe driver sia corretto per il tipo di database
