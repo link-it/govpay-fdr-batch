@@ -95,7 +95,7 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
         return PaymentData.builder()
             .iuv(payment.getIuv())
             .iur(payment.getIur())
-            .indiceDati(payment.getIndex())
+            .indiceDati(payment.getIdTransfer())
             .importoPagato(payment.getPay())
             .esito(convertPayStatusToInteger(payment.getPayStatus()))
             .data(convertToLocalDateTime(payment.getPayDate()))
