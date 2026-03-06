@@ -211,4 +211,6 @@ fi
 log_info "Avvio: ${JAR_FILE}"
 log_info "========================================"
 
+export LOADER_PATH="${GOVPAY_DS_JDBC_LIBS}"
+
 exec java ${JAVA_OPTS} -jar "${JAR_FILE}"
