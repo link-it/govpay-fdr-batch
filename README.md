@@ -171,13 +171,40 @@ export JAVA_HOME=/path/to/jdk-21
 mvn clean install
 ```
 
+### Driver JDBC
+
+I driver JDBC **non sono inclusi** nel fat jar e devono essere forniti esternamente a runtime.
+Creare una directory (es. `jdbc-drivers/`) e copiarvi il driver del database utilizzato:
+
+| Database   | Driver                                                                                     |
+|------------|--------------------------------------------------------------------------------------------|
+| PostgreSQL | [postgresql-42.7.9.jar](https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.9/) |
+| MySQL      | [mysql-connector-j-9.6.0.jar](https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.6.0/) |
+| Oracle     | [ojdbc11-23.26.1.0.0.jar](https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc11/23.26.1.0.0/) |
+| SQL Server | [mssql-jdbc-12.8.2.jre11.jar](https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.2.jre11/) |
+| H2         | [h2-2.4.240.jar](https://repo1.maven.org/maven2/com/h2database/h2/2.4.240/)              |
+
 ### Esecuzione
+
+Il jar utilizza `PropertiesLauncher` (layout ZIP) e richiede la proprietà `loader.path` per indicare
+la directory contenente i driver JDBC:
+
 ```bash
 # Avvio applicazione (modalità schedulata - profilo default)
-java -jar target/govpay-fdr-batch-1.0.0-SNAPSHOT.jar
+java -Dloader.path=./jdbc-drivers -jar target/govpay-fdr-batch.jar
 
 # Esecuzione singola (profilo cron - esegue una volta e termina)
-java -jar target/govpay-fdr-batch-1.0.0-SNAPSHOT.jar --spring.profiles.active=cron
+java -Dloader.path=./jdbc-drivers -jar target/govpay-fdr-batch.jar --spring.profiles.active=cron
+```
+
+### Esecuzione con Docker
+
+Con Docker la variabile d'ambiente `LOADER_PATH` viene impostata automaticamente dall'entrypoint
+alla directory `/opt/jdbc-drivers`. I driver devono essere montati come volume o copiati nell'immagine:
+
+```bash
+# Montaggio volume con il driver JDBC
+docker run -v ./jdbc-drivers:/opt/jdbc-drivers linkitaly/govpay-fdr-batch
 ```
 
 ### Trigger Manuale via REST
