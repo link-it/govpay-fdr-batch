@@ -2,6 +2,7 @@ package it.govpay.fdr.batch.step2;
 
 import it.govpay.fdr.batch.dto.DominioProcessingContext;
 import it.govpay.fdr.batch.dto.FdrHeadersBatch;
+import it.govpay.fdr.batch.exception.FdrFatalException;
 import it.govpay.fdr.batch.service.FdrApiService;
 import it.govpay.fdr.client.model.FlowByPSP;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +65,9 @@ public class FdrHeadersProcessor implements ItemProcessor<DominioProcessingConte
                 .headers(headers)
                 .build();
 
+        } catch (FdrFatalException e) {
+            log.error("Errore fatale nell'elaborazione del dominio {}: {}", context.getCodDominio(), e.getMessage());
+            throw e;
         } catch (RestClientException e) {
             log.error("Errore nell'elaborazione del dominio {}: {}", context.getCodDominio(), e.getMessage());
             // Allow retry mechanism to handle this

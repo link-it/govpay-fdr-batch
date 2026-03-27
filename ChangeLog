@@ -1,3 +1,40 @@
+2026-03-27  Giuliano Pintori <pintori@link.it>
+
+	* Avanzamento versione 1.1.2
+
+2026-03-27  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità #34 - Gestione revisioni flussi e flag obsoleto
+	Implementata gestione automatica del flag 'obsoleto' per i flussi di rendicontazione.
+	Quando viene acquisito un flusso con revisione > 1, tutti i flussi precedenti con la
+	stessa chiave (codDominio, codFlusso, codPsp) vengono marcati come obsoleti.
+	Modifiche:
+	- FrRepository: aggiunto metodo marcaObsoleti() con query JPQL @Modifying (clearAutomatically=true)
+	- FdrPaymentsWriter: aggiunta logica di marcatura obsoleti prima del salvataggio del nuovo FR
+	- Aggiunti test unitari (ObsoletoRevisioneTests) e test di integrazione (FdrObsoletoIntegrationTest)
+
+2026-03-27  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Aggiunta funzionalità - Gestione errori HTTP nella prima chiamata API
+	Implementata gestione differenziata degli errori HTTP nella chiamata getAllPublishedFlows:
+	- HTTP 404: trattato come successo (nessun flusso disponibile nell'intervallo di ricerca),
+	  gestito anche il caso di body vuoto/non valido restituito dal servizio in produzione
+	- HTTP 401/403: errore fatale di autenticazione/autorizzazione, non ritentabile,
+	  il dominio viene saltato e l'elaborazione prosegue con gli altri domini
+	Introdotta eccezione FdrFatalException (non estende RestClientException) per garantire
+	che gli errori fatali non vengano ritentati dal meccanismo di retry di Spring Batch
+	ma vengano correttamente saltati dalla skip policy, permettendo l'elaborazione degli
+	altri domini.
+	Il body della response viene salvato nel GDE per tutti i casi di errore HTTP.
+	Modifiche:
+	- FdrFatalException: nuova eccezione per errori non recuperabili
+	- FdrApiService.fetchFlowsPage(): gestione specifica per HTTP 404, 401, 403
+	- FdrApiService.getAllPublishedFlows(): catch separato per HttpClientErrorException
+	- FdrHeadersProcessor: catch specifico per FdrFatalException con log dedicato
+	- Aggiunti test unitari e di integrazione per tutti gli scenari (404, 401, 403, multi-dominio)
+
 2026-03-06  Giuliano Pintori <pintori@link.it>
 
 	* [Build]

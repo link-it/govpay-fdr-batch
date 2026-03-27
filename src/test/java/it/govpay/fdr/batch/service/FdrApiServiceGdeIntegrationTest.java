@@ -7,6 +7,7 @@ import it.govpay.common.repository.IntermediarioRepository;
 import it.govpay.fdr.batch.config.BatchProperties;
 import it.govpay.fdr.batch.config.FdrApiClientConfig;
 import it.govpay.fdr.batch.entity.Fr;
+import it.govpay.fdr.batch.exception.FdrFatalException;
 import it.govpay.fdr.batch.gde.service.GdeService;
 import it.govpay.fdr.client.api.OrganizationsApi;
 import it.govpay.fdr.client.model.*;
@@ -144,8 +145,8 @@ class FdrApiServiceGdeIntegrationTest {
     }
 
     @Test
-    void testGetAllPublishedFlowsWithGdeTrackingFailure() throws Exception {
-        // Given
+    void testGetAllPublishedFlows404ReturnsEmptyListAsSuccess() throws Exception {
+        // Given - 404 indica che non ci sono flussi per l'organizzazione
         String organizationId = ORG_ID;
         LocalDateTime publishedGt = LocalDateTime.now().minusHours(1);
 
@@ -154,22 +155,132 @@ class FdrApiServiceGdeIntegrationTest {
             .thenThrow(new HttpClientErrorException(
                 org.springframework.http.HttpStatus.NOT_FOUND, "Organization not found"));
 
-        // When/Then
-        assertThatThrownBy(() -> fdrApiService.getAllPublishedFlows(organizationId, publishedGt))
-            .isInstanceOf(RestClientException.class)
-            .hasMessageContaining("Fallito il recupero dei flussi");
+        // When - 404 viene trattato come successo (nessun flusso disponibile)
+        List<FlowByPSP> result = fdrApiService.getAllPublishedFlows(organizationId, publishedGt);
 
-        // Verify GDE error event was sent with built URL
-        await().untilAsserted(() ->
-            verify(gdeService).saveGetPublishedFlowsKo(
-                eq(organizationId),
-                isNull(),
-                any(OffsetDateTime.class),
-                any(OffsetDateTime.class),
-                any(),
-                any(RestClientException.class),
-                anyString()
-            )
+        // Then - lista vuota, nessuna eccezione
+        assertThat(result).isEmpty();
+
+        // Verify GDE OK event was sent (0 flows)
+        verify(gdeService).saveGetPublishedFlowsOk(
+            eq(organizationId),
+            isNull(),
+            any(OffsetDateTime.class),
+            any(OffsetDateTime.class),
+            eq(0),
+            any(),
+            anyString()
+        );
+        // Verify NO KO event was sent
+        verify(gdeService, never()).saveGetPublishedFlowsKo(
+            anyString(), any(), any(), any(), any(), any(RestClientException.class), anyString());
+    }
+
+    @Test
+    void testGetAllPublishedFlows404WithEmptyBody() throws Exception {
+        // Given - 404 con body vuoto (come in produzione: "[no body]")
+        String organizationId = ORG_ID;
+
+        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+            eq(organizationId), isNull(), eq(1L), isNull(), any(OffsetDateTime.class), eq(100L)))
+            .thenThrow(HttpClientErrorException.create(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Not Found",
+                org.springframework.http.HttpHeaders.EMPTY, new byte[0], null));
+
+        // When
+        List<FlowByPSP> result = fdrApiService.getAllPublishedFlows(organizationId, LocalDateTime.now());
+
+        // Then - lista vuota, nessuna eccezione
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void testGetAllPublishedFlows401ThrowsFdrFatalException() throws Exception {
+        // Given - 401 Unauthorized
+        String organizationId = ORG_ID;
+        LocalDateTime publishedGt = LocalDateTime.now().minusHours(1);
+
+        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+            eq(organizationId), isNull(), eq(1L), isNull(), any(OffsetDateTime.class), eq(100L)))
+            .thenThrow(new HttpClientErrorException(
+                org.springframework.http.HttpStatus.UNAUTHORIZED, "Unauthorized"));
+
+        // When/Then - deve lanciare FdrFatalException (non ritentabile)
+        assertThatThrownBy(() -> fdrApiService.getAllPublishedFlows(organizationId, publishedGt))
+            .isInstanceOf(FdrFatalException.class)
+            .hasMessageContaining("autenticazione/autorizzazione")
+            .hasMessageContaining("401")
+            .hasCauseInstanceOf(HttpClientErrorException.class);
+
+        // Verify GDE KO event was sent con l'eccezione originale
+        verify(gdeService).saveGetPublishedFlowsKo(
+            eq(organizationId),
+            isNull(),
+            any(OffsetDateTime.class),
+            any(OffsetDateTime.class),
+            any(),
+            any(HttpClientErrorException.class),
+            anyString()
+        );
+    }
+
+    @Test
+    void testGetAllPublishedFlows403ThrowsFdrFatalException() throws Exception {
+        // Given - 403 Forbidden
+        String organizationId = ORG_ID;
+        LocalDateTime publishedGt = LocalDateTime.now().minusHours(1);
+
+        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+            eq(organizationId), isNull(), eq(1L), isNull(), any(OffsetDateTime.class), eq(100L)))
+            .thenThrow(new HttpClientErrorException(
+                org.springframework.http.HttpStatus.FORBIDDEN, "Forbidden"));
+
+        // When/Then - deve lanciare FdrFatalException (non ritentabile)
+        assertThatThrownBy(() -> fdrApiService.getAllPublishedFlows(organizationId, publishedGt))
+            .isInstanceOf(FdrFatalException.class)
+            .hasMessageContaining("autenticazione/autorizzazione")
+            .hasMessageContaining("403")
+            .hasCauseInstanceOf(HttpClientErrorException.class);
+
+        // Verify GDE KO event was sent
+        verify(gdeService).saveGetPublishedFlowsKo(
+            eq(organizationId),
+            isNull(),
+            any(OffsetDateTime.class),
+            any(OffsetDateTime.class),
+            any(),
+            any(HttpClientErrorException.class),
+            anyString()
+        );
+    }
+
+    @Test
+    void testGetAllPublishedFlows401GdeSavesResponseBody() throws Exception {
+        // Given - 401 con body JSON
+        String organizationId = ORG_ID;
+        String responseBody = "{\"httpStatusCode\":401,\"httpStatusDescription\":\"Unauthorized\",\"appErrorCode\":\"AUTH-001\"}";
+
+        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+            eq(organizationId), isNull(), eq(1L), isNull(), any(OffsetDateTime.class), eq(100L)))
+            .thenThrow(HttpClientErrorException.create(
+                org.springframework.http.HttpStatus.UNAUTHORIZED, "Unauthorized",
+                org.springframework.http.HttpHeaders.EMPTY,
+                responseBody.getBytes(), null));
+
+        // When/Then
+        assertThatThrownBy(() -> fdrApiService.getAllPublishedFlows(organizationId, LocalDateTime.now()))
+            .isInstanceOf(FdrFatalException.class);
+
+        // Verify GDE KO event carries the HttpClientErrorException (con il body della response)
+        verify(gdeService).saveGetPublishedFlowsKo(
+            eq(organizationId),
+            isNull(),
+            any(OffsetDateTime.class),
+            any(OffsetDateTime.class),
+            any(),
+            argThat(ex -> ex instanceof HttpClientErrorException
+                && ((HttpClientErrorException) ex).getResponseBodyAsString().contains("AUTH-001")),
+            anyString()
         );
     }
 
