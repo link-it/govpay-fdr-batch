@@ -1337,6 +1337,176 @@ class FdrPaymentsWriterTest {
     }
 
     @Nested
+    class ObsoletoRevisioneTests {
+
+        @Test
+        void testRevisioneMaggioreUnoMarcaObsoletiPrecedenti() {
+            // Given - flusso con revisione 2
+            FdrPaymentsProcessor.FdrCompleteData rev2Data = FdrPaymentsProcessor.FdrCompleteData.builder()
+                .frTempId(1L)
+                .codPsp("PSP001")
+                .codDominio("12345678901")
+                .codFlusso("FDR-TEST-001")
+                .iur("IUR-FLUSSO")
+                .dataOraFlusso(LocalDateTime.now())
+                .dataRegolamento(LocalDateTime.now())
+                .numeroPagamenti(1L)
+                .importoTotalePagamenti(100.00)
+                .revisione(2L)
+                .stato("PUBLISHED")
+                .payments(List.of(FdrPaymentsProcessor.PaymentData.builder()
+                    .iuv("IUV001").iur("IUR001").indiceDati(1L)
+                    .importoPagato(100.00).esito(Costanti.PAYMENT_EXECUTED)
+                    .data(LocalDateTime.now()).build()))
+                .build();
+
+            when(frRepository.findByCodFlussoAndCodPspAndRevisione("FDR-TEST-001", "PSP001", 2L))
+                .thenReturn(Optional.empty());
+            when(dominioRepository.findByCodDominio("12345678901"))
+                .thenReturn(Optional.of(testDominio));
+            when(pagamentoRepository.findAllByCodDominioAndIuvAndIurAndIndiceDati(
+                anyString(), anyString(), anyString(), anyLong()))
+                .thenReturn(Collections.emptyList());
+            when(frRepository.marcaObsoleti("12345678901", "FDR-TEST-001", "PSP001"))
+                .thenReturn(1);
+            when(frRepository.save(any(Fr.class))).thenAnswer(inv -> {
+                Fr fr = inv.getArgument(0);
+                fr.setId(2L);
+                return fr;
+            });
+            FrTemp frTemp = FrTemp.builder().id(1L).build();
+            when(frTempRepository.findById(1L)).thenReturn(Optional.of(frTemp));
+
+            // When
+            writer.write(new Chunk<>(List.of(rev2Data)));
+
+            // Then - marcaObsoleti deve essere invocato
+            verify(frRepository).marcaObsoleti("12345678901", "FDR-TEST-001", "PSP001");
+
+            // Il nuovo FR deve avere obsoleto = false
+            verify(frRepository).save(frCaptor.capture());
+            Fr savedFr = frCaptor.getValue();
+            assertThat(savedFr.getObsoleto()).isFalse();
+            assertThat(savedFr.getRevisione()).isEqualTo(2L);
+        }
+
+        @Test
+        void testRevisioneUnoNonMarcaObsoleti() {
+            // Given - flusso con revisione 1, non deve invocare marcaObsoleti
+            when(frRepository.findByCodFlussoAndCodPspAndRevisione(anyString(), anyString(), anyLong()))
+                .thenReturn(Optional.empty());
+            when(dominioRepository.findByCodDominio("12345678901"))
+                .thenReturn(Optional.of(testDominio));
+
+            SingoloVersamento sv = SingoloVersamento.builder().id(1L).indiceDati(1).build();
+            Pagamento pagamento = Pagamento.builder()
+                .id(1L).importoPagato(100.00).singoloVersamento(sv).build();
+            when(pagamentoRepository.findAllByCodDominioAndIuvAndIurAndIndiceDati(
+                anyString(), anyString(), anyString(), anyLong()))
+                .thenReturn(List.of(pagamento));
+            when(frRepository.save(any(Fr.class))).thenAnswer(inv -> {
+                Fr fr = inv.getArgument(0);
+                fr.setId(1L);
+                return fr;
+            });
+            FrTemp frTemp = FrTemp.builder().id(1L).build();
+            when(frTempRepository.findById(1L)).thenReturn(Optional.of(frTemp));
+
+            // When
+            writer.write(new Chunk<>(List.of(testData))); // testData ha revisione = 1
+
+            // Then - marcaObsoleti NON deve essere invocato
+            verify(frRepository, never()).marcaObsoleti(anyString(), anyString(), anyString());
+
+            verify(frRepository).save(frCaptor.capture());
+            Fr savedFr = frCaptor.getValue();
+            assertThat(savedFr.getObsoleto()).isFalse();
+            assertThat(savedFr.getRevisione()).isEqualTo(1L);
+        }
+
+        @Test
+        void testRevisioneMaggioreUnoSenzaPrecedenti() {
+            // Given - revisione > 1 ma nessun flusso precedente trovato
+            FdrPaymentsProcessor.FdrCompleteData rev3Data = FdrPaymentsProcessor.FdrCompleteData.builder()
+                .frTempId(1L)
+                .codPsp("PSP001")
+                .codDominio("12345678901")
+                .codFlusso("FDR-TEST-NEW")
+                .iur("IUR-FLUSSO")
+                .dataOraFlusso(LocalDateTime.now())
+                .dataRegolamento(LocalDateTime.now())
+                .numeroPagamenti(1L)
+                .importoTotalePagamenti(100.00)
+                .revisione(3L)
+                .stato("PUBLISHED")
+                .payments(List.of(FdrPaymentsProcessor.PaymentData.builder()
+                    .iuv("IUV001").iur("IUR001").indiceDati(1L)
+                    .importoPagato(100.00).esito(Costanti.PAYMENT_EXECUTED)
+                    .data(LocalDateTime.now()).build()))
+                .build();
+
+            when(frRepository.findByCodFlussoAndCodPspAndRevisione("FDR-TEST-NEW", "PSP001", 3L))
+                .thenReturn(Optional.empty());
+            when(dominioRepository.findByCodDominio("12345678901"))
+                .thenReturn(Optional.of(testDominio));
+            when(pagamentoRepository.findAllByCodDominioAndIuvAndIurAndIndiceDati(
+                anyString(), anyString(), anyString(), anyLong()))
+                .thenReturn(Collections.emptyList());
+            // Nessun flusso precedente
+            when(frRepository.marcaObsoleti("12345678901", "FDR-TEST-NEW", "PSP001"))
+                .thenReturn(0);
+            when(frRepository.save(any(Fr.class))).thenAnswer(inv -> {
+                Fr fr = inv.getArgument(0);
+                fr.setId(3L);
+                return fr;
+            });
+            FrTemp frTemp = FrTemp.builder().id(1L).build();
+            when(frTempRepository.findById(1L)).thenReturn(Optional.of(frTemp));
+
+            // When
+            writer.write(new Chunk<>(List.of(rev3Data)));
+
+            // Then - marcaObsoleti invocato ma restituisce 0
+            verify(frRepository).marcaObsoleti("12345678901", "FDR-TEST-NEW", "PSP001");
+            verify(frRepository).save(frCaptor.capture());
+            Fr savedFr = frCaptor.getValue();
+            assertThat(savedFr.getObsoleto()).isFalse();
+        }
+
+        @Test
+        void testDefaultObsoletoFalse() {
+            // Given - verifica che un FR creato senza impostare obsoleto abbia default false
+            when(frRepository.findByCodFlussoAndCodPspAndRevisione(anyString(), anyString(), anyLong()))
+                .thenReturn(Optional.empty());
+            when(dominioRepository.findByCodDominio("12345678901"))
+                .thenReturn(Optional.of(testDominio));
+
+            SingoloVersamento sv = SingoloVersamento.builder().id(1L).indiceDati(1).build();
+            Pagamento pagamento = Pagamento.builder()
+                .id(1L).importoPagato(100.00).singoloVersamento(sv).build();
+            when(pagamentoRepository.findAllByCodDominioAndIuvAndIurAndIndiceDati(
+                anyString(), anyString(), anyString(), anyLong()))
+                .thenReturn(List.of(pagamento));
+            when(frRepository.save(any(Fr.class))).thenAnswer(inv -> {
+                Fr fr = inv.getArgument(0);
+                fr.setId(1L);
+                return fr;
+            });
+            FrTemp frTemp = FrTemp.builder().id(1L).build();
+            when(frTempRepository.findById(1L)).thenReturn(Optional.of(frTemp));
+
+            // When
+            writer.write(new Chunk<>(List.of(testData)));
+
+            // Then
+            verify(frRepository).save(frCaptor.capture());
+            Fr savedFr = frCaptor.getValue();
+            assertThat(savedFr.getObsoleto()).isNotNull();
+            assertThat(savedFr.getObsoleto()).isFalse();
+        }
+    }
+
+    @Nested
     class FrTempDeletionTests {
 
         @Test

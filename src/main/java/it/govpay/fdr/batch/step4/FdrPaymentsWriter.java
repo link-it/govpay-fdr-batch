@@ -160,6 +160,15 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    fr.setStato(Costanti.FLUSSO_STATO_ANOMALA);
 		}
 
+		// Se la revisione è > 1, marco come obsoleti i flussi precedenti con la stessa chiave (codDominio, codFlusso, codPsp)
+		if (fr.getRevisione() != null && fr.getRevisione() > 1) {
+		    int obsoleti = frRepository.marcaObsoleti(fr.getCodDominio(), fr.getCodFlusso(), fr.getCodPsp());
+		    if (obsoleti > 0) {
+		        log.info("Marcati come obsoleti {} flussi precedenti per [Dominio:{}, Flusso:{}, PSP:{}]",
+		            obsoleti, fr.getCodDominio(), fr.getCodFlusso(), fr.getCodPsp());
+		    }
+		}
+
 		// Save FR
 		fr = frRepository.save(fr);
 

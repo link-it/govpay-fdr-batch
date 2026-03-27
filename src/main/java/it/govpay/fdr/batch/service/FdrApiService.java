@@ -12,8 +12,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+
+import it.govpay.fdr.batch.exception.FdrFatalException;
 
 import it.govpay.common.client.model.Connettore;
 import it.govpay.common.client.service.ConnettoreService;
@@ -170,6 +173,15 @@ public class FdrApiService {
 
             return allFlows;
 
+        } catch (HttpClientErrorException e) {
+            // HTTP 4xx non gestiti in fetchFlowsPage (401, 403): salva evento GDE e lancia eccezione fatale
+            saveGetPublishedFlowsKo(organizationId, publishedGt, startTime, lastResponseEntity, e);
+            int statusCode = e.getStatusCode().value();
+            if (statusCode == 401 || statusCode == 403) {
+                throw new FdrFatalException(
+                    "Errore di autenticazione/autorizzazione per l'organizzazione " + organizationId + ": HTTP " + statusCode, e);
+            }
+            throw e;
         } catch (RestClientException e) {
             saveGetPublishedFlowsKo(organizationId, publishedGt, startTime, lastResponseEntity, e);
             throw e;
@@ -198,6 +210,23 @@ public class FdrApiService {
 
             return new PageFetchResult<>(responseEntity, true);
 
+        } catch (HttpClientErrorException e) {
+            int statusCode = e.getStatusCode().value();
+            if (statusCode == 404) {
+                // 404 = nessun flusso disponibile per l'organizzazione nell'intervallo di ricerca
+                log.info("Nessun flusso disponibile per l'organizzazione {} (HTTP 404 Not Found)", organizationId);
+                return new PageFetchResult<>(null, false);
+            }
+            if (statusCode == 401 || statusCode == 403) {
+                // 401/403 = errore di autenticazione/autorizzazione, non ritentare
+                log.error("Errore di autenticazione/autorizzazione per l'organizzazione {}: HTTP {} - {}",
+                    organizationId, statusCode, e.getMessage());
+                throw e;
+            }
+            // Altri errori 4xx: wrap generico
+            log.error("Errore HTTP {} nel recupero dei flussi per l'organizzazione {} alla pagina {}: {}",
+                statusCode, organizationId, currentPage, e.getMessage());
+            throw new RestClientException("Fallito il recupero dei flussi per l'organizzazione " + organizationId, e);
         } catch (org.springframework.web.client.ResourceAccessException e) {
             boolean shouldContinue = !gestioneRispostaVuota(organizationId, currentPage, e);
             return new PageFetchResult<>(null, shouldContinue);
