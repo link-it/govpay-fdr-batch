@@ -22,6 +22,7 @@ import org.springframework.web.client.RestClientException;
 
 import it.govpay.fdr.batch.dto.DominioProcessingContext;
 import it.govpay.fdr.batch.dto.FdrHeadersBatch;
+import it.govpay.fdr.batch.exception.FdrFatalException;
 import it.govpay.fdr.batch.service.FdrApiService;
 import it.govpay.fdr.client.model.FlowByPSP;
 
@@ -169,6 +170,68 @@ class FdrHeadersProcessorTest {
         // Then: Should process successfully
         assertThat(result).isNotNull();
         assertThat(result.getHeaders()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("Should propagate FdrFatalException on 401/403 without wrapping")
+    void testProcessWithFdrFatalException() {
+        // Given: FdrFatalException from API (e.g. 401/403)
+        DominioProcessingContext context = DominioProcessingContext.builder()
+            .dominioId(1L)
+            .codDominio("12345678901")
+            .lastPublicationDate(LocalDateTime.now())
+            .build();
+
+        when(fdrApiService.getAllPublishedFlows(any(), any()))
+            .thenThrow(new FdrFatalException("Errore di autenticazione/autorizzazione: HTTP 401",
+                new org.springframework.web.client.HttpClientErrorException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED)));
+
+        // When/Then: FdrFatalException propagata direttamente (non RestClientException)
+        assertThatThrownBy(() -> processor.process(context))
+            .isInstanceOf(FdrFatalException.class)
+            .hasMessageContaining("401");
+    }
+
+    @Test
+    @DisplayName("FdrFatalException is NOT a RestClientException - ensures no retry by Spring Batch")
+    void testFdrFatalExceptionIsNotRestClientException() {
+        // FdrFatalException non deve essere una RestClientException,
+        // altrimenti Spring Batch la ritenterebbe
+        FdrFatalException ex = new FdrFatalException("test", null);
+        assertThat(ex).isNotInstanceOf(RestClientException.class);
+    }
+
+    @Test
+    @DisplayName("Dom1 authorized succeeds, dom2 unauthorized throws FdrFatalException - dom1 result is valid")
+    void testMultipleDomainsDom1OkDom2Unauthorized() throws Exception {
+        // Given: dom1 ha flussi, dom2 riceve 401
+        String dom1 = "11111111111";
+        String dom2 = "22222222222";
+
+        DominioProcessingContext ctx1 = DominioProcessingContext.builder()
+            .dominioId(1L).codDominio(dom1).lastPublicationDate(null).build();
+        DominioProcessingContext ctx2 = DominioProcessingContext.builder()
+            .dominioId(2L).codDominio(dom2).lastPublicationDate(null).build();
+
+        List<FlowByPSP> flows = List.of(createFlowByPSP("FDR-001", "PSP001", 1L, "2025-01-27T10:30:00", "2025-01-27T11:00:00"));
+        when(fdrApiService.getAllPublishedFlows(eq(dom1), any())).thenReturn(flows);
+        when(fdrApiService.getAllPublishedFlows(eq(dom2), any()))
+            .thenThrow(new FdrFatalException("HTTP 401", new org.springframework.web.client.HttpClientErrorException(
+                org.springframework.http.HttpStatus.UNAUTHORIZED)));
+
+        // When: dom1 viene elaborato correttamente
+        FdrHeadersBatch result1 = processor.process(ctx1);
+        assertThat(result1).isNotNull();
+        assertThat(result1.getCodDominio()).isEqualTo(dom1);
+        assertThat(result1.getHeaders()).hasSize(1);
+
+        // When: dom2 lancia FdrFatalException (che Spring Batch saltera' senza retry)
+        assertThatThrownBy(() -> processor.process(ctx2))
+            .isInstanceOf(FdrFatalException.class);
+
+        // Dom1 result e' ancora valido
+        assertThat(result1.getHeaders().get(0).getCodFlusso()).isEqualTo("FDR-001");
     }
 
     private FlowByPSP createFlowByPSP(String fdr, String pspId, Long revision, String flowDate, String published) {
