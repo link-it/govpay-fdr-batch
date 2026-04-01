@@ -1,3 +1,26 @@
+2026-04-01  Giuliano Pintori <pintori@link.it>
+
+	* Avanzamento versione 1.1.3
+
+2026-04-01  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Risolto Bug - Formato data publishedGt incompatibile con API pagoPA
+	Corretta la conversione del parametro publishedGt nella chiamata getAllPublishedFlows.
+	La data veniva inviata con offset locale (es. +02:00 in ora legale) causando una
+	risposta 404 dal server pagoPA che accetta solo il formato UTC (suffisso Z).
+	La conversione ora produce una data in UTC (es. 2026-03-30T14:30:04Z invece di
+	2026-03-30T16:30:04+02:00), rappresentando lo stesso istante temporale.
+
+2026-03-30  Giuliano Pintori <pintori@link.it>
+
+	* [Testing]
+	Risolto Bug - Test timezone-dependent
+	Corretta creazione dell'OffsetDateTime nel test FdrMetadataProcessorTest.testOffsetDateTimeConversion:
+	l'offset veniva calcolato in base alla data corrente (ora legale/solare) invece che
+	in base alla data effettiva del test (4 dicembre 2025, ora solare CET+1),
+	causando un fallimento stagionale del test durante il periodo di ora legale.
+
 2026-03-27  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.1.2

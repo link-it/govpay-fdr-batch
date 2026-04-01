@@ -148,7 +148,7 @@ public class FdrApiService {
         boolean hasMorePages = true;
         ResponseEntity<PaginatedFlowsResponse> lastResponseEntity = null;
 
-        OffsetDateTime publishedGtOffset = publishedGt != null ? publishedGt.atZone(applicationZoneId).toOffsetDateTime() : null;
+        OffsetDateTime publishedGtOffset = publishedGt != null ? publishedGt.atZone(applicationZoneId).toInstant().atOffset(ZoneOffset.UTC) : null;
         try {
             while (hasMorePages) {
                 PageFetchResult<PaginatedFlowsResponse> result = fetchFlowsPage(
