@@ -1,18 +1,10 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
 name: Java CI with Maven
 
 on:
   push:
     branches: [ "main" ]
     tags:
-      - '*'  # Trigger per tutti i tag
+      - '*'
   pull_request:
     branches: [ "main" ]
 
@@ -22,22 +14,26 @@ permissions:
   actions: write
 
 jobs:
-  build:
 
+  # ── Build, Test, Quality ─────────────────────────────────────────────
+  build:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Clona tutta la history Git
+        fetch-depth: 0
+
     - name: Set timezone to Europe/Rome
       run: sudo timedatectl set-timezone Europe/Rome
+
     - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
+
     - name: Check NVD_API_KEY
       run: |
         if [ -z "$NVD_API_KEY" ]; then
@@ -47,6 +43,7 @@ jobs:
         fi
       env:
         NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
     - name: Check OSS_INDEX_USER
       run: |
         if [ -z "$OSS_INDEX_USER" ]; then
@@ -56,6 +53,7 @@ jobs:
         fi
       env:
         OSS_INDEX_USER: ${{ vars.OSS_INDEX_USER }}
+
     - name: Check OSS_INDEX_PASSWORD
       run: |
         if [ -z "$OSS_INDEX_PASSWORD" ]; then
@@ -66,7 +64,6 @@ jobs:
       env:
         OSS_INDEX_PASSWORD: ${{ secrets.OSS_INDEX_PASSWORD }}
 
-    #  Cache .dependency-check/data
     - name: Cache OWASP Dependency-Check DB
       uses: actions/cache@v4
       with:
@@ -127,7 +124,7 @@ jobs:
         path: third-party-licenses
 
     - name: Upload artifact to GitHub
-      uses: actions/upload-artifact@v4.6.0
+      uses: actions/upload-artifact@v4
       with:
         name: govpay-fdr-batch
         path: |
@@ -137,66 +134,102 @@ jobs:
           target/dependency-check-report.html
           target/dependency-check-report.xml
 
+  # ── OSV Scan (parallelo al build, non blocca) ────────────────────────
+  osv-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: OSV Scanner
+        uses: google/osv-scanner-action@v2
+        with:
+          scan-args: |-
+            --format=json
+            --output=osv-report.json
+            -r
+            .
+        continue-on-error: true
+
+      - name: Upload OSV report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osv-report
+          path: osv-report.json
+          retention-days: 30
+
+  # ── GitHub Release (solo tag) ────────────────────────────────────────
   release:
     runs-on: ubuntu-latest
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/')  # Esegui solo per i tag
+    needs: [ build, osv-scan ]
+    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Download artifact from build job
+    # JAR — asset diretto nella release
+    - name: Download govpay-fdr-batch artifact
       uses: actions/download-artifact@v4
       with:
         name: govpay-fdr-batch
-        path: target/  # Assicurati che il file venga scaricato nella cartella target
+        path: jar/
 
-    - name: Download third-party-licenses artifact
+    # Report — finiranno nello ZIP
+    - name: Download OSV report
+      uses: actions/download-artifact@v4
+      with:
+        name: osv-report
+        path: reports/osv/
+
+    - name: Download third-party-licenses
       uses: actions/download-artifact@v4
       with:
         name: third-party-licenses
-        path: third-party-licenses
+        path: reports/third-party-licenses/
 
-    - name: Rename the artifact file to include the tag
+    - name: Rename JAR with tag version
       run: |
-        cp target/govpay-fdr-batch.jar target/govpay-fdr-batch-${{ github.ref_name }}.jar  # Rinominare il file
-        cp target/site/jacoco/jacoco.xml target/jacoco.xml
+        cp jar/govpay-fdr-batch.jar jar/govpay-fdr-batch-${{ github.ref_name }}.jar
 
     - name: Zip SQL files
-      # Crea un file zip (target/sql.zip) contenente i file presenti in src/main/resources/sql
       run: |
         cd src/main/resources
         zip -r ../../../target/sql.zip sql
         cd ../../../
 
-    - name: Zip third-party licenses
-      # Crea un file zip (target/third-party-licenses.zip) contenente le licenze delle dipendenze
+    - name: Assemble reports ZIP
       run: |
-        if [ -d "third-party-licenses" ]; then
-          zip -r target/third-party-licenses.zip third-party-licenses
-        else
-          echo "third-party-licenses directory not found, skipping..."
-        fi
+        mkdir -p reports/owasp reports/jacoco
 
-    - name: List files in target directory
-      run: ls -l target/
+        # OWASP e JaCoCo dall'artifact build
+        cp jar/dependency-check-report.html reports/owasp/ 2>/dev/null || true
+        cp jar/dependency-check-report.xml  reports/owasp/ 2>/dev/null || true
+        cp jar/site/jacoco/jacoco.xml       reports/jacoco/ 2>/dev/null || true
+        cp jar/jacoco-html-report.zip       reports/jacoco/ 2>/dev/null || true
+
+        # pipeline info
+        echo "Pipeline Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+          > reports/${{ github.ref_name }}_actions_run.txt
+
+        zip -r release-reports-${{ github.ref_name }}.zip reports/
+        ls -lh release-reports-${{ github.ref_name }}.zip
 
     - name: Create GitHub release
-      id: create_release
       uses: softprops/action-gh-release@v2.2.1
       with:
         files: |
-          target/govpay-fdr-batch-${{ github.ref_name }}.jar
+          jar/govpay-fdr-batch-${{ github.ref_name }}.jar
           target/sql.zip
-          target/jacoco.xml
-          target/jacoco-html-report.zip
-          target/dependency-check-report.html
-          target/dependency-check-report.xml
-          target/third-party-licenses.zip
+          release-reports-${{ github.ref_name }}.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
+  # ── Docker build & push (solo tag, dopo release) ─────────────────────
   docker:
     runs-on: ubuntu-latest
     needs: release
