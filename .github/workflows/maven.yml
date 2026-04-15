@@ -145,7 +145,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: OSV Scanner
-        uses: google/osv-scanner-action@v2
+        uses: google/osv-scanner-action@v2.3.5
         with:
           scan-args: |-
             --format=json
