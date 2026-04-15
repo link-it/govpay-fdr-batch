@@ -134,33 +134,22 @@ jobs:
           target/dependency-check-report.html
           target/dependency-check-report.xml
 
-  # ── OSV Scan (parallelo al build, non blocca) ────────────────────────
+  # ── OSV Scan (reusable workflow) ──────────────────────────────────────
   osv-scan:
-    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && (github.ref_name == 'main' || vars.FORCE_OSV_JOB == 'true') }}
     permissions:
+      actions: read
       contents: read
       security-events: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: OSV Scanner
-        uses: google/osv-scanner-action@latest
-        with:
-          scan-args: |-
-            --format=json
-            --output=osv-report.json
-            -r
-            .
-        continue-on-error: true
-
-      - name: Upload OSV report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: osv-report
-          path: osv-report.json
-          retention-days: 30
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.5"
+    with:
+      matrix-property: 'be-'
+      fail-on-vuln: ${{ github.ref_name == 'main' || github.ref_type == 'tag' }}
+      scan-args: |-
+        -r
+        .
+        --lockfile
+        ./pom.xml
 
   # ── GitHub Release (solo tag) ────────────────────────────────────────
   release:
@@ -180,12 +169,6 @@ jobs:
         path: jar/
 
     # Report — finiranno nello ZIP
-    - name: Download OSV report
-      uses: actions/download-artifact@v4
-      with:
-        name: osv-report
-        path: reports/osv/
-
     - name: Download third-party-licenses
       uses: actions/download-artifact@v4
       with:
