@@ -136,7 +136,7 @@ jobs:
 
   # ── OSV Scan (reusable workflow) ──────────────────────────────────────
   osv-scan:
-    if: ${{ github.event_name == 'push' && (github.ref_name == 'main' || vars.FORCE_OSV_JOB == 'true') }}
+    if: ${{ github.event_name == 'push' && (github.ref_name == 'main' || github.ref_type == 'tag' || vars.FORCE_OSV_JOB == 'true') }}
     permissions:
       actions: read
       contents: read
