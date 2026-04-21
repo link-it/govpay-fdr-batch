@@ -1,3 +1,32 @@
+2026-04-21  Giuliano Pintori <pintori@link.it>
+
+	* [CI/CD]
+	Aggiornamento pipeline GitHub Actions
+	- Aggiornate versioni actions: checkout v4->v6, setup-java v4->v5,
+	  upload-artifact v4->v7, download-artifact v4->v7, cache v4->v5
+	- Ottimizzata cache OWASP Dependency-Check DB: chiave basata sulla data
+	  giornaliera invece che sul commit SHA, con skip dell'update NVD quando
+	  la cache è esatta (stessa giornata)
+	- Aggiunto workflow notturno refresh-owasp-db.yml per aggiornamento
+	  preventivo del DB NVD (cron 03:00 UTC)
+	- Sostituito job osv-scan locale con workflow reusable
+	  google/osv-scanner-action@v2.3.5
+
+2026-04-21  Giuliano Pintori <pintori@link.it>
+
+	* [Build]
+	Aggiornamento dipendenza govpay-bom da 1.1.2 a 1.1.3-SNAPSHOT
+
+2026-04-21  Giuliano Pintori <pintori@link.it>
+
+	* [Database]
+	Aggiunti script di svecchiamento tabelle Spring Batch
+	Aggiunti script spring-batch-cleanup.sql per tutti i DBMS supportati
+	(PostgreSQL, MySQL, Oracle, SQL Server, HSQLDB).
+	Gli script eliminano le esecuzioni di job completati (COMPLETED, FAILED,
+	STOPPED, ABANDONED) più vecchi di un numero configurabile di giorni
+	(default: 90), rispettando l'ordine imposto dalle foreign key.
+
 2026-04-01  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.1.3
