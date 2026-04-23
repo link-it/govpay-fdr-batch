@@ -130,6 +130,18 @@ jobs:
         name: third-party-licenses
         path: third-party-licenses
 
+    - name: OSV Scanner report
+      uses: google/osv-scanner-action@v2.3.5
+      with:
+        scan-args: |-
+          --format=json
+          --output=target/osv-report.json
+          -r
+          .
+          --lockfile
+          ./pom.xml
+      continue-on-error: true
+
     - name: Upload artifact to GitHub
       uses: actions/upload-artifact@v7
       with:
@@ -140,28 +152,12 @@ jobs:
           target/jacoco-html-report.zip
           target/dependency-check-report.html
           target/dependency-check-report.xml
-
-  # ── OSV Scan (reusable workflow) ──────────────────────────────────────
-  osv-scan:
-    if: ${{ github.event_name == 'push' && (github.ref_name == 'main' || github.ref_type == 'tag' || vars.FORCE_OSV_JOB == 'true') }}
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.5"
-    with:
-      matrix-property: 'be-'
-      fail-on-vuln: ${{ github.ref_name == 'main' || github.ref_type == 'tag' }}
-      scan-args: |-
-        -r
-        .
-        --lockfile
-        ./pom.xml
+          target/osv-report.json
 
   # ── GitHub Release (solo tag) ────────────────────────────────────────
   release:
     runs-on: ubuntu-latest
-    needs: [ build, osv-scan ]
+    needs: [ build ]
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
@@ -194,13 +190,16 @@ jobs:
 
     - name: Assemble reports ZIP
       run: |
-        mkdir -p reports/owasp reports/jacoco
+        mkdir -p reports/owasp reports/jacoco reports/osv
 
         # OWASP e JaCoCo dall'artifact build
         cp jar/dependency-check-report.html reports/owasp/ 2>/dev/null || true
         cp jar/dependency-check-report.xml  reports/owasp/ 2>/dev/null || true
         cp jar/site/jacoco/jacoco.xml       reports/jacoco/ 2>/dev/null || true
         cp jar/jacoco-html-report.zip       reports/jacoco/ 2>/dev/null || true
+
+        # OSV report dall'artifact build
+        cp jar/osv-report.json              reports/osv/   2>/dev/null || true
 
         # pipeline info
         echo "Pipeline Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
