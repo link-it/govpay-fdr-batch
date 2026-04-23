@@ -131,7 +131,7 @@ jobs:
         path: third-party-licenses
 
     - name: OSV Scanner report
-      uses: google/osv-scanner-action/actions/scanner@v2.3.5
+      uses: google/osv-scanner-action@v2.3.5
       with:
         scan-args: |-
           --format=json
