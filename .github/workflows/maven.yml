@@ -150,7 +150,7 @@ jobs:
       security-events: write
     uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.5"
     with:
-      matrix-property: 'be-'
+      matrix-property: ''
       fail-on-vuln: ${{ github.ref_name == 'main' || github.ref_type == 'tag' }}
       results-file-name: osv-report.sarif
       scan-args: |-
@@ -186,7 +186,7 @@ jobs:
     - name: Download OSV Scanner SARIF
       uses: actions/download-artifact@v7
       with:
-        name: be-OSV Scanner SARIF file
+        name: OSV Scanner SARIF file
         path: reports/osv/
 
     - name: Rename JAR with tag version
@@ -201,7 +201,7 @@ jobs:
 
     - name: Assemble reports ZIP
       run: |
-        mkdir -p reports/owasp reports/jacoco
+        mkdir -p reports/owasp reports/jacoco reports/osv
 
         # OWASP e JaCoCo dall'artifact build
         cp jar/dependency-check-report.html reports/owasp/ 2>/dev/null || true
