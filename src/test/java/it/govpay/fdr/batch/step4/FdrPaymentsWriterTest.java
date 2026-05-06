@@ -29,10 +29,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.batch.item.Chunk;
 
+import it.govpay.common.entity.ApplicazioneEntity;
 import it.govpay.common.entity.DominioEntity;
 import it.govpay.common.repository.DominioRepository;
 import it.govpay.fdr.batch.Costanti;
-import it.govpay.fdr.batch.entity.Applicazione;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.entity.Pagamento;
@@ -694,7 +694,7 @@ class FdrPaymentsWriterTest {
                 anyString(), anyString(), anyString(), anyLong()))
                 .thenReturn(Collections.emptyList());
 
-            Applicazione app = Applicazione.builder().id(1L).codApplicazione("APP001").build();
+            ApplicazioneEntity app = ApplicazioneEntity.builder().id(1L).codApplicazione("APP001").build();
             Versamento versamento = Versamento.builder()
                 .id(1L)
                 .codVersamentoEnte("VERS001")
@@ -1223,7 +1223,7 @@ class FdrPaymentsWriterTest {
                 anyString(), anyString(), anyString(), anyLong()))
                 .thenReturn(Collections.emptyList());
 
-            Applicazione app = Applicazione.builder().id(1L).codApplicazione("APP001").build();
+            ApplicazioneEntity app = ApplicazioneEntity.builder().id(1L).codApplicazione("APP001").build();
             Versamento versamento = Versamento.builder()
                 .id(1L)
                 .codVersamentoEnte("VERS001")
@@ -1299,7 +1299,7 @@ class FdrPaymentsWriterTest {
             when(pagamentoRepository.findAllByCodDominioAndIuvAndIur(anyString(), anyString(), anyString()))
                 .thenReturn(Collections.emptyList());
 
-            Applicazione app = Applicazione.builder().id(1L).codApplicazione("APP001").build();
+            ApplicazioneEntity app = ApplicazioneEntity.builder().id(1L).codApplicazione("APP001").build();
             Versamento versamento = Versamento.builder()
                 .id(1L)
                 .codVersamentoEnte("VERS001")

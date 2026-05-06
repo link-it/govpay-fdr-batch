@@ -247,6 +247,7 @@ jobs:
 
     - name: Zip SQL files
       run: |
+        mkdir -p target
         cd src/main/resources
         zip -r ../../../target/sql.zip sql
         cd ../../../
