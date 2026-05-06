@@ -31,6 +31,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import it.govpay.common.client.model.Connettore;
+import it.govpay.common.configurazione.model.GdeInterfaccia;
+import it.govpay.common.configurazione.model.Giornale;
 import it.govpay.common.configurazione.service.ConfigurazioneService;
 import it.govpay.common.entity.DominioEntity;
 import it.govpay.common.entity.IntermediarioEntity;
@@ -39,6 +41,7 @@ import it.govpay.common.repository.DominioRepository;
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
+import it.govpay.gde.client.beans.ComponenteEvento;
 import it.govpay.gde.client.beans.DatiPagoPA;
 import it.govpay.gde.client.beans.EsitoEvento;
 import it.govpay.gde.client.beans.NuovoEvento;
@@ -400,6 +403,50 @@ class GdeServiceTest {
     void testBuildGetAllPublishedFlowsUrlWithFlowDate() {
         String url = gdeService.buildGetAllPublishedFlowsUrl(PAGOPA_BASE_URL, "ORG001", "2025-01-01");
         assertThat(url).isEqualTo("https://api.pagopa.it/organizations/ORG001/fdrs?publishedGt=2025-01-01");
+    }
+
+    @Test
+    void testGetConfigurazioneComponenteMappaComponentiSuGiornale() {
+        Giornale giornale = new Giornale();
+        GdeInterfaccia apiPagoPA = new GdeInterfaccia();
+        GdeInterfaccia apiEnte = new GdeInterfaccia();
+        GdeInterfaccia apiPagamento = new GdeInterfaccia();
+        GdeInterfaccia apiRagioneria = new GdeInterfaccia();
+        GdeInterfaccia apiBackoffice = new GdeInterfaccia();
+        GdeInterfaccia apiPendenze = new GdeInterfaccia();
+        GdeInterfaccia apiBackendIO = new GdeInterfaccia();
+        GdeInterfaccia apiMaggioliJPPA = new GdeInterfaccia();
+        giornale.setApiPagoPA(apiPagoPA);
+        giornale.setApiEnte(apiEnte);
+        giornale.setApiPagamento(apiPagamento);
+        giornale.setApiRagioneria(apiRagioneria);
+        giornale.setApiBackoffice(apiBackoffice);
+        giornale.setApiPendenze(apiPendenze);
+        giornale.setApiBackendIO(apiBackendIO);
+        giornale.setApiMaggioliJPPA(apiMaggioliJPPA);
+
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.API_PAGOPA, giornale)).isSameAs(apiPagoPA);
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.API_ENTE, giornale)).isSameAs(apiEnte);
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.API_PAGAMENTO, giornale)).isSameAs(apiPagamento);
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.API_RAGIONERIA, giornale)).isSameAs(apiRagioneria);
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.API_BACKOFFICE, giornale)).isSameAs(apiBackoffice);
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.API_PENDENZE, giornale)).isSameAs(apiPendenze);
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.API_BACKEND_IO, giornale)).isSameAs(apiBackendIO);
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.API_MAGGIOLI_JPPA, giornale)).isSameAs(apiMaggioliJPPA);
+    }
+
+    @Test
+    void testGetConfigurazioneComponenteRitornaNullPerComponentiNonMappati() {
+        Giornale giornale = new Giornale();
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.GOVPAY, giornale)).isNull();
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.API_USER, giornale)).isNull();
+    }
+
+    @Test
+    void testGetConfigurazioneComponenteRitornaNullPerArgomentiNulli() {
+        assertThat(gdeService.getConfigurazioneComponente(null, new Giornale())).isNull();
+        assertThat(gdeService.getConfigurazioneComponente(ComponenteEvento.API_PAGOPA, null)).isNull();
+        assertThat(gdeService.getConfigurazioneComponente(null, null)).isNull();
     }
 
     @Test
