@@ -20,11 +20,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
+import it.govpay.common.entity.ApplicazioneEntity;
 import it.govpay.common.entity.DominioEntity;
 import it.govpay.common.entity.StazioneEntity;
+import it.govpay.common.repository.ApplicazioneRepository;
 import it.govpay.common.repository.DominioRepository;
 import it.govpay.common.repository.StazioneRepository;
-import it.govpay.fdr.batch.entity.Applicazione;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.entity.FrTemp;
 import it.govpay.fdr.batch.entity.Pagamento;
@@ -33,7 +34,6 @@ import it.govpay.fdr.batch.entity.SingoloVersamento;
 import it.govpay.fdr.batch.entity.StatoFr;
 import it.govpay.fdr.batch.entity.StatoRendicontazione;
 import it.govpay.fdr.batch.entity.Versamento;
-import it.govpay.fdr.batch.repository.ApplicazioneRepository;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.repository.FrTempRepository;
 import it.govpay.fdr.batch.repository.PagamentoRepository;
@@ -111,7 +111,7 @@ class FdrAnomaliesIntegrationTest {
     private FdrApiService fdrApiService;
 
     private DominioEntity testDominio;
-    private Applicazione testApplicazione;
+    private ApplicazioneEntity testApplicazione;
     private static final String ORG_ID = "12345678901";
     private static final String FDR_ID = "2025-01-27PSP001-ANOM";
     private static final Long REVISION = 1L;
@@ -135,8 +135,11 @@ class FdrAnomaliesIntegrationTest {
         testDominio = dominioRepository.save(testDominio);
 
         // Create test application
-        testApplicazione = Applicazione.builder()
+        testApplicazione = ApplicazioneEntity.builder()
             .codApplicazione("APP_TEST")
+            .autoIuv(false)
+            .trusted(false)
+            .firmaRicevuta("N")
             .build();
         testApplicazione = applicazioneRepository.save(testApplicazione);
     }
