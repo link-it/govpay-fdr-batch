@@ -1,3 +1,20 @@
+2026-06-08  Giuliano Pintori <pintori@link.it>
+
+	* Avanzamento versione 1.1.5
+
+2026-06-08  Giuliano Pintori <pintori@link.it>
+
+	* [Sicurezza]
+	Aggiornamento Tomcat embedded a 10.1.55
+	Forzata la versione di tomcat-embed (core, websocket, el) a 10.1.55
+	tramite override della property tomcat.version, risolvendo 7
+	vulnerabilità note (3 Critical, 3 High, 1 Low) presenti nella 10.1.54
+	ereditata transitivamente da Spring Boot:
+	GHSA-h6fc-48rj-7qqh, GHSA-r29c-68gh-xp6x (CVSS 9.8),
+	GHSA-5m62-pw8w-7w9f (CVSS 9.1), GHSA-5mp6-jrq3-r938,
+	GHSA-gx5v-xp9w-j4cg (CVSS 7.5), GHSA-fv25-8xcx-gqjc (CVSS 7.3),
+	GHSA-9m89-8frq-c98c (CVSS 3.7).
+
 2026-05-06  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.1.4
