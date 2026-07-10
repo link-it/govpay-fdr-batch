@@ -15,7 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
@@ -107,7 +107,7 @@ class FdrAnomaliesIntegrationTest {
     @Autowired
     private FdrPaymentsWriter paymentsWriter;
 
-    @MockBean
+    @MockitoBean
     private FdrApiService fdrApiService;
 
     private DominioEntity testDominio;
@@ -314,12 +314,12 @@ class FdrAnomaliesIntegrationTest {
 
         // Process metadata
         FdrMetadataProcessor.FdrCompleteData metadataData = metadataProcessor.process(frTemp);
-        metadataWriter.write(new org.springframework.batch.item.Chunk<>(List.of(metadataData)));
+        metadataWriter.write(new org.springframework.batch.infrastructure.item.Chunk<>(List.of(metadataData)));
 
         // Process payments
         FrTemp frTempReloaded = frTempRepository.findById(frTemp.getId()).orElseThrow();
         FdrPaymentsProcessor.FdrCompleteData paymentsData = paymentsProcessor.process(frTempReloaded);
-        paymentsWriter.write(new org.springframework.batch.item.Chunk<>(List.of(paymentsData)));
+        paymentsWriter.write(new org.springframework.batch.infrastructure.item.Chunk<>(List.of(paymentsData)));
     }
 
     private Versamento createVersamento(String iuv) {

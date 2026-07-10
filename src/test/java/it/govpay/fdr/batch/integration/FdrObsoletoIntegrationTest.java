@@ -15,7 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
@@ -78,7 +78,7 @@ class FdrObsoletoIntegrationTest {
     @Autowired
     private FdrPaymentsWriter paymentsWriter;
 
-    @MockBean
+    @MockitoBean
     private FdrApiService fdrApiService;
 
     private DominioEntity testDominio;
@@ -209,12 +209,12 @@ class FdrObsoletoIntegrationTest {
 
         // Metadata step
         FdrMetadataProcessor.FdrCompleteData completeData = metadataProcessor.process(frTemp);
-        metadataWriter.write(new org.springframework.batch.item.Chunk<>(List.of(completeData)));
+        metadataWriter.write(new org.springframework.batch.infrastructure.item.Chunk<>(List.of(completeData)));
 
         // Payments step
         FrTemp frTempReloaded = frTempRepository.findById(frTemp.getId()).orElseThrow();
         FdrPaymentsProcessor.FdrCompleteData paymentsData = paymentsProcessor.process(frTempReloaded);
-        paymentsWriter.write(new org.springframework.batch.item.Chunk<>(List.of(paymentsData)));
+        paymentsWriter.write(new org.springframework.batch.infrastructure.item.Chunk<>(List.of(paymentsData)));
     }
 
     private SingleFlowResponse createMockFlowResponse(String fdrId, String pspId, Long revisione, int numPayments) {

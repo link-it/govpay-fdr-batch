@@ -6,7 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.batch.core.Job;
+import org.springframework.batch.core.job.Job;
 
 import it.govpay.common.batch.runner.JobExecutionHelper;
 

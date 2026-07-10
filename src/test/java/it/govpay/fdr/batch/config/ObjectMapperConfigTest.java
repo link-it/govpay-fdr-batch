@@ -13,11 +13,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
- * Integration tests for global ObjectMapper configuration (WebConfig).
+ * Integration tests for the global Jackson 3 mapper customization (WebConfig).
  * Tests serialization and deserialization of dates with custom formats.
  */
 @SpringBootTest
@@ -38,7 +38,7 @@ class ObjectMapperConfigTest {
 
     @Test
     @DisplayName("Should serialize OffsetDateTime with timezone (SSSXXX format)")
-    void testSerializeOffsetDateTimeWithTimezone() throws JsonProcessingException {
+    void testSerializeOffsetDateTimeWithTimezone() throws JacksonException {
         // Given: A specific date/time with CET timezone
         OffsetDateTime dateTime = OffsetDateTime.of(
             2025, 1, 27, 10, 30, 45, 123_000_000,
@@ -54,7 +54,7 @@ class ObjectMapperConfigTest {
 
     @Test
     @DisplayName("Should deserialize date with 3-digit milliseconds and timezone")
-    void testDeserializeWithThreeDigitMillis() throws JsonProcessingException {
+    void testDeserializeWithThreeDigitMillis() throws JacksonException {
         // Given: JSON with 3-digit milliseconds
         String json = "\"2025-01-27T10:30:45.123+01:00\"";
 
@@ -75,7 +75,7 @@ class ObjectMapperConfigTest {
 
     @Test
     @DisplayName("Global ObjectMapper uses fixed 3-digit milliseconds pattern")
-    void testGlobalObjectMapperUsesFixedPattern() throws JsonProcessingException {
+    void testGlobalObjectMapperUsesFixedPattern() throws JacksonException {
         // Given: JSON with exactly 3-digit milliseconds (fixed pattern)
         String json = "\"2025-01-27T10:30:45.123+01:00\"";
 
@@ -90,7 +90,7 @@ class ObjectMapperConfigTest {
 
     @Test
     @DisplayName("Global ObjectMapper handles missing timezone with CET fallback")
-    void testGlobalObjectMapperHandlesMissingTimezone() throws JsonProcessingException {
+    void testGlobalObjectMapperHandlesMissingTimezone() throws JacksonException {
         // Given: JSON without timezone
         String json = "\"2025-01-27T10:30:45.123\"";
 
@@ -106,7 +106,7 @@ class ObjectMapperConfigTest {
 
     @Test
     @DisplayName("Should handle UTC timezone (+00:00)")
-    void testDeserializeWithUTCTimezone() throws JsonProcessingException {
+    void testDeserializeWithUTCTimezone() throws JacksonException {
         // Given: JSON with UTC timezone
         String json = "\"2025-01-27T10:30:45.123Z\"";
 
@@ -120,7 +120,7 @@ class ObjectMapperConfigTest {
 
     @Test
     @DisplayName("Should handle different timezone offsets")
-    void testDeserializeWithDifferentTimezones() throws JsonProcessingException {
+    void testDeserializeWithDifferentTimezones() throws JacksonException {
         // Given: JSON with different timezone offsets
         String jsonCET = "\"2025-01-27T10:30:45.123+01:00\"";
         String jsonEST = "\"2025-01-27T10:30:45.123-05:00\"";
@@ -139,7 +139,7 @@ class ObjectMapperConfigTest {
 
     @Test
     @DisplayName("Should handle null OffsetDateTime serialization")
-    void testSerializeNullOffsetDateTime() throws JsonProcessingException {
+    void testSerializeNullOffsetDateTime() throws JacksonException {
         // Given: A null OffsetDateTime
         OffsetDateTime nullDateTime = null;
 
@@ -152,7 +152,7 @@ class ObjectMapperConfigTest {
 
     @Test
     @DisplayName("Should handle null string deserialization")
-    void testDeserializeNullString() throws JsonProcessingException {
+    void testDeserializeNullString() throws JacksonException {
         // Given: A JSON null
         String json = "null";
 
@@ -165,7 +165,7 @@ class ObjectMapperConfigTest {
 
     @Test
     @DisplayName("Should handle empty string gracefully")
-    void testDeserializeEmptyString() throws JsonProcessingException {
+    void testDeserializeEmptyString() throws JacksonException {
         // Given: An empty JSON string
         String json = "\"\"";
 
@@ -184,12 +184,12 @@ class ObjectMapperConfigTest {
 
         // When/Then: Should throw exception
         assertThatThrownBy(() -> objectMapper.readValue(json, OffsetDateTime.class))
-            .isInstanceOf(JsonProcessingException.class);
+            .isInstanceOf(JacksonException.class);
     }
 
     @Test
     @DisplayName("Should maintain precision in round-trip serialization")
-    void testRoundTripSerialization() throws JsonProcessingException {
+    void testRoundTripSerialization() throws JacksonException {
         // Given: Original datetime
         OffsetDateTime original = OffsetDateTime.of(
             2025, 1, 27, 10, 30, 45, 123_000_000,
@@ -207,7 +207,7 @@ class ObjectMapperConfigTest {
 
     @Test
     @DisplayName("Should handle complex object with OffsetDateTime field")
-    void testDeserializeComplexObjectWithDateTime() throws JsonProcessingException {
+    void testDeserializeComplexObjectWithDateTime() throws JacksonException {
         // Given: JSON with nested OffsetDateTime
         String json = """
             {

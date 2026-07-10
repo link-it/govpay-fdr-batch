@@ -3,8 +3,8 @@ package it.govpay.fdr.batch.step3;
 import it.govpay.fdr.batch.entity.*;
 import it.govpay.fdr.batch.repository.*;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.item.Chunk;
-import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.infrastructure.item.Chunk;
+import org.springframework.batch.infrastructure.item.ItemWriter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 

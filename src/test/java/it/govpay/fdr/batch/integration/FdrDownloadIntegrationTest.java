@@ -16,7 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,7 +84,7 @@ class FdrDownloadIntegrationTest {
     @Autowired
     private FdrPaymentsWriter paymentsWriter;
 
-    @MockBean
+    @MockitoBean
     private FdrApiService fdrApiService;
 
     private DominioEntity testDominio;
@@ -135,14 +135,14 @@ class FdrDownloadIntegrationTest {
         assertThat(completeData.getNumeroPagamenti()).isEqualTo(10L);
 
         // Step 3: Write FDR to database (Step 3 Writer)
-        metadataWriter.write(new org.springframework.batch.item.Chunk<>(List.of(completeData)));
+        metadataWriter.write(new org.springframework.batch.infrastructure.item.Chunk<>(List.of(completeData)));
 
         // Step 4: Process and write payments (Step 4)
         FrTemp frTempForPayments = frTempRepository.findById(frTemp.getId()).orElseThrow();
         FdrPaymentsProcessor.FdrCompleteData paymentsData = paymentsProcessor.process(frTempForPayments);
         assertThat(paymentsData).isNotNull();
 
-        paymentsWriter.write(new org.springframework.batch.item.Chunk<>(List.of(paymentsData)));
+        paymentsWriter.write(new org.springframework.batch.infrastructure.item.Chunk<>(List.of(paymentsData)));
 
         // Step 5: Verify Fr was created
         List<Fr> frList = frRepository.findAll();
@@ -216,12 +216,12 @@ class FdrDownloadIntegrationTest {
 
         // Process metadata first
         FdrMetadataProcessor.FdrCompleteData metadataResult = metadataProcessor.process(frTemp);
-        metadataWriter.write(new org.springframework.batch.item.Chunk<>(List.of(metadataResult)));
+        metadataWriter.write(new org.springframework.batch.infrastructure.item.Chunk<>(List.of(metadataResult)));
 
         // When: Process payments
         FrTemp frTempReloaded = frTempRepository.findById(frTemp.getId()).orElseThrow();
         FdrPaymentsProcessor.FdrCompleteData paymentsResult = paymentsProcessor.process(frTempReloaded);
-        paymentsWriter.write(new org.springframework.batch.item.Chunk<>(List.of(paymentsResult)));
+        paymentsWriter.write(new org.springframework.batch.infrastructure.item.Chunk<>(List.of(paymentsResult)));
 
         // Then: Verify payments were processed correctly
         List<Rendicontazione> rendicontazioni = rendicontazioneRepository.findAll();

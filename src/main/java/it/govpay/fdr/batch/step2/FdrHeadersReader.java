@@ -3,10 +3,10 @@ package it.govpay.fdr.batch.step2;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.springframework.batch.core.StepExecution;
-import org.springframework.batch.core.StepExecutionListener;
+import org.springframework.batch.core.step.StepExecution;
+import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.configuration.annotation.StepScope;
-import org.springframework.batch.item.ItemReader;
+import org.springframework.batch.infrastructure.item.ItemReader;
 import org.springframework.stereotype.Component;
 
 import it.govpay.common.entity.DominioEntity;

@@ -7,9 +7,9 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.JobExecutionListener;
-import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.listener.JobExecutionListener;
+import org.springframework.batch.core.step.StepExecution;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +28,7 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
     public void beforeJob(JobExecution jobExecution) {
         log.info("=".repeat(80));
         log.info("INIZIO BATCH ACQUISIZIONE FDR");
-        log.info("Job ID: {}", jobExecution.getJobId());
+        log.info("Job ID: {}", jobExecution.getJobInstanceId());
         log.info("Avvio: {}", LocalDateTime.now().format(TIME_FORMATTER));
         log.info("=".repeat(80));
     }

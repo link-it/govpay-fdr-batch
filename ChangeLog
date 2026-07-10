@@ -1,3 +1,35 @@
+2026-06-30  Giuliano Pintori <pintori@link.it>
+
+	* [Release]
+	Avanzata la versione del progetto a 2.0.0.
+
+	* [Dependencies]
+	Migrazione a Spring Boot 4.x / Spring Framework 7.x.
+	govpay-bom: 1.1.3 -> 2.0.0.
+	govpay-common: 1.1.2 -> 2.0.0.
+	Aggiornamenti transitivi: Spring Boot 4.1.x, Spring Framework 7.0.x, Spring Batch 6.0.x, Hibernate ORM 7.x, Jackson 3.x (groupId tools.jackson), Tomcat embedded 11.0.x.
+	Rimosso l'override della property tomcat.version (1.1.5): Spring Boot 4 fornisce gia' Tomcat 11.0.x privo delle vulnerabilita' della 10.1.54.
+	Aggiunta la versione esplicita ${hibernate.version} alla dipendenza hibernate-jpamodelgen (non piu' gestita dal BOM).
+
+	* [Refactor]
+	Allineati i package Spring Batch 6: org.springframework.batch.core.Job/Step/JobExecution/StepExecution/JobInstance/JobParameters spostati nei sottopackage .job/.step/.job.parameters; listener in .listener; item API in org.springframework.batch.infrastructure.item.*; repeat API in org.springframework.batch.infrastructure.repeat.*; eccezioni di launch in org.springframework.batch.core.launch.*; Partitioner in org.springframework.batch.core.partition; JobParametersInvalidException rinominato in InvalidJobParametersException; RunIdIncrementer in .job.parameters; @EntityScan in org.springframework.boot.persistence.autoconfigure.
+	BatchController: iniettato JobRepository in luogo di JobExplorer (rimosso dall'API pubblica in Spring Batch 6).
+	BatchInfraConfig: JobConcurrencyService ora costruito con il solo JobRepository; JobExecutionHelper ora costruito con JobOperator al posto di JobLauncher (allineamento a govpay-common 2.0 / Spring Batch 6).
+	BatchExecutionRecapListener: usa getJobInstanceId() al posto del rimosso JobExecution.getJobId().
+	GdeService: passato a tools.jackson.databind.ObjectMapper (Jackson 3), coerente con AbstractGdeService di govpay-common 2.0.
+	Migrazione completa a Jackson 3 (tools.jackson): rimosse dal pom le dipendenze Jackson 2 (jackson-databind, jackson-datatype-jsr310, jackson-databind-nullable). Restano solo tools.jackson (3.x) e il modulo condiviso jackson-annotations (com.fasterxml.jackson.annotation), richiesto da tools.jackson.databind e onorato sui model del client generato.
+	WebConfig: il mapper globale (Spring MVC, client GDE) migrato a Jackson 3 come JsonMapperBuilderCustomizer sul JsonMapper autoconfigurato da Spring Boot.
+	FdrApiClientConfig: createPagoPAObjectMapper restituisce ora un tools.jackson JsonMapper; FdrApiService usa JacksonJsonHttpMessageConverter (Jackson 3) al posto di MappingJackson2HttpMessageConverter.
+	EventoFdrMapper: usa un tools.jackson JsonMapper per deserializzare ErrorResponse.
+	Serializer/deserializer OffsetDateTime e LocalDate riscritti per Jackson 3 nel package utils.jackson3 (formato fisso e fallback CET preservati); rimosse le versioni Jackson 2 in utils.
+	Client OpenAPI generato: i model (solo annotazioni com.fasterxml.jackson.annotation) sono compatibili con Jackson 3; via .openapi-generator-ignore (con ignoreFileOverride nel pom) esclusi i file di data Jackson 2 (RFC3339DateFormat, RFC3339InstantDeserializer, RFC3339JavaTimeModule); RFC3339DateFormat fornito a mano in versione Jackson 3 (tools.jackson StdDateFormat).
+	BatchTaskExecutorConfig: estratto il bean taskExecutor in una configurazione dedicata, senza dipendenze JPA, per evitare il ciclo di bean introdotto da Spring Boot 4 (entityManagerFactoryBuilder -> bootstrapExecutor -> BatchJobConfiguration -> transactionManager -> entityManagerFactory).
+
+	* [Test]
+	Aggiornati gli import ai nuovi package Spring Batch 6 e adeguati i costruttori di JobExecution/JobInstance/StepExecution alle nuove firme.
+	@MockBean (rimosso in Spring Boot 4) sostituito con @MockitoBean.
+	application-test.properties: scheduler.initialDelayString impostato a un valore alto per evitare che il trigger @Scheduled del runner si avvii in concorrenza con le esecuzioni manuali dei test.
+
 2026-06-08  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.1.5

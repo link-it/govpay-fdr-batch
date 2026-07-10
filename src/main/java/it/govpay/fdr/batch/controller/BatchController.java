@@ -2,8 +2,8 @@ package it.govpay.fdr.batch.controller;
 
 import java.time.ZoneId;
 
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.explore.JobExplorer;
+import org.springframework.batch.core.job.Job;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
@@ -35,13 +35,13 @@ public class BatchController extends AbstractBatchController {
 
     public BatchController(
             JobExecutionHelper jobExecutionHelper,
-            JobExplorer jobExplorer,
+            JobRepository jobRepository,
             @Qualifier("fdrAcquisitionJob") Job fdrAcquisitionJob,
             FdrApiService fdrApiService,
             Environment environment,
             ZoneId applicationZoneId,
             @Value("${scheduler.fdrAcquisitionJob.fixedDelayString:7200000}") long schedulerIntervalMillis) {
-        super(jobExecutionHelper, jobExplorer, environment, applicationZoneId, schedulerIntervalMillis);
+        super(jobExecutionHelper, jobRepository, environment, applicationZoneId, schedulerIntervalMillis);
         this.fdrAcquisitionJob = fdrAcquisitionJob;
         this.fdrApiService = fdrApiService;
     }
