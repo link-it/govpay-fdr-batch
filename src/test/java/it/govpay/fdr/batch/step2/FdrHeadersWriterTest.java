@@ -20,12 +20,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.JobInstance;
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.StepExecution;
-import org.springframework.batch.item.Chunk;
-import org.springframework.batch.item.ExecutionContext;
+import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.job.JobInstance;
+import org.springframework.batch.core.job.parameters.JobParameters;
+import org.springframework.batch.core.step.StepExecution;
+import org.springframework.batch.infrastructure.item.Chunk;
+import org.springframework.batch.infrastructure.item.ExecutionContext;
 
 import it.govpay.fdr.batch.dto.FdrHeadersBatch;
 import it.govpay.fdr.batch.entity.FrTemp;
@@ -291,8 +291,8 @@ class FdrHeadersWriterTest {
     void testBeforeStepInitializesCounters() {
         // Given
         JobInstance jobInstance = new JobInstance(1L, "testJob");
-        JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
-        StepExecution stepExecution = new StepExecution("testStep", jobExecution);
+        JobExecution jobExecution = new JobExecution(1L, jobInstance, new JobParameters());
+        StepExecution stepExecution = new StepExecution(1L, "testStep", jobExecution);
         stepExecution.setExecutionContext(new ExecutionContext());
 
         // When
@@ -309,8 +309,8 @@ class FdrHeadersWriterTest {
     void testStatisticsForNewHeaders() {
         // Given
         JobInstance jobInstance = new JobInstance(1L, "testJob");
-        JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
-        StepExecution stepExecution = new StepExecution("testStep", jobExecution);
+        JobExecution jobExecution = new JobExecution(1L, jobInstance, new JobParameters());
+        StepExecution stepExecution = new StepExecution(1L, "testStep", jobExecution);
         stepExecution.setExecutionContext(new ExecutionContext());
         writer.beforeStep(stepExecution);
 
@@ -343,8 +343,8 @@ class FdrHeadersWriterTest {
     void testStatisticsForSkippedInFr() {
         // Given
         JobInstance jobInstance = new JobInstance(1L, "testJob");
-        JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
-        StepExecution stepExecution = new StepExecution("testStep", jobExecution);
+        JobExecution jobExecution = new JobExecution(1L, jobInstance, new JobParameters());
+        StepExecution stepExecution = new StepExecution(1L, "testStep", jobExecution);
         stepExecution.setExecutionContext(new ExecutionContext());
         writer.beforeStep(stepExecution);
 
@@ -372,8 +372,8 @@ class FdrHeadersWriterTest {
     void testStatisticsForSkippedInFrTemp() {
         // Given
         JobInstance jobInstance = new JobInstance(1L, "testJob");
-        JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
-        StepExecution stepExecution = new StepExecution("testStep", jobExecution);
+        JobExecution jobExecution = new JobExecution(1L, jobInstance, new JobParameters());
+        StepExecution stepExecution = new StepExecution(1L, "testStep", jobExecution);
         stepExecution.setExecutionContext(new ExecutionContext());
         writer.beforeStep(stepExecution);
 
@@ -403,8 +403,8 @@ class FdrHeadersWriterTest {
     void testStatisticsAccumulation() {
         // Given
         JobInstance jobInstance = new JobInstance(1L, "testJob");
-        JobExecution jobExecution = new JobExecution(jobInstance, 1L, new JobParameters());
-        StepExecution stepExecution = new StepExecution("testStep", jobExecution);
+        JobExecution jobExecution = new JobExecution(1L, jobInstance, new JobParameters());
+        StepExecution stepExecution = new StepExecution(1L, "testStep", jobExecution);
         stepExecution.setExecutionContext(new ExecutionContext());
         writer.beforeStep(stepExecution);
 

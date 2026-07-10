@@ -16,6 +16,13 @@ git_push.sh
 README.md
 docs/**
 
+# Jackson 2 date infrastructure: not generated.
+# RFC3339DateFormat is hand-provided in Jackson 3 (tools.jackson) under src/main/java;
+# RFC3339InstantDeserializer/RFC3339JavaTimeModule are dead code (unreferenced) and dropped.
+**/RFC3339DateFormat.java
+**/RFC3339InstantDeserializer.java
+**/RFC3339JavaTimeModule.java
+
 # Keep only API and Model classes
 !src/main/java/**/api/**
 !src/main/java/**/model/**

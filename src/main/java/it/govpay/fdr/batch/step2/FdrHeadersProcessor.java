@@ -6,7 +6,7 @@ import it.govpay.fdr.batch.exception.FdrFatalException;
 import it.govpay.fdr.batch.service.FdrApiService;
 import it.govpay.fdr.client.model.FlowByPSP;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 

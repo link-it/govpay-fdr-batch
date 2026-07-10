@@ -1,6 +1,6 @@
 package it.govpay.fdr.batch.gde.mapper;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.client.model.ErrorMessage;
 import it.govpay.fdr.client.model.ErrorResponse;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 public class EventoFdrMapper {
 
     private static final int MAX_DETTAGLIO_ESITO_LENGTH = 1000;
-    private static final ObjectMapper ERROR_OBJECT_MAPPER = new ObjectMapper();
+    private static final JsonMapper ERROR_OBJECT_MAPPER = new JsonMapper();
 
     @Value("${govpay.batch.cluster-id}")
     private String clusterId;

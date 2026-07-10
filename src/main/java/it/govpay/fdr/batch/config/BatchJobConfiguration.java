@@ -19,10 +19,10 @@ import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.Step;
+import org.springframework.batch.core.job.Job;
+import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
-import org.springframework.batch.core.launch.support.RunIdIncrementer;
+import org.springframework.batch.core.job.parameters.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.skip.AlwaysSkipItemSkipPolicy;
@@ -50,15 +50,18 @@ public class BatchJobConfiguration {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final BatchProperties batchProperties;
+    private final SimpleAsyncTaskExecutor taskExecutor;
 
     public BatchJobConfiguration(
         JobRepository jobRepository,
         PlatformTransactionManager transactionManager,
-        BatchProperties batchProperties
+        BatchProperties batchProperties,
+        SimpleAsyncTaskExecutor taskExecutor
     ) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.batchProperties = batchProperties;
+        this.taskExecutor = taskExecutor;
     }
 
 	private RetryPolicy retryPolicy() {
@@ -176,7 +179,7 @@ public class BatchJobConfiguration {
             .skipPolicy(fdrHeadersSkipPolicy)
             .listener(fdrHeadersRetryListener)
             .listener(fdrHeadersReader) // Register reader as step listener for queue reset
-            .taskExecutor(taskExecutor())
+            .taskExecutor(taskExecutor)
             .build();
     }
 
@@ -223,7 +226,7 @@ public class BatchJobConfiguration {
             .partitioner("fdrMetadataWorkerStep", dominioPartitioner)
             .step(fdrMetadataWorkerStep)
             .gridSize(batchProperties.getThreadPoolSize()) // Numero di partizioni parallele
-            .taskExecutor(taskExecutor())
+            .taskExecutor(taskExecutor)
             .build();
     }
 
@@ -295,7 +298,7 @@ public class BatchJobConfiguration {
             .partitioner("fdrPaymentsWorkerStep", dominioPartitioner)
             .step(fdrPaymentsWorkerStep)
             .gridSize(batchProperties.getThreadPoolSize()) // Numero di partizioni parallele
-            .taskExecutor(taskExecutor())
+            .taskExecutor(taskExecutor)
             .build();
     }
 
@@ -322,16 +325,6 @@ public class BatchJobConfiguration {
             .retry(RestClientException.class)
             .listener(fdrPaymentsRetryListener)
             .build();
-    }
-
-    /**
-     * Task executor for parallel processing in Step 2
-     */
-    @Bean
-    public SimpleAsyncTaskExecutor taskExecutor() {
-        SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor("fdr-batch-");
-        executor.setConcurrencyLimit(batchProperties.getThreadPoolSize());
-        return executor;
     }
 
 }

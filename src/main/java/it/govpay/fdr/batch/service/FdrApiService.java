@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
@@ -111,10 +111,10 @@ public class FdrApiService {
         return apiCache.computeIfAbsent(codConnettore, code -> {
             RestTemplate restTemplate = connettoreService.getRestTemplate(code);
 
-            // Customize ObjectMapper for pagoPA date handling
-            MappingJackson2HttpMessageConverter converter =
-                new MappingJackson2HttpMessageConverter(fdrApiClientConfig.createPagoPAObjectMapper());
-            restTemplate.getMessageConverters().removeIf(MappingJackson2HttpMessageConverter.class::isInstance);
+            // Customize the Jackson 3 mapper for pagoPA date handling
+            JacksonJsonHttpMessageConverter converter =
+                new JacksonJsonHttpMessageConverter(fdrApiClientConfig.createPagoPAObjectMapper());
+            restTemplate.getMessageConverters().removeIf(JacksonJsonHttpMessageConverter.class::isInstance);
             restTemplate.getMessageConverters().add(0, converter);
 
             Connettore connettore = connettoreService.getConnettore(code);

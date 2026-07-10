@@ -46,7 +46,7 @@ import it.govpay.gde.client.beans.DatiPagoPA;
 import it.govpay.gde.client.beans.EsitoEvento;
 import it.govpay.gde.client.beans.NuovoEvento;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Test class for GdeService.

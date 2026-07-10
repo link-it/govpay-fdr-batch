@@ -13,9 +13,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.JobParameters;
+import org.springframework.batch.core.job.Job;
+import org.springframework.batch.core.job.JobExecution;
+import org.springframework.batch.core.job.JobInstance;
+import org.springframework.batch.core.job.parameters.JobParameters;
 
 import it.govpay.common.batch.runner.JobExecutionHelper;
 import it.govpay.common.batch.runner.JobExecutionHelper.PreExecutionCheckResult;
@@ -66,7 +67,7 @@ class ScheduledJobRunnerTest {
         when(jobExecutionHelper.checkBeforeExecution(JOB_NAME))
             .thenReturn(new PreExecutionResult(PreExecutionCheckResult.CAN_PROCEED, null, null));
 
-        JobExecution launched = new JobExecution(2L);
+        JobExecution launched = new JobExecution(2L, new JobInstance(1L, JOB_NAME), new JobParameters());
         when(jobExecutionHelper.runJob(eq(fdrAcquisitionJob), eq(JOB_NAME)))
             .thenReturn(launched);
 
@@ -82,7 +83,7 @@ class ScheduledJobRunnerTest {
         when(jobExecutionHelper.checkBeforeExecution(JOB_NAME))
             .thenReturn(new PreExecutionResult(PreExecutionCheckResult.STALE_ABANDONED_CAN_PROCEED, null, null));
 
-        JobExecution launched = new JobExecution(2L);
+        JobExecution launched = new JobExecution(2L, new JobInstance(1L, JOB_NAME), new JobParameters());
         when(jobExecutionHelper.runJob(eq(fdrAcquisitionJob), eq(JOB_NAME)))
             .thenReturn(launched);
 
@@ -108,7 +109,7 @@ class ScheduledJobRunnerTest {
         when(jobExecutionHelper.checkBeforeExecution(JOB_NAME))
             .thenReturn(new PreExecutionResult(PreExecutionCheckResult.STALE_ABANDONED_CAN_PROCEED, null, null));
 
-        JobExecution launched = new JobExecution(2L);
+        JobExecution launched = new JobExecution(2L, new JobInstance(1L, JOB_NAME), new JobParameters());
         when(jobExecutionHelper.runJob(eq(fdrAcquisitionJob), eq(JOB_NAME)))
             .thenReturn(launched);
 
