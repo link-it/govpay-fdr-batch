@@ -5,7 +5,7 @@
 Major di piattaforma: migrazione a **Spring Boot 4.x / Spring Framework 7.x** (Spring Batch 6, Hibernate ORM 7, Jackson 3).
 
 ### Aggiornamenti dipendenze
-- `govpay-bom` aggiornato a **2.0.0** (parent BOM).
+- `govpay-bom` aggiornato a **2.0.1** (parent BOM). La 2.0.1 porta `logback` a **1.5.35**, risolvendo `GHSA-jhq6-gfmj-v8fx` (CVSS 2.9) presente nella 1.5.34; logback è gestita centralmente dal BOM, senza override locali.
 - `govpay-common` aggiornato da `1.1.2` a **2.0.0**.
 - Aggiornamenti transitivi: Spring Boot **4.1.x**, Spring Framework **7.0.x**, Spring Batch **6.0.x**, Hibernate ORM **7.x**, Jackson **3.x** (`tools.jackson`), Tomcat embedded **11.0.x**.
 - Rimosso l'override `tomcat.version=10.1.55` introdotto nella 1.1.5: Spring Boot 4 fornisce già Tomcat 11.0.x, privo delle 7 vulnerabilità della 10.1.54.

@@ -5,7 +5,7 @@
 
 	* [Dependencies]
 	Migrazione a Spring Boot 4.x / Spring Framework 7.x.
-	govpay-bom: 1.1.3 -> 2.0.0.
+	govpay-bom: 1.1.3 -> 2.0.1 (la 2.0.1 avanza logback a 1.5.35, risolvendo GHSA-jhq6-gfmj-v8fx della 1.5.34).
 	govpay-common: 1.1.2 -> 2.0.0.
 	Aggiornamenti transitivi: Spring Boot 4.1.x, Spring Framework 7.0.x, Spring Batch 6.0.x, Hibernate ORM 7.x, Jackson 3.x (groupId tools.jackson), Tomcat embedded 11.0.x.
 	Rimosso l'override della property tomcat.version (1.1.5): Spring Boot 4 fornisce gia' Tomcat 11.0.x privo delle vulnerabilita' della 10.1.54.
