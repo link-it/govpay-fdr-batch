@@ -51,4 +51,32 @@ public class PagoPAProperties {
      * Enable debug logging for API client (logs HTTP requests/responses)
      */
     private boolean debugging = false;
+
+    /**
+     * Massima "eta'" (in giorni) accettata da pagoPA per il parametro publishedGt.
+     * L'API restituisce HTTP 400 (FDR-1000, "The date cannot be older than 30 days")
+     * se publishedGt e' piu' vecchia di questo valore. Usata sia per rilevare la
+     * condizione sia come target quando la strategia e' CLAMP.
+     */
+    private int publishedGtMaxAgeDays = 30;
+
+    /**
+     * Strategia da applicare quando la publishedGt calcolata (ultima pubblicazione
+     * gia' acquisita per il dominio) e' piu' vecchia di {@link #publishedGtMaxAgeDays}.
+     * <ul>
+     *   <li>{@code ALL} (default): non invia publishedGt (null) e recupera tutti i flussi;</li>
+     *   <li>{@code CLAMP}: riporta publishedGt a (adesso - publishedGtMaxAgeDays).</li>
+     * </ul>
+     */
+    private PublishedGtStaleStrategy publishedGtStaleStrategy = PublishedGtStaleStrategy.ALL;
+
+    /**
+     * Strategie di gestione della publishedGt oltre la finestra accettata da pagoPA.
+     */
+    public enum PublishedGtStaleStrategy {
+        /** Recupera tutti i flussi pubblicati (publishedGt = null). */
+        ALL,
+        /** Riporta publishedGt al limite consentito (adesso - publishedGtMaxAgeDays). */
+        CLAMP
+    }
 }

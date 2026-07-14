@@ -223,7 +223,8 @@ class FdrMetadataProcessorTest {
         FrTemp frTemp = createFrTemp();
         SingleFlowResponse flowResponse = new SingleFlowResponse();
 
-        OffsetDateTime testDate = OffsetDateTime.of(2025, 12, 4, 10, 30, 0, 0, ZONE_ID.getRules().getOffset(LocalDateTime.now()));
+        LocalDateTime testLocal = LocalDateTime.of(2025, 12, 4, 10, 30, 0);
+        OffsetDateTime testDate = OffsetDateTime.of(testLocal, ZONE_ID.getRules().getOffset(testLocal));
         flowResponse.setFdrDate(testDate);
         flowResponse.setPublished(testDate);
         flowResponse.setUpdated(testDate);
