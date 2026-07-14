@@ -149,6 +149,7 @@ public class FdrApiService {
         ResponseEntity<PaginatedFlowsResponse> lastResponseEntity = null;
 
         OffsetDateTime publishedGtOffset = publishedGt != null ? publishedGt.atZone(applicationZoneId).toInstant().atOffset(ZoneOffset.UTC) : null;
+        publishedGtOffset = applyPublishedGtWindow(organizationId, publishedGtOffset);
         try {
             while (hasMorePages) {
                 PageFetchResult<PaginatedFlowsResponse> result = fetchFlowsPage(
@@ -185,6 +186,51 @@ public class FdrApiService {
         } catch (RestClientException e) {
             saveGetPublishedFlowsKo(organizationId, publishedGt, startTime, lastResponseEntity, e);
             throw e;
+        }
+    }
+
+    /**
+     * Adegua publishedGt alla finestra temporale accettata da pagoPA.
+     * <p>
+     * pagoPA rifiuta con HTTP 400 (FDR-1000) una publishedGt piu' vecchia di
+     * {@code govpay.batch.published-gt-max-age-days} giorni. Quando la data calcolata
+     * (ultima pubblicazione gia' acquisita) supera questa finestra, applica la
+     * strategia configurata ({@code govpay.batch.published-gt-stale-strategy}):
+     * <ul>
+     *   <li>{@code ALL} (default): ritorna {@code null} → recupera tutti i flussi;</li>
+     *   <li>{@code CLAMP}: riporta la data a (adesso - maxAgeDays).</li>
+     * </ul>
+     *
+     * @param organizationId identificativo organizzazione (per logging)
+     * @param publishedGtOffset la publishedGt calcolata (puo' essere null)
+     * @return la publishedGt da inviare a pagoPA, eventualmente adeguata
+     */
+    private OffsetDateTime applyPublishedGtWindow(String organizationId, OffsetDateTime publishedGtOffset) {
+        if (publishedGtOffset == null) {
+            return null;
+        }
+
+        int maxAgeDays = batchProperties.getPublishedGtMaxAgeDays();
+        OffsetDateTime minAllowed = OffsetDateTime.now(ZoneOffset.UTC).minusDays(maxAgeDays);
+
+        if (!publishedGtOffset.isBefore(minAllowed)) {
+            return publishedGtOffset; // dentro la finestra: nessun adeguamento
+        }
+
+        switch (batchProperties.getPublishedGtStaleStrategy()) {
+            case CLAMP -> {
+                log.warn("publishedGt {} oltre la finestra di {} giorni per l'organizzazione {}: riportata a {} (strategy=CLAMP)",
+                        publishedGtOffset, maxAgeDays, organizationId, minAllowed);
+                return minAllowed;
+            }
+            case ALL -> {
+                log.warn("publishedGt {} oltre la finestra di {} giorni per l'organizzazione {}: recupero di tutti i flussi (strategy=ALL)",
+                        publishedGtOffset, maxAgeDays, organizationId);
+                return null;
+            }
+            default -> {
+                return null;
+            }
         }
     }
 

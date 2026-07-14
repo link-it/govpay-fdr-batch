@@ -14,6 +14,7 @@ import it.govpay.fdr.client.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
@@ -142,6 +143,80 @@ class FdrApiServiceGdeIntegrationTest {
                 anyString()
             )
         );
+    }
+
+    private static PaginatedFlowsResponse singlePageResponse() {
+        PaginatedFlowsResponse response = new PaginatedFlowsResponse();
+        response.setData(new ArrayList<>());
+        Metadata metadata = new Metadata();
+        metadata.setPageNumber(1);
+        metadata.setTotPage(1);
+        response.setMetadata(metadata);
+        return response;
+    }
+
+    @Test
+    void testPublishedGtOlderThanWindow_defaultAll_sendsNull() throws Exception {
+        // Given: publishedGt oltre la finestra (default 30 giorni), strategia di default = ALL
+        String organizationId = ORG_ID;
+        LocalDateTime publishedGt = LocalDateTime.now().minusDays(40);
+
+        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+            eq(organizationId), isNull(), eq(1L), isNull(), nullable(OffsetDateTime.class), eq(100L)))
+            .thenReturn(ResponseEntity.ok(singlePageResponse()));
+
+        // When
+        fdrApiService.getAllPublishedFlows(organizationId, publishedGt);
+
+        // Then: publishedGt inviata a pagoPA = null (recupera tutti i flussi)
+        ArgumentCaptor<OffsetDateTime> captor = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(organizationsApi).iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+            eq(organizationId), isNull(), eq(1L), isNull(), captor.capture(), eq(100L));
+        assertThat(captor.getValue()).isNull();
+    }
+
+    @Test
+    void testPublishedGtOlderThanWindow_clamp_sendsClampedDate() throws Exception {
+        // Given: publishedGt oltre la finestra, strategia CLAMP
+        String organizationId = ORG_ID;
+        batchProperties.setPublishedGtStaleStrategy(BatchProperties.PublishedGtStaleStrategy.CLAMP);
+        LocalDateTime publishedGt = LocalDateTime.now().minusDays(40);
+
+        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+            eq(organizationId), isNull(), eq(1L), isNull(), nullable(OffsetDateTime.class), eq(100L)))
+            .thenReturn(ResponseEntity.ok(singlePageResponse()));
+
+        // When
+        fdrApiService.getAllPublishedFlows(organizationId, publishedGt);
+
+        // Then: publishedGt riportata a ~ (adesso UTC - 30 giorni), non null
+        ArgumentCaptor<OffsetDateTime> captor = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(organizationsApi).iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+            eq(organizationId), isNull(), eq(1L), isNull(), captor.capture(), eq(100L));
+        OffsetDateTime sent = captor.getValue();
+        assertThat(sent).isNotNull();
+        OffsetDateTime expected = OffsetDateTime.now(ZoneOffset.UTC).minusDays(30);
+        assertThat(sent).isBetween(expected.minusMinutes(5), expected.plusMinutes(5));
+    }
+
+    @Test
+    void testPublishedGtWithinWindow_passedThrough() throws Exception {
+        // Given: publishedGt dentro la finestra
+        String organizationId = ORG_ID;
+        LocalDateTime publishedGt = LocalDateTime.now().minusDays(5);
+
+        when(organizationsApi.iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+            eq(organizationId), isNull(), eq(1L), isNull(), nullable(OffsetDateTime.class), eq(100L)))
+            .thenReturn(ResponseEntity.ok(singlePageResponse()));
+
+        // When
+        fdrApiService.getAllPublishedFlows(organizationId, publishedGt);
+
+        // Then: publishedGt invariata (convertita in offset UTC come da FdrApiService)
+        ArgumentCaptor<OffsetDateTime> captor = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(organizationsApi).iOrganizationsControllerGetAllPublishedFlowsWithHttpInfo(
+            eq(organizationId), isNull(), eq(1L), isNull(), captor.capture(), eq(100L));
+        assertThat(captor.getValue()).isEqualTo(publishedGt.atZone(ZONE_ID).toInstant().atOffset(ZoneOffset.UTC));
     }
 
     @Test

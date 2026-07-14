@@ -1,3 +1,22 @@
+2026-07-14  Giuliano Pintori <pintori@link.it>
+
+	* Avanzamento versione 1.1.6
+
+2026-07-14  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Risolto Bug - publishedGt oltre la finestra di 30 giorni accettata da pagoPA
+	pagoPA restituisce HTTP 400 (FDR-1000, "The date cannot be older than 30 days")
+	quando il parametro publishedGt e' piu' vecchio di 30 giorni. Introdotta una
+	gestione configurabile in FdrApiService.getAllPublishedFlows: quando la data
+	calcolata (ultima pubblicazione gia' acquisita per il dominio) supera la
+	finestra, si applica la strategia impostata.
+	Nuove proprieta' (prefix govpay.batch, su BatchProperties):
+	- published-gt-max-age-days: soglia in giorni (default 30);
+	- published-gt-stale-strategy: ALL (default, publishedGt=null -> recupera tutti
+	  i flussi; il dedup in FdrHeadersWriter evita ri-acquisizioni) oppure CLAMP
+	  (riporta publishedGt a "adesso - max-age-days").
+
 2026-06-08  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.1.5
