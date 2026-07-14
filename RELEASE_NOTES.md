@@ -6,7 +6,7 @@ Release di manutenzione: aggiornamenti di sicurezza (jackson-databind, logback) 
 
 ### Sicurezza
 Aggiornate dipendenze vulnerabili gestite dal `govpay-bom` tramite override locale delle property nel `pom.xml` (nessuna release del `govpay-bom` sulla linea 1.1 le corregge):
-- **jackson-databind `2.21.1` → `2.21.4`** (`jackson.version`): risolve tra le altre `GHSA-j3rv-43j4-c7qm` e `GHSA-rmj7-2vxq-3g9f` (CVSS 8.1), `GHSA-rcqc-6cw3-h962` (6.5), `GHSA-5hh8-q8hv-fr38`, `GHSA-9fxm-vc8v-hj55`, `GHSA-hgj6-7826-r7m5` (5.3).
+- **jackson-databind `2.21.1` → `2.21.5`** (`jackson.version`): risolve tra le altre `GHSA-j3rv-43j4-c7qm` e `GHSA-rmj7-2vxq-3g9f` (CVSS 8.1), `GHSA-rcqc-6cw3-h962` (6.5), `GHSA-5hh8-q8hv-fr38`, `GHSA-9fxm-vc8v-hj55`, `GHSA-hgj6-7826-r7m5` (5.3) e `GHSA-5jmj-h7xm-6q6v` / CVE-2026-54515 (fissata in 2.21.5).
 - **logback `1.5.28` → `1.5.35`** (`logback.version`): risolve `GHSA-jhq6-gfmj-v8fx` (CVSS 2.9) e `GHSA-p47f-322f-whfh` (1.2).
 
 ### Correzioni — API pagoPA (`publishedGt`)
