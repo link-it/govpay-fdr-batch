@@ -1,14 +1,24 @@
 # Release Notes
 
-## 2.0.0 — 2026-07-10
+## 2.0.0 — 2026-07-11
 
-Major di piattaforma: migrazione a **Spring Boot 4.x / Spring Framework 7.x** (Spring Batch 6, Hibernate ORM 7, Jackson 3).
+Major di piattaforma: migrazione a **Spring Boot 4.x / Spring Framework 7.x** (Spring Batch 6, Hibernate ORM 7, Jackson 3), con allineamento all'ecosistema GovPay 2.0.
+
+### Correzioni — API pagoPA (`publishedGt`)
+L'API pagoPA `getAllPublishedFlows` restituisce **HTTP 400** (`FDR-1000`, *"The date cannot be older than 30 days"*) quando `publishedGt` è più vecchia di 30 giorni. Il batch calcola `publishedGt` come massima data di pubblicazione dei flussi già acquisiti per il dominio: per i domini con ultima acquisizione oltre tale finestra la chiamata falliva. Introdotta una gestione **configurabile** in `FdrApiService.getAllPublishedFlows`, con nuove proprietà (prefix `govpay.batch`):
+- `govpay.batch.published-gt-max-age-days` (default `30`): soglia oltre la quale `publishedGt` è fuori finestra;
+- `govpay.batch.published-gt-stale-strategy` (default `ALL`): `ALL` non invia `publishedGt` (recupera tutti i flussi; il dedup in `FdrHeadersWriter` evita ri-acquisizioni) oppure `CLAMP` (riporta la data a `adesso - max-age-days`).
+
+Fix già rilasciato nella linea 1.0.x (v1.0.7); su `main` le proprietà risiedono in `BatchProperties`/`govpay.batch`.
+
+### Sicurezza
+- **logback 1.5.35** (via `govpay-bom` 2.0.1): risolve `GHSA-jhq6-gfmj-v8fx` (CVSS 2.9) presente nella 1.5.34. logback è gestita centralmente dal BOM, senza override locali nel progetto.
+- **Tomcat embedded 11.0.x** (fornito da Spring Boot 4): non più affetto dalle 7 vulnerabilità della 10.1.54 (3 Critical, 3 High, 1 Low); rimosso l'override `tomcat.version=10.1.55` introdotto nella 1.1.5, ora superfluo.
 
 ### Aggiornamenti dipendenze
-- `govpay-bom` aggiornato a **2.0.1** (parent BOM). La 2.0.1 porta `logback` a **1.5.35**, risolvendo `GHSA-jhq6-gfmj-v8fx` (CVSS 2.9) presente nella 1.5.34; logback è gestita centralmente dal BOM, senza override locali.
+- `govpay-bom` aggiornato a **2.0.1** (parent BOM) — vedi *Sicurezza* per il fix logback.
 - `govpay-common` aggiornato da `1.1.2` a **2.0.0**.
 - Aggiornamenti transitivi: Spring Boot **4.1.x**, Spring Framework **7.0.x**, Spring Batch **6.0.x**, Hibernate ORM **7.x**, Jackson **3.x** (`tools.jackson`), Tomcat embedded **11.0.x**.
-- Rimosso l'override `tomcat.version=10.1.55` introdotto nella 1.1.5: Spring Boot 4 fornisce già Tomcat 11.0.x, privo delle 7 vulnerabilità della 10.1.54.
 - Aggiunta la versione esplicita `${hibernate.version}` alla dipendenza `hibernate-jpamodelgen` (non più gestita dal BOM).
 
 ### Refactor (Spring Batch 6 / Spring Boot 4)
@@ -31,7 +41,7 @@ Major di piattaforma: migrazione a **Spring Boot 4.x / Spring Framework 7.x** (S
 - `application-test.properties`: `scheduler.initialDelayString` alto per evitare che il trigger `@Scheduled` si avvii in concorrenza con le esecuzioni manuali dei test.
 
 ### Compatibilità
-Major release: richiede Java 21 e l'ecosistema GovPay 2.0 (`govpay-bom`/`govpay-common` 2.0.0). Non è un aggiornamento drop-in rispetto alla 1.1.x.
+Major release: richiede **Java 21** e l'ecosistema GovPay 2.0 (`govpay-bom` **2.0.1**, `govpay-common` **2.0.0**). **Non** è un aggiornamento drop-in rispetto alla 1.1.x: la migrazione a Spring Boot 4 / Spring Batch 6 comporta cambi di package e di API (vedi *Refactor*). Nessuna modifica alle configurazioni applicative o allo schema dati.
 
 ## 1.1.5 — 2026-06-08
 
