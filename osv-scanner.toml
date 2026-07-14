@@ -1,0 +1,10 @@
+# Configurazione OSV Scanner (osv.dev)
+# Ref: https://google.github.io/osv-scanner/configuration/
+#
+# Soppressioni temporanee: usare "ignoreUntil" cosi' la vulnerabilita' torna a
+# essere segnalata dopo la data indicata (evita soppressioni permanenti dimenticate).
+
+[[IgnoredVulns]]
+id = "GHSA-5jmj-h7xm-6q6v"
+ignoreUntil = 2026-09-30T00:00:00Z
+reason = "Falso positivo da database OSV non aggiornato. jackson-databind e' gia' su 2.21.5, che e' la versione FISSATA per questo advisory (range OSV: 2.19.0 -> <2.21.5, fix 2.21.5 / CVE-2026-54515, advisory modificato 2026-06-30). Soppressione temporanea in attesa che il DB dello scanner recepisca il fix; rimuovere dopo la scadenza."

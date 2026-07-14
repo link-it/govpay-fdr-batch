@@ -1,5 +1,13 @@
 2026-07-14  Giuliano Pintori <pintori@link.it>
 
+	* [CI/CD]
+	Aggiunto osv-scanner.toml con soppressione temporanea (ignoreUntil 2026-09-30)
+	di GHSA-5jmj-h7xm-6q6v: falso positivo da DB OSV non aggiornato, jackson-databind
+	2.21.5 e' gia' la versione fissata. Da rimuovere quando il DB dello scanner
+	recepisce il fix.
+
+2026-07-14  Giuliano Pintori <pintori@link.it>
+
 	* Avanzamento versione 1.1.6
 
 2026-07-14  Giuliano Pintori <pintori@link.it>
