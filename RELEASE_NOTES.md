@@ -2,7 +2,12 @@
 
 ## 1.1.6 — 2026-07-14
 
-Release di manutenzione: gestione della finestra temporale accettata da pagoPA per il parametro `publishedGt` nel recupero dei flussi pubblicati.
+Release di manutenzione: aggiornamenti di sicurezza (jackson-databind, logback) e gestione della finestra temporale accettata da pagoPA per il parametro `publishedGt`.
+
+### Sicurezza
+Aggiornate dipendenze vulnerabili gestite dal `govpay-bom` tramite override locale delle property nel `pom.xml` (nessuna release del `govpay-bom` sulla linea 1.1 le corregge):
+- **jackson-databind `2.21.1` → `2.21.4`** (`jackson.version`): risolve tra le altre `GHSA-j3rv-43j4-c7qm` e `GHSA-rmj7-2vxq-3g9f` (CVSS 8.1), `GHSA-rcqc-6cw3-h962` (6.5), `GHSA-5hh8-q8hv-fr38`, `GHSA-9fxm-vc8v-hj55`, `GHSA-hgj6-7826-r7m5` (5.3).
+- **logback `1.5.28` → `1.5.35`** (`logback.version`): risolve `GHSA-jhq6-gfmj-v8fx` (CVSS 2.9) e `GHSA-p47f-322f-whfh` (1.2).
 
 ### Correzioni — API pagoPA (`publishedGt`)
 L'API pagoPA `getAllPublishedFlows` restituisce **HTTP 400** (`FDR-1000`, *"The date cannot be older than 30 days"*) quando `publishedGt` è più vecchia di 30 giorni. Il batch calcola `publishedGt` come massima data di pubblicazione dei flussi già acquisiti per il dominio: per i domini con ultima acquisizione oltre tale finestra la chiamata falliva. Introdotta una gestione **configurabile** in `FdrApiService.getAllPublishedFlows`.

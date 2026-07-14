@@ -34,6 +34,10 @@
 
         <!-- Security override: bump tomcat-embed to patched release (CVEs fixed in 10.1.55) -->
         <tomcat.version>10.1.55</tomcat.version>
+        <!-- Security override: bump jackson-databind (CVE fissate in 2.21.4, es. GHSA-j3rv-43j4-c7qm / GHSA-rmj7-2vxq-3g9f) -->
+        <jackson.version>2.21.4</jackson.version>
+        <!-- Security override: bump logback (GHSA-jhq6-gfmj-v8fx / GHSA-p47f-322f-whfh, fissate in 1.5.35) -->
+        <logback.version>1.5.35</logback.version>
     </properties>
     
     <profiles>

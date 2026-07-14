@@ -4,6 +4,17 @@
 
 2026-07-14  Giuliano Pintori <pintori@link.it>
 
+	* [Sicurezza]
+	Aggiornate dipendenze vulnerabili gestite dal govpay-bom tramite override locale
+	delle property (nessuna release del govpay-bom sulla linea 1.1 le corregge):
+	- jackson-databind 2.21.1 -> 2.21.4 (property jackson.version): risolve tra le
+	  altre GHSA-j3rv-43j4-c7qm e GHSA-rmj7-2vxq-3g9f (CVSS 8.1), GHSA-rcqc-6cw3-h962,
+	  GHSA-5hh8-q8hv-fr38, GHSA-9fxm-vc8v-hj55, GHSA-hgj6-7826-r7m5;
+	- logback 1.5.28 -> 1.5.35 (property logback.version): risolve GHSA-jhq6-gfmj-v8fx
+	  (CVSS 2.9) e GHSA-p47f-322f-whfh.
+
+2026-07-14  Giuliano Pintori <pintori@link.it>
+
 	* [BatchCore]
 	Risolto Bug - publishedGt oltre la finestra di 30 giorni accettata da pagoPA
 	pagoPA restituisce HTTP 400 (FDR-1000, "The date cannot be older than 30 days")
