@@ -162,6 +162,24 @@ spring.datasource.driver-class-name=org.h2.Driver
 #spring.datasource.password=your_password
 ```
 
+### Metriche Prometheus
+
+Gli endpoint `/actuator/health` e `/actuator/prometheus` rispondono di default sulla **stessa porta**
+dell'applicazione (nessuna porta management separata è configurata). Per esporli su una porta dedicata
+impostare:
+
+```properties
+management.server.port=[Porta dedicata per gli endpoint actuator]
+```
+
+oppure, in ambiente Docker, la variabile d'ambiente equivalente:
+
+```bash
+MANAGEMENT_SERVER_PORT=[Porta dedicata per gli endpoint actuator]
+```
+
+Se non valorizzata, gli endpoint restano sulla porta applicativa.
+
 ## Compilazione ed Esecuzione
 
 ### Compilazione
