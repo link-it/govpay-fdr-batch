@@ -49,7 +49,11 @@ import it.govpay.fdr.batch.tasklet.CleanupFrTempTasklet;
 @Import(TestScheduledJobRunnerConfig.class)
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
-        "spring.batch.job.enabled=false"
+        "spring.batch.job.enabled=false",
+        // application.properties imposta initialDelayString=1 (1ms): senza questo
+        // override lo @Scheduled reale lancia fdrAcquisitionJob quasi subito, in
+        // corsa con la chiamata esplicita del test sullo stesso job.
+        "scheduler.initialDelayString=3600000"
 })
 class PrometheusScrapeIntegrationTest {
 
