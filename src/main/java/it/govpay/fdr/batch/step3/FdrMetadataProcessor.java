@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 
 /**
  * Processor to fetch FDR metadata from pagoPA API
@@ -77,7 +78,11 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
         if (offsetDateTime == null) {
             return null;
         }
-        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime();
+        // Troncato al millisecondo: la colonna PostgreSQL 'timestamp' accetta microsecondi ma
+        // le API REST espongono la data solo fino a millisecondi (pattern yyyy-MM-dd'T'HH:mm:ss.SSSZ).
+        // Senza troncamento il round-trip GET puntuale via URL non ritroverebbe la riga.
+        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime()
+                .truncatedTo(ChronoUnit.MILLIS);
     }
 
     private LocalDateTime convertToLocalDateTime(LocalDate localDate) {

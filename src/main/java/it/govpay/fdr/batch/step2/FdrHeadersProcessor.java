@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClientException;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -79,6 +80,10 @@ public class FdrHeadersProcessor implements ItemProcessor<DominioProcessingConte
         if (offsetDateTime == null) {
             return null;
         }
-        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime();
+        // Troncato al millisecondo: la colonna PostgreSQL 'timestamp' accetta microsecondi ma
+        // le API REST espongono la data solo fino a millisecondi (pattern yyyy-MM-dd'T'HH:mm:ss.SSSZ).
+        // Senza troncamento il round-trip GET puntuale via URL non ritroverebbe la riga.
+        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime()
+                .truncatedTo(ChronoUnit.MILLIS);
     }
 }

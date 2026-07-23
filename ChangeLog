@@ -1,6 +1,24 @@
 2026-07-23  Giuliano Pintori <pintori@link.it>
 
 	* [BatchCore]
+	Risolto Bug - dataOraFlusso persistita con precisione microsecondi.
+	I timestamp restituiti da pagoPA FDR (OffsetDateTime nanosecond-precision) venivano
+	convertiti in LocalDateTime senza troncamento e scritti su fr/fr_temp mantenendo i
+	microsecondi (es. 2026-07-22 03:12:54.185108). Le API REST del backoffice GovPay
+	serializzano la dataOraFlusso col pattern yyyy-MM-dd'T'HH:mm:ss.SSSZ (precisione
+	millisecondo), quindi il round-trip GET puntuale
+	/flussiRendicontazione/{idDominio}/{idFlusso}/{dataOraFlusso} non ritrovava la
+	riga: il DAO fa un match esatto sulla colonna, .185 (ms) != .185108 (us) su
+	PostgreSQL -> HTTP 404. Fix nei due convertToLocalDateTime(OffsetDateTime) di
+	FdrHeadersProcessor (step2) e FdrMetadataProcessor (step3): aggiunto
+	.truncatedTo(ChronoUnit.MILLIS). Il fix copre tutti i timestamp valorizzati dai
+	converter (dataOraFlusso, dataOraPubblicazione, dataRegolamento, dataOraAggiornamento).
+	Per allineare i dati storici (flussi gia' scritti con microsecondi) e' disponibile
+	un UPDATE una-tantum lato GovPay: UPDATE fr / fr_temp
+	SET data_ora_flusso = date_trunc('milliseconds', data_ora_flusso)
+	WHERE date_trunc('milliseconds', data_ora_flusso) <> data_ora_flusso.
+
+	* [BatchCore]
 	Risolto Bug - falsa anomalia di quadratura (007106) per arrotondamento double
 	Il controllo di quadratura confrontava la somma degli importi rendicontati con
 	il totale di testata usando aritmetica in virgola mobile (double) e confronto
