@@ -31,6 +31,9 @@
 
         <!-- Dependencies -->
         <govpay-common.version>2.0.1-SNAPSHOT</govpay-common.version>
+
+        <!-- Security override: bump PostgreSQL JDBC (GHSA-j92g-9f8w-j867, CVSS 8.2, fissata in 42.7.12); il govpay-bom 2.0.1 pinna ancora 42.7.11 -->
+        <postgresql.version>42.7.13</postgresql.version>
     </properties>
     
     <profiles>

@@ -1,3 +1,12 @@
+2026-07-23  Giuliano Pintori <pintori@link.it>
+
+	* [Sicurezza]
+	Aggiornato PostgreSQL JDBC 42.7.11 -> 42.7.13 (override property postgresql.version)
+	per risolvere GHSA-j92g-9f8w-j867 (CVSS 8.2), fissata in 42.7.12; usata la 42.7.13
+	(ultima patch della linea 42.7.x). Il govpay-bom 2.0.1 pinna ancora la 42.7.11.
+	(logback 1.5.35, Tomcat 11.0.x e Jackson 3.1.4 sono gia' privi delle vulnerabilita'
+	corrispondenti su questa linea.)
+
 2026-07-14  Giuliano Pintori <pintori@link.it>
 
 	* [BatchCore]

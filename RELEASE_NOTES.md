@@ -14,6 +14,7 @@ Fix già rilasciato nella linea 1.0.x (v1.0.7); su `main` le proprietà risiedon
 ### Sicurezza
 - **logback 1.5.35** (via `govpay-bom` 2.0.1): risolve `GHSA-jhq6-gfmj-v8fx` (CVSS 2.9) presente nella 1.5.34. logback è gestita centralmente dal BOM, senza override locali nel progetto.
 - **Tomcat embedded 11.0.x** (fornito da Spring Boot 4): non più affetto dalle 7 vulnerabilità della 10.1.54 (3 Critical, 3 High, 1 Low); rimosso l'override `tomcat.version=10.1.55` introdotto nella 1.1.5, ora superfluo.
+- **PostgreSQL JDBC 42.7.11 → 42.7.13** (override `postgresql.version`): risolve `GHSA-j92g-9f8w-j867` (CVSS 8.2), fissata in `42.7.12`; adottata la `42.7.13`. Il `govpay-bom` 2.0.1 pinna ancora la `42.7.11`, quindi override locale.
 
 ### Aggiornamenti dipendenze
 - `govpay-bom` aggiornato a **2.0.1** (parent BOM) — vedi *Sicurezza* per il fix logback.
