@@ -4,6 +4,14 @@
 
 2026-07-23  Giuliano Pintori <pintori@link.it>
 
+	* [CI/CD]
+	Aggiornata action Sonar da SonarSource/sonarcloud-github-action@v2 a
+	SonarSource/sonarqube-scan-action@v5 (con SONAR_HOST_URL=https://sonarcloud.io):
+	la vecchia action usava uno scanner su Java 17, non piu' supportato da SonarQube
+	Cloud (richiede Java 21+). Allineamento a main e agli altri progetti GovPay.
+
+2026-07-23  Giuliano Pintori <pintori@link.it>
+
 	* [Sicurezza]
 	Aggiornato PostgreSQL JDBC 42.7.11 -> 42.7.13 (override property postgresql.version)
 	per risolvere GHSA-j92g-9f8w-j867 (CVSS 8.2), fissata in 42.7.12; usata la 42.7.13
