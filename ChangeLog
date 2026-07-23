@@ -1,5 +1,22 @@
 2026-07-23  Giuliano Pintori <pintori@link.it>
 
+	* [BatchCore]
+	Risolto Bug - falsa anomalia di quadratura (007106) per arrotondamento double
+	(porting da 1.1.7). Il controllo di quadratura confrontava la somma degli importi
+	rendicontati con il totale di testata in virgola mobile (double) con confronto
+	stretto (!=): la somma accumulava errori di arrotondamento (es. 0.10+0.20=
+	0.30000000000000004) generando un falso 007106 con stato ANOMALA a importi
+	coincidenti. Ora confronto in BigDecimal a 2 decimali (HALF_UP): somma in BigDecimal
+	per la quadratura (007106) e helper importiDiversi() per 007104 e 007112. Test aggiunto.
+
+	* [BatchCore]
+	Risolto Bug - dataOraFlusso persistita con precisione microsecondi (porting da 1.1.7).
+	I timestamp pagoPA (OffsetDateTime nanosecondi) venivano scritti su fr/fr_temp coi
+	microsecondi; le API REST GovPay serializzano a millisecondo, quindi il GET puntuale
+	non ritrovava la riga (match esatto) -> HTTP 404. Aggiunto .truncatedTo(ChronoUnit.MILLIS)
+	nei convertToLocalDateTime(OffsetDateTime) di FdrHeadersProcessor (step2) e
+	FdrMetadataProcessor (step3).
+
 	* [Sicurezza]
 	Aggiornato PostgreSQL JDBC 42.7.11 -> 42.7.13 (override property postgresql.version)
 	per risolvere GHSA-j92g-9f8w-j867 (CVSS 8.2), fissata in 42.7.12; usata la 42.7.13

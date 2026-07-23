@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClientException;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -79,6 +80,7 @@ public class FdrHeadersProcessor implements ItemProcessor<DominioProcessingConte
         if (offsetDateTime == null) {
             return null;
         }
-        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime();
+        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime()
+                .truncatedTo(ChronoUnit.MILLIS);
     }
 }

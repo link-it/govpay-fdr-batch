@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 
 /**
  * Processor to fetch FDR metadata from pagoPA API
@@ -77,7 +78,8 @@ public class FdrMetadataProcessor implements ItemProcessor<FrTemp, FdrMetadataPr
         if (offsetDateTime == null) {
             return null;
         }
-        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime();
+        return offsetDateTime.atZoneSameInstant(applicationZoneId).toLocalDateTime()
+                .truncatedTo(ChronoUnit.MILLIS);
     }
 
     private LocalDateTime convertToLocalDateTime(LocalDate localDate) {

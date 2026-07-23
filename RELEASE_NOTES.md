@@ -11,6 +11,12 @@ L'API pagoPA `getAllPublishedFlows` restituisce **HTTP 400** (`FDR-1000`, *"The 
 
 Fix già rilasciato nella linea 1.0.x (v1.0.7); su `main` le proprietà risiedono in `BatchProperties`/`govpay.batch`.
 
+### Correzioni — Quadratura importi (falso stato ANOMALA)
+Il controllo di quadratura confrontava la somma degli importi rendicontati con il totale di testata in **virgola mobile (`double`)** con confronto stretto (`!=`). La somma accumula errori di arrotondamento binario (es. `0.10 + 0.20 = 0.30000000000000004`), generando una falsa discrepanza e lo stato `ANOMALA` (anomalia `007106`) anche a importi coincidenti — con conseguente mancata lettura del flusso dalle applicazioni client. Ora i confronti importo avvengono in **`BigDecimal` a 2 decimali** (`HALF_UP`): somma accumulata in `BigDecimal` per la quadratura (`007106`) e helper `importiDiversi()` per le rendicontazioni (`007104`, `007112`). Test di regressione aggiunto. *(Porting da 1.1.7.)*
+
+### Correzioni — Precisione timestamp (`dataOraFlusso`)
+I timestamp pagoPA (`OffsetDateTime` a precisione nanosecondo) venivano scritti su `fr`/`fr_temp` mantenendo i microsecondi; le API REST del backoffice GovPay serializzano a precisione **millisecondo**, quindi il GET puntuale `/flussiRendicontazione/{idDominio}/{idFlusso}/{dataOraFlusso}` (match esatto) non ritrovava la riga → **HTTP 404**. Aggiunto `.truncatedTo(ChronoUnit.MILLIS)` nei `convertToLocalDateTime(OffsetDateTime)` di `FdrHeadersProcessor` (step 2) e `FdrMetadataProcessor` (step 3). *(Porting da 1.1.7.)*
+
 ### Sicurezza
 - **logback 1.5.35** (via `govpay-bom` 2.0.1): risolve `GHSA-jhq6-gfmj-v8fx` (CVSS 2.9) presente nella 1.5.34. logback è gestita centralmente dal BOM, senza override locali nel progetto.
 - **Tomcat embedded 11.0.x** (fornito da Spring Boot 4): non più affetto dalle 7 vulnerabilità della 10.1.54 (3 Critical, 3 High, 1 Low); rimosso l'override `tomcat.version=10.1.55` introdotto nella 1.1.5, ora superfluo.

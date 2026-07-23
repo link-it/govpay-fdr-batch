@@ -829,6 +829,64 @@ class FdrPaymentsWriterTest {
         }
 
         @Test
+        void testQuadraturaImportoConErroreArrotondamentoDouble() {
+            // Given - la somma dei pagamenti in double dà un errore di arrotondamento
+            // (0.10 + 0.20 = 0.30000000000000004) ma quadra col totale di testata (0.30) a 2 decimali.
+            // Col vecchio confronto su double risultava ANOMALA (falso 007106); ora deve essere ACCETTATA.
+            List<FdrPaymentsProcessor.PaymentData> payments = new ArrayList<>();
+            payments.add(FdrPaymentsProcessor.PaymentData.builder()
+                .iuv("IUV001").iur("IUR001").indiceDati(1L)
+                .importoPagato(0.10).esito(Costanti.PAYMENT_EXECUTED).build());
+            payments.add(FdrPaymentsProcessor.PaymentData.builder()
+                .iuv("IUV002").iur("IUR002").indiceDati(1L)
+                .importoPagato(0.20).esito(Costanti.PAYMENT_EXECUTED).build());
+
+            FdrPaymentsProcessor.FdrCompleteData data = FdrPaymentsProcessor.FdrCompleteData.builder()
+                .frTempId(1L)
+                .codPsp("PSP001")
+                .codDominio("12345678901")
+                .codFlusso("FDR-TEST-FLOAT")
+                .numeroPagamenti(2L)
+                .importoTotalePagamenti(0.30)
+                .revisione(1L)
+                .payments(payments)
+                .build();
+
+            when(frRepository.findByCodFlussoAndCodPspAndRevisione(anyString(), anyString(), anyLong()))
+                .thenReturn(Optional.empty());
+            when(dominioRepository.findByCodDominio("12345678901"))
+                .thenReturn(Optional.of(testDominio));
+
+            SingoloVersamento sv = SingoloVersamento.builder().id(1L).indiceDati(1).build();
+            Pagamento pag010 = Pagamento.builder().id(1L).importoPagato(0.10).singoloVersamento(sv).build();
+            Pagamento pag020 = Pagamento.builder().id(2L).importoPagato(0.20).singoloVersamento(sv).build();
+            when(pagamentoRepository.findAllByCodDominioAndIuvAndIurAndIndiceDati(
+                "12345678901", "IUV001", "IUR001", 1L)).thenReturn(List.of(pag010));
+            when(pagamentoRepository.findAllByCodDominioAndIuvAndIurAndIndiceDati(
+                "12345678901", "IUV002", "IUR002", 1L)).thenReturn(List.of(pag020));
+
+            when(frRepository.save(any(Fr.class))).thenAnswer(inv -> {
+                Fr fr = inv.getArgument(0);
+                fr.setId(1L);
+                return fr;
+            });
+
+            FrTemp frTemp = FrTemp.builder().id(1L).build();
+            when(frTempRepository.findById(1L)).thenReturn(Optional.of(frTemp));
+
+            // When
+            Chunk<FdrPaymentsProcessor.FdrCompleteData> chunk = new Chunk<>(List.of(data));
+            writer.write(chunk);
+
+            // Then - nessun falso 007106, flusso ACCETTATO
+            verify(frRepository).save(frCaptor.capture());
+            Fr savedFr = frCaptor.getValue();
+            assertThat(savedFr.getDescrizioneStato() == null
+                || !savedFr.getDescrizioneStato().contains("007106")).isTrue();
+            assertThat(savedFr.getStato()).isEqualTo(Costanti.FLUSSO_STATO_ACCETTATA);
+        }
+
+        @Test
         void testQuadraturaNumeroPagamentiMismatch() {
             // Given - payment count mismatch
             List<FdrPaymentsProcessor.PaymentData> payments = new ArrayList<>();
