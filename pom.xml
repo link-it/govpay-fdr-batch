@@ -38,6 +38,8 @@
         <jackson.version>2.21.5</jackson.version>
         <!-- Security override: bump logback (GHSA-jhq6-gfmj-v8fx / GHSA-p47f-322f-whfh, fissate in 1.5.35) -->
         <logback.version>1.5.35</logback.version>
+        <!-- Security override: bump PostgreSQL JDBC (GHSA-j92g-9f8w-j867, CVSS 8.2, fissata in 42.7.12) -->
+        <postgresql.version>42.7.13</postgresql.version>
     </properties>
     
     <profiles>

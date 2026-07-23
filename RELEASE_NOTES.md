@@ -2,7 +2,10 @@
 
 ## 1.1.7 — 2026-07-23
 
-Release di manutenzione: correzioni sui flussi di rendicontazione (quadratura importi e precisione dei timestamp).
+Release di manutenzione: correzioni sui flussi di rendicontazione (quadratura importi e precisione dei timestamp) e aggiornamento di sicurezza del driver PostgreSQL.
+
+### Sicurezza
+- **PostgreSQL JDBC `42.7.11` → `42.7.13`** (override `postgresql.version`): risolve `GHSA-j92g-9f8w-j867` (CVSS 8.2), fissata in `42.7.12`; adottata la `42.7.13` (ultima patch della linea 42.7.x). Il `govpay-bom` 1.1.x pinna ancora la `42.7.11`, quindi override locale.
 
 ### Correzioni — Quadratura importi (falso stato ANOMALA)
 Il controllo di quadratura confrontava la somma degli importi rendicontati con il totale di testata in **virgola mobile (`double`)** con confronto stretto (`!=`). La somma di più importi accumula errori di arrotondamento binario (es. `0.10 + 0.20 = 0.30000000000000004`), generando una **falsa discrepanza** e lo stato `ANOMALA` (anomalia `007106`) anche quando gli importi coincidono (es. `[3.703,07]` vs `[3.703,07]`) — con conseguente mancata lettura del flusso da parte delle applicazioni client. Ora tutti i confronti importo avvengono in **`BigDecimal` a 2 decimali** (`HALF_UP`): somma accumulata in `BigDecimal` per la quadratura (`007106`) e helper `importiDiversi()` per i confronti delle rendicontazioni (`007104` pagato, `007112` revoca). Aggiunto test di regressione.

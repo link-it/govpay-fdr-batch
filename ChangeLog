@@ -4,6 +4,13 @@
 
 2026-07-23  Giuliano Pintori <pintori@link.it>
 
+	* [Sicurezza]
+	Aggiornato PostgreSQL JDBC 42.7.11 -> 42.7.13 (override property postgresql.version)
+	per risolvere GHSA-j92g-9f8w-j867 (CVSS 8.2), fissata in 42.7.12; usata la 42.7.13
+	(ultima patch della linea 42.7.x). Il govpay-bom 1.1.x pinna ancora la 42.7.11.
+
+2026-07-23  Giuliano Pintori <pintori@link.it>
+
 	* [BatchCore]
 	Risolto Bug - dataOraFlusso persistita con precisione microsecondi.
 	I timestamp restituiti da pagoPA FDR (OffsetDateTime nanosecond-precision) venivano
