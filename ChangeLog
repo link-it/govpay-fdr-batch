@@ -1,5 +1,9 @@
 2026-07-23  Giuliano Pintori <pintori@link.it>
 
+	* Avanzamento versione 1.1.7
+
+2026-07-23  Giuliano Pintori <pintori@link.it>
+
 	* [BatchCore]
 	Risolto Bug - dataOraFlusso persistita con precisione microsecondi.
 	I timestamp restituiti da pagoPA FDR (OffsetDateTime nanosecond-precision) venivano

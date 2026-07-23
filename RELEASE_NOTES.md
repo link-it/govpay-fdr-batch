@@ -1,11 +1,18 @@
 # Release Notes
 
-## 1.1.6 — 2026-07-23
+## 1.1.7 — 2026-07-23
 
-Release di manutenzione: correzione della falsa anomalia di quadratura importi, aggiornamenti di sicurezza (jackson-databind, logback) e gestione della finestra temporale accettata da pagoPA per il parametro `publishedGt`.
+Release di manutenzione: correzioni sui flussi di rendicontazione (quadratura importi e precisione dei timestamp).
 
 ### Correzioni — Quadratura importi (falso stato ANOMALA)
 Il controllo di quadratura confrontava la somma degli importi rendicontati con il totale di testata in **virgola mobile (`double`)** con confronto stretto (`!=`). La somma di più importi accumula errori di arrotondamento binario (es. `0.10 + 0.20 = 0.30000000000000004`), generando una **falsa discrepanza** e lo stato `ANOMALA` (anomalia `007106`) anche quando gli importi coincidono (es. `[3.703,07]` vs `[3.703,07]`) — con conseguente mancata lettura del flusso da parte delle applicazioni client. Ora tutti i confronti importo avvengono in **`BigDecimal` a 2 decimali** (`HALF_UP`): somma accumulata in `BigDecimal` per la quadratura (`007106`) e helper `importiDiversi()` per i confronti delle rendicontazioni (`007104` pagato, `007112` revoca). Aggiunto test di regressione.
+
+### Correzioni — Precisione timestamp (`dataOraFlusso`)
+I timestamp restituiti da pagoPA FDR (`OffsetDateTime` a precisione nanosecondo) venivano convertiti in `LocalDateTime` **senza troncamento** e scritti su `fr`/`fr_temp` mantenendo i microsecondi (es. `2026-07-22 03:12:54.185108`). Le API REST del backoffice GovPay serializzano la `dataOraFlusso` a precisione **millisecondo** (`yyyy-MM-dd'T'HH:mm:ss.SSSZ`), quindi il GET puntuale `/flussiRendicontazione/{idDominio}/{idFlusso}/{dataOraFlusso}` — che fa match esatto sulla colonna — non ritrovava la riga (`.185` ms ≠ `.185108` µs su PostgreSQL) → **HTTP 404**. Fix nei due `convertToLocalDateTime(OffsetDateTime)` di `FdrHeadersProcessor` (step 2) e `FdrMetadataProcessor` (step 3): aggiunto `.truncatedTo(ChronoUnit.MILLIS)`; copre tutti i timestamp valorizzati dai converter (`dataOraFlusso`, `dataOraPubblicazione`, `dataRegolamento`, `dataOraAggiornamento`). Per i dati storici è disponibile un `UPDATE` una-tantum lato GovPay (`date_trunc('milliseconds', data_ora_flusso)`).
+
+## 1.1.6 — 2026-07-14
+
+Release di manutenzione: aggiornamenti di sicurezza (jackson-databind, logback) e gestione della finestra temporale accettata da pagoPA per il parametro `publishedGt`.
 
 ### Sicurezza
 Aggiornate dipendenze vulnerabili gestite dal `govpay-bom` tramite override locale delle property nel `pom.xml` (nessuna release del `govpay-bom` sulla linea 1.1 le corregge):
