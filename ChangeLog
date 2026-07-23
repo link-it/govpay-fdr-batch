@@ -1,3 +1,17 @@
+2026-07-23  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Risolto Bug - falsa anomalia di quadratura (007106) per arrotondamento double
+	Il controllo di quadratura confrontava la somma degli importi rendicontati con
+	il totale di testata usando aritmetica in virgola mobile (double) e confronto
+	stretto (!=): la somma di piu' importi accumulava errori di arrotondamento
+	(es. 0.10 + 0.20 = 0.30000000000000004), generando una falsa discrepanza e lo
+	stato ANOMALA anche quando gli importi coincidevano (es. [3.703,07] vs [3.703,07]).
+	Ora il confronto avviene in BigDecimal a 2 decimali (HALF_UP): somma accumulata in
+	BigDecimal per la quadratura (007106) e helper importiDiversi() per i confronti
+	importo delle rendicontazioni (007104 pagato, 007112 revoca). Aggiunto test di
+	regressione.
+
 2026-07-14  Giuliano Pintori <pintori@link.it>
 
 	* [CI/CD]

@@ -1,8 +1,11 @@
 # Release Notes
 
-## 1.1.6 — 2026-07-14
+## 1.1.6 — 2026-07-23
 
-Release di manutenzione: aggiornamenti di sicurezza (jackson-databind, logback) e gestione della finestra temporale accettata da pagoPA per il parametro `publishedGt`.
+Release di manutenzione: correzione della falsa anomalia di quadratura importi, aggiornamenti di sicurezza (jackson-databind, logback) e gestione della finestra temporale accettata da pagoPA per il parametro `publishedGt`.
+
+### Correzioni — Quadratura importi (falso stato ANOMALA)
+Il controllo di quadratura confrontava la somma degli importi rendicontati con il totale di testata in **virgola mobile (`double`)** con confronto stretto (`!=`). La somma di più importi accumula errori di arrotondamento binario (es. `0.10 + 0.20 = 0.30000000000000004`), generando una **falsa discrepanza** e lo stato `ANOMALA` (anomalia `007106`) anche quando gli importi coincidono (es. `[3.703,07]` vs `[3.703,07]`) — con conseguente mancata lettura del flusso da parte delle applicazioni client. Ora tutti i confronti importo avvengono in **`BigDecimal` a 2 decimali** (`HALF_UP`): somma accumulata in `BigDecimal` per la quadratura (`007106`) e helper `importiDiversi()` per i confronti delle rendicontazioni (`007104` pagato, `007112` revoca). Aggiunto test di regressione.
 
 ### Sicurezza
 Aggiornate dipendenze vulnerabili gestite dal `govpay-bom` tramite override locale delle property nel `pom.xml` (nessuna release del `govpay-bom` sulla linea 1.1 le corregge):

@@ -1,5 +1,7 @@
 package it.govpay.fdr.batch.step4;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.MessageFormat;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -120,7 +122,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		Fr fr = buildFR(data, dominio);
 
 		List<String> anomalieFr = new ArrayList<>();
-		double  totaleImportiRendicontati = 0.0;
+		BigDecimal totaleImportiRendicontati = BigDecimal.ZERO;
 
 		// Create and save rendicontazioni
 		for (FdrPaymentsProcessor.PaymentData paymentData : data.getPayments()) {
@@ -130,7 +132,9 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 
 		    Rendicontazione rendicontazione = buildRendicontazione(fr, paymentData, pagamento);
 
-		    totaleImportiRendicontati += paymentData.getImportoPagato();
+		    if (paymentData.getImportoPagato() != null) {
+		        totaleImportiRendicontati = totaleImportiRendicontati.add(BigDecimal.valueOf(paymentData.getImportoPagato()));
+		    }
 
 		    List<String> anomalieRnd = new ArrayList<>();
 		    if (pagamento != null) {
@@ -238,12 +242,18 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		}
 	}
 
-	private void controlliQuadraturaGenerali(Fr fr, FdrPaymentsProcessor.FdrCompleteData data, double totaleImportiRendicontati, List<String> anomalieFr) {
-		// Check amount consistency only if importoTotalePagamenti is not null
-		if (fr.getImportoTotalePagamenti() != null && totaleImportiRendicontati != fr.getImportoTotalePagamenti().doubleValue()) {
-		    log.info("La somma degli importi rendicontati [{}] non corrisponde al totale indicato nella testata del flusso [{}]", totaleImportiRendicontati, fr.getImportoTotalePagamenti());
-		    anomalieFr.add(MessageFormat.format("{0}#La somma degli importi rendicontati [{1}] non corrisponde al totale indicato nella testata del flusso [{2}]", "007106", totaleImportiRendicontati, fr.getImportoTotalePagamenti()));
-		} else if (fr.getImportoTotalePagamenti() == null) {
+	private void controlliQuadraturaGenerali(Fr fr, FdrPaymentsProcessor.FdrCompleteData data, BigDecimal totaleImportiRendicontati, List<String> anomalieFr) {
+		// Check amount consistency only if importoTotalePagamenti is not null.
+		// Confronto in BigDecimal a 2 decimali per evitare falsi disallineamenti dovuti
+		// agli errori di arrotondamento della somma in virgola mobile (double).
+		if (fr.getImportoTotalePagamenti() != null) {
+		    BigDecimal sommaRendicontata = totaleImportiRendicontati.setScale(2, RoundingMode.HALF_UP);
+		    BigDecimal totaleTestata = BigDecimal.valueOf(fr.getImportoTotalePagamenti()).setScale(2, RoundingMode.HALF_UP);
+		    if (sommaRendicontata.compareTo(totaleTestata) != 0) {
+		        log.info("La somma degli importi rendicontati [{}] non corrisponde al totale indicato nella testata del flusso [{}]", sommaRendicontata, totaleTestata);
+		        anomalieFr.add(MessageFormat.format("{0}#La somma degli importi rendicontati [{1}] non corrisponde al totale indicato nella testata del flusso [{2}]", "007106", sommaRendicontata, totaleTestata));
+		    }
+		} else {
 		    log.warn("Importo totale pagamenti è null per FDR {}, salto controllo importo", fr.getCodFlusso());
 		}
 
@@ -254,6 +264,17 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		} else if (fr.getNumeroPagamenti() == null) {
 		    log.warn("Numero pagamenti è null per FDR {}, salto controllo numero pagamenti", fr.getCodFlusso());
 		}
+	}
+
+	/**
+	 * Confronta due importi monetari a 2 decimali (centesimi) usando BigDecimal,
+	 * evitando i falsi disallineamenti dovuti agli errori di arrotondamento del tipo double.
+	 *
+	 * @return true se gli importi differiscono al centesimo
+	 */
+	private static boolean importiDiversi(double a, double b) {
+		return BigDecimal.valueOf(a).setScale(2, RoundingMode.HALF_UP)
+			.compareTo(BigDecimal.valueOf(b).setScale(2, RoundingMode.HALF_UP)) != 0;
 	}
 
 	private void controlloRendicontazioneDuplicata(Fr fr, Rendicontazione rendicontazione, List<String> anomalieRnd) {
@@ -359,7 +380,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
                          fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati());
                 return;
             }
-            if (importoRevocato.compareTo(Math.abs(rendicontazione.getImportoPagato().doubleValue())) != 0) {
+            if (importiDiversi(importoRevocato, Math.abs(rendicontazione.getImportoPagato().doubleValue()))) {
                 log.info("Revoca [Dominio:{} Iuv:{} Iur:{} Indice:{}] rendicontato con errore: l''importo rendicontato [{}] non corrisponde a quanto stornato [{}]",
                          fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati(), rendicontazione.getImportoPagato().doubleValue(), importoRevocato);
                 anomalieRnd.add(MessageFormat.format("{0}#L''importo rendicontato [{1}] non corrisponde a quanto stornato [{2}]",
@@ -372,7 +393,7 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
                          fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati());
                 return;
             }
-            if (importoPagato.compareTo(rendicontazione.getImportoPagato()) != 0) {
+            if (importiDiversi(importoPagato, rendicontazione.getImportoPagato())) {
                 log.info("Pagamento [Dominio:{} Iuv:{} Iur:{} Indice:{}] rendicontato con errore: l''importo rendicontato [{}] non corrisponde a quanto pagato [{}]",
                          fr.getCodDominio(), rendicontazione.getIuv(), rendicontazione.getIur(), rendicontazione.getIndiceDati(), rendicontazione.getImportoPagato().doubleValue(), importoPagato);
                 anomalieRnd.add(MessageFormat.format("{0}#L''importo rendicontato [{1}] non corrisponde a quanto pagato [{2}]",
