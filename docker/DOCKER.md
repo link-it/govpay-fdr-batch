@@ -216,6 +216,102 @@ GOVPAY_FDR_READY_DB_CHECK_SLEEP_TIME=2
 L'integrazione con GDE (Giornale degli Eventi) viene configurata tramite la tabella `CONFIGURAZIONE` del database GovPay.
 Non sono necessarie variabili d'ambiente per abilitare o configurare il GDE.
 
+## Certificati TLS / CA interne (OAuth2, endpoint HTTPS)
+
+Quando un endpoint HTTPS usato dal batch (es. il token endpoint OAuth2 di Keycloak, o le API pagoPA dietro un reverse proxy) presenta un certificato firmato da una **CA interna** non presente nel truststore della JVM, si ottiene:
+
+```
+javax.net.ssl.SSLHandshakeException: PKIX path building failed:
+  unable to find valid certification path to requested target
+```
+
+Non è un errore dell'applicazione: la JVM non riconosce la CA. Va aggiunta la CA al truststore. Di seguito la procedura **senza ricostruire l'immagine**, gestendo la CA tramite **ConfigMap** su Kubernetes/OpenShift.
+
+L'idea: l'entrypoint rispetta la variabile `JAVA_OPTS`; un **initContainer** costruisce a runtime un truststore (copia del `cacerts` di default + la CA interna) in un volume condiviso, e il container principale lo usa via `-Djavax.net.ssl.trustStore`. In questo modo si mantengono le CA pubbliche (necessarie per pagoPA) e si aggiunge quella interna.
+
+### 1. ConfigMap con la CA
+
+```bash
+# Recupera il PEM della CA (dal team IdM/OCP, oppure):
+openssl s_client -connect <host-keycloak>:443 -showcerts </dev/null 2>/dev/null \
+  | openssl x509 -outform PEM > ca-interna.crt
+
+oc create configmap trusted-ca \
+  --from-file=ca-interna.crt=ca-interna.crt \
+  -n <namespace>
+```
+
+Usare la **CA emittente** (non il certificato del server). Per catene con più CA aggiungere più `--from-file`.
+
+### 2. Deployment: initContainer + volumi + JAVA_OPTS
+
+```yaml
+spec:
+  template:
+    spec:
+      volumes:
+        - name: ca-pem                 # CA (read-only) dalla ConfigMap
+          configMap:
+            name: trusted-ca
+        - name: truststore             # truststore costruito a runtime
+          emptyDir: {}
+
+      initContainers:
+        - name: build-truststore
+          image: <STESSA_IMMAGINE_DEL_BATCH>   # ha keytool e il cacerts di default
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              set -e
+              cp "$JAVA_HOME/lib/security/cacerts" /truststore/cacerts   # mantiene le CA pubbliche
+              chmod u+w /truststore/cacerts
+              for f in /ca/*; do
+                echo "Import $f"
+                keytool -importcert -noprompt -trustcacerts \
+                  -alias "$(basename "$f")" -file "$f" \
+                  -keystore /truststore/cacerts -storepass changeit
+              done
+          volumeMounts:
+            - { name: ca-pem,     mountPath: /ca,        readOnly: true }
+            - { name: truststore, mountPath: /truststore }
+
+      containers:
+        - name: govpay-fdr-batch
+          # ... image/ports invariati ...
+          env:
+            - name: JAVA_OPTS          # se già usato altrove, APPENDERE questi flag
+              value: >-
+                -Djavax.net.ssl.trustStore=/truststore/cacerts
+                -Djavax.net.ssl.trustStorePassword=changeit
+                -Djavax.net.ssl.trustStoreType=PKCS12
+          volumeMounts:
+            - { name: truststore, mountPath: /truststore, readOnly: true }
+```
+
+Note:
+- `<STESSA_IMMAGINE_DEL_BATCH>`: usare la stessa immagine del batch garantisce lo stesso `JAVA_HOME` (`/opt/java/openjdk`) e lo stesso `cacerts`; `keytool` è incluso nel JRE e funziona anche da utente non-root.
+- Il `cacerts` di temurin è in formato **PKCS12** con password `changeit` (da qui `trustStoreType=PKCS12`).
+- In modalità **CRON come CronJob K8s**, replicare la stessa struttura sotto `spec.jobTemplate.spec.template.spec`.
+
+### 3. Applica e verifica
+
+```bash
+oc apply -f deployment.yaml
+oc rollout restart deploy/govpay-fdr-batch -n <namespace>
+# nel log dell'initContainer: "Certificate was added to keystore"
+oc logs deploy/govpay-fdr-batch -c build-truststore -n <namespace>
+```
+
+### Rotazione / aggiunta CA
+
+Aggiornare la ConfigMap e riavviare il pod: l'initContainer ricostruisce il truststore. Nessuna modifica all'immagine.
+
+### Alternativa OpenShift (CA già nel trust del cluster)
+
+Se il certificato è firmato da una CA già nel bundle del cluster, creare una ConfigMap con la label `config.openshift.io/inject-trusted-cabundle: "true"` (OCP la popola con `ca-bundle.crt`) e usarla come sorgente `/ca` nell'initContainer: stesso meccanismo, ma la CA la fornisce OpenShift.
+
+> ⚠️ Non puntare `-Djavax.net.ssl.trustStore` a un truststore contenente **solo** la CA interna: sostituirebbe il default e romperebbe il TLS verso pagoPA. Usare sempre una **copia** del `cacerts` con la CA interna aggiunta (come sopra).
+
 ## Configuration Reference
 
 ### Variabili d'Ambiente - Database
