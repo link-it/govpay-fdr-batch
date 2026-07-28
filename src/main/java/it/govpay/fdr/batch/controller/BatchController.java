@@ -20,6 +20,7 @@ import it.govpay.common.batch.dto.NextExecutionInfo;
 import it.govpay.common.batch.runner.JobExecutionHelper;
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.service.FdrApiService;
+import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -40,8 +41,9 @@ public class BatchController extends AbstractBatchController {
             FdrApiService fdrApiService,
             Environment environment,
             ZoneId applicationZoneId,
-            @Value("${scheduler.fdrAcquisitionJob.fixedDelayString:7200000}") long schedulerIntervalMillis) {
-        super(jobExecutionHelper, jobRepository, environment, applicationZoneId, schedulerIntervalMillis);
+            @Value("${scheduler.fdrAcquisitionJob.fixedDelayString:7200000}") long schedulerIntervalMillis,
+            EntityManager entityManager) {
+        super(jobExecutionHelper, jobRepository, environment, applicationZoneId, schedulerIntervalMillis, entityManager);
         this.fdrAcquisitionJob = fdrAcquisitionJob;
         this.fdrApiService = fdrApiService;
     }
@@ -54,6 +56,17 @@ public class BatchController extends AbstractBatchController {
     @Override
     protected String getJobName() {
         return Costanti.FDR_ACQUISITION_JOB_NAME;
+    }
+
+    @Override
+    protected String getDisplayName() {
+        return "GovPay FDR Batch";
+    }
+
+    @Override
+    protected String getDescription() {
+        return "Acquisizione automatica dei Flussi di Rendicontazione (FDR) da pagoPA tramite API REST: il "
+                + "sistema scarica, processa e riconcilia i flussi con i pagamenti esistenti.";
     }
 
     @GetMapping("/run")
