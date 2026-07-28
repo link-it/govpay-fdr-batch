@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -1399,14 +1400,15 @@ class FdrPaymentsWriterTest {
 
         @Test
         void testRevisioneMaggioreUnoMarcaObsoletiPrecedenti() {
-            // Given - flusso con revisione 2
+            // Given - flusso con revisione 2 e una revisione precedente con la stessa data_ora_flusso
+            LocalDateTime dataOraFlusso = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
             FdrPaymentsProcessor.FdrCompleteData rev2Data = FdrPaymentsProcessor.FdrCompleteData.builder()
                 .frTempId(1L)
                 .codPsp("PSP001")
                 .codDominio("12345678901")
                 .codFlusso("FDR-TEST-001")
                 .iur("IUR-FLUSSO")
-                .dataOraFlusso(LocalDateTime.now())
+                .dataOraFlusso(dataOraFlusso)
                 .dataRegolamento(LocalDateTime.now())
                 .numeroPagamenti(1L)
                 .importoTotalePagamenti(100.00)
@@ -1418,6 +1420,17 @@ class FdrPaymentsWriterTest {
                     .data(LocalDateTime.now()).build()))
                 .build();
 
+            // La revisione 1 già presente condivide la stessa data_ora_flusso (comportamento pagoPA)
+            Fr precedente = Fr.builder()
+                .id(1L)
+                .codDominio("12345678901")
+                .codFlusso("FDR-TEST-001")
+                .codPsp("PSP001")
+                .revisione(1L)
+                .dataOraFlusso(dataOraFlusso)
+                .obsoleto(false)
+                .build();
+
             when(frRepository.findByCodFlussoAndCodPspAndRevisione("FDR-TEST-001", "PSP001", 2L))
                 .thenReturn(Optional.empty());
             when(dominioRepository.findByCodDominio("12345678901"))
@@ -1425,8 +1438,9 @@ class FdrPaymentsWriterTest {
             when(pagamentoRepository.findAllByCodDominioAndIuvAndIurAndIndiceDati(
                 anyString(), anyString(), anyString(), anyLong()))
                 .thenReturn(Collections.emptyList());
-            when(frRepository.marcaObsoleti("12345678901", "FDR-TEST-001", "PSP001"))
-                .thenReturn(1);
+            when(frRepository.findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc(
+                "12345678901", "FDR-TEST-001", "PSP001"))
+                .thenReturn(new ArrayList<>(List.of(precedente)));
             when(frRepository.save(any(Fr.class))).thenAnswer(inv -> {
                 Fr fr = inv.getArgument(0);
                 fr.setId(2L);
@@ -1438,19 +1452,96 @@ class FdrPaymentsWriterTest {
             // When
             writer.write(new Chunk<>(List.of(rev2Data)));
 
-            // Then - marcaObsoleti deve essere invocato
-            verify(frRepository).marcaObsoleti("12345678901", "FDR-TEST-001", "PSP001");
+            // Then - la riga precedente è marcata obsoleta e spostata indietro di 1ms (flush immediato)
+            ArgumentCaptor<Fr> shiftCaptor = ArgumentCaptor.forClass(Fr.class);
+            verify(frRepository).saveAndFlush(shiftCaptor.capture());
+            Fr precShift = shiftCaptor.getValue();
+            assertThat(precShift.getObsoleto()).isTrue();
+            assertThat(precShift.getDataOraFlusso()).isEqualTo(dataOraFlusso.minus(1, ChronoUnit.MILLIS));
 
-            // Il nuovo FR deve avere obsoleto = false
+            // Il nuovo FR deve avere obsoleto = false, revisione 2 e la data_ora_flusso reale (slot liberato)
             verify(frRepository).save(frCaptor.capture());
             Fr savedFr = frCaptor.getValue();
             assertThat(savedFr.getObsoleto()).isFalse();
             assertThat(savedFr.getRevisione()).isEqualTo(2L);
+            assertThat(savedFr.getDataOraFlusso()).isEqualTo(dataOraFlusso);
+        }
+
+        @Test
+        void testTreRevisioniStessoFlussoSpostamentoProgressivo() {
+            // Given - arriva la revisione 3; esistono già rev1 (T-1ms) e rev2 (T), ordinate crescenti
+            LocalDateTime t = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+            LocalDateTime tMeno1 = t.minus(1, ChronoUnit.MILLIS);
+
+            FdrPaymentsProcessor.FdrCompleteData rev3Data = FdrPaymentsProcessor.FdrCompleteData.builder()
+                .frTempId(1L)
+                .codPsp("PSP001")
+                .codDominio("12345678901")
+                .codFlusso("FDR-TEST-001")
+                .iur("IUR-FLUSSO")
+                .dataOraFlusso(t)
+                .dataRegolamento(LocalDateTime.now())
+                .numeroPagamenti(1L)
+                .importoTotalePagamenti(100.00)
+                .revisione(3L)
+                .stato("PUBLISHED")
+                .payments(List.of(FdrPaymentsProcessor.PaymentData.builder()
+                    .iuv("IUV001").iur("IUR001").indiceDati(1L)
+                    .importoPagato(100.00).esito(Costanti.PAYMENT_EXECUTED)
+                    .data(LocalDateTime.now()).build()))
+                .build();
+
+            Fr rev1 = Fr.builder().id(1L).codDominio("12345678901").codFlusso("FDR-TEST-001")
+                .codPsp("PSP001").revisione(1L).dataOraFlusso(tMeno1).obsoleto(true).build();
+            Fr rev2 = Fr.builder().id(2L).codDominio("12345678901").codFlusso("FDR-TEST-001")
+                .codPsp("PSP001").revisione(2L).dataOraFlusso(t).obsoleto(false).build();
+
+            when(frRepository.findByCodFlussoAndCodPspAndRevisione("FDR-TEST-001", "PSP001", 3L))
+                .thenReturn(Optional.empty());
+            when(dominioRepository.findByCodDominio("12345678901"))
+                .thenReturn(Optional.of(testDominio));
+            when(pagamentoRepository.findAllByCodDominioAndIuvAndIurAndIndiceDati(
+                anyString(), anyString(), anyString(), anyLong()))
+                .thenReturn(Collections.emptyList());
+            // Ordine crescente di data_ora_flusso: [rev1 (T-1ms), rev2 (T)]
+            when(frRepository.findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc(
+                "12345678901", "FDR-TEST-001", "PSP001"))
+                .thenReturn(new ArrayList<>(List.of(rev1, rev2)));
+            when(frRepository.save(any(Fr.class))).thenAnswer(inv -> {
+                Fr fr = inv.getArgument(0);
+                fr.setId(3L);
+                return fr;
+            });
+            FrTemp frTemp = FrTemp.builder().id(1L).build();
+            when(frTempRepository.findById(1L)).thenReturn(Optional.of(frTemp));
+
+            // When
+            writer.write(new Chunk<>(List.of(rev3Data)));
+
+            // Then - entrambe le precedenti spostate di 1ms, in ordine crescente, e marcate obsolete
+            ArgumentCaptor<Fr> shiftCaptor = ArgumentCaptor.forClass(Fr.class);
+            verify(frRepository, org.mockito.Mockito.times(2)).saveAndFlush(shiftCaptor.capture());
+            List<Fr> spostati = shiftCaptor.getAllValues();
+            // primo spostamento: la più vecchia (rev1) T-1ms -> T-2ms
+            assertThat(spostati.get(0).getRevisione()).isEqualTo(1L);
+            assertThat(spostati.get(0).getObsoleto()).isTrue();
+            assertThat(spostati.get(0).getDataOraFlusso()).isEqualTo(t.minus(2, ChronoUnit.MILLIS));
+            // secondo spostamento: rev2 T -> T-1ms (slot liberato dal passo precedente)
+            assertThat(spostati.get(1).getRevisione()).isEqualTo(2L);
+            assertThat(spostati.get(1).getObsoleto()).isTrue();
+            assertThat(spostati.get(1).getDataOraFlusso()).isEqualTo(tMeno1);
+
+            // la nuova revisione 3 conserva la data_ora_flusso reale T
+            verify(frRepository).save(frCaptor.capture());
+            Fr savedFr = frCaptor.getValue();
+            assertThat(savedFr.getObsoleto()).isFalse();
+            assertThat(savedFr.getRevisione()).isEqualTo(3L);
+            assertThat(savedFr.getDataOraFlusso()).isEqualTo(t);
         }
 
         @Test
         void testRevisioneUnoNonMarcaObsoleti() {
-            // Given - flusso con revisione 1, non deve invocare marcaObsoleti
+            // Given - flusso con revisione 1, nessuna riga precedente: nessuno spostamento di timestamp
             when(frRepository.findByCodFlussoAndCodPspAndRevisione(anyString(), anyString(), anyLong()))
                 .thenReturn(Optional.empty());
             when(dominioRepository.findByCodDominio("12345678901"))
@@ -1462,6 +1553,7 @@ class FdrPaymentsWriterTest {
             when(pagamentoRepository.findAllByCodDominioAndIuvAndIurAndIndiceDati(
                 anyString(), anyString(), anyString(), anyLong()))
                 .thenReturn(List.of(pagamento));
+            // findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc non stubbato -> lista vuota
             when(frRepository.save(any(Fr.class))).thenAnswer(inv -> {
                 Fr fr = inv.getArgument(0);
                 fr.setId(1L);
@@ -1473,8 +1565,8 @@ class FdrPaymentsWriterTest {
             // When
             writer.write(new Chunk<>(List.of(testData))); // testData ha revisione = 1
 
-            // Then - marcaObsoleti NON deve essere invocato
-            verify(frRepository, never()).marcaObsoleti(anyString(), anyString(), anyString());
+            // Then - nessuna riga precedente da spostare/obsoletare
+            verify(frRepository, never()).saveAndFlush(any(Fr.class));
 
             verify(frRepository).save(frCaptor.capture());
             Fr savedFr = frCaptor.getValue();
@@ -1510,9 +1602,8 @@ class FdrPaymentsWriterTest {
             when(pagamentoRepository.findAllByCodDominioAndIuvAndIurAndIndiceDati(
                 anyString(), anyString(), anyString(), anyLong()))
                 .thenReturn(Collections.emptyList());
-            // Nessun flusso precedente
-            when(frRepository.marcaObsoleti("12345678901", "FDR-TEST-NEW", "PSP001"))
-                .thenReturn(0);
+            // Nessun flusso precedente: findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc
+            // non stubbato -> lista vuota
             when(frRepository.save(any(Fr.class))).thenAnswer(inv -> {
                 Fr fr = inv.getArgument(0);
                 fr.setId(3L);
@@ -1524,8 +1615,8 @@ class FdrPaymentsWriterTest {
             // When
             writer.write(new Chunk<>(List.of(rev3Data)));
 
-            // Then - marcaObsoleti invocato ma restituisce 0
-            verify(frRepository).marcaObsoleti("12345678901", "FDR-TEST-NEW", "PSP001");
+            // Then - nessuna riga precedente da spostare
+            verify(frRepository, never()).saveAndFlush(any(Fr.class));
             verify(frRepository).save(frCaptor.capture());
             Fr savedFr = frCaptor.getValue();
             assertThat(savedFr.getObsoleto()).isFalse();

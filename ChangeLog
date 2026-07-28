@@ -1,3 +1,31 @@
+2026-07-28  Giuliano Pintori <pintori@link.it>
+
+	* Avanzamento versione 1.1.8
+
+2026-07-28  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Risolto Bug - violazione del vincolo UNIQUE_FR_1 (cod_dominio, cod_flusso,
+	data_ora_flusso) all'acquisizione di una nuova revisione di un flusso gia'
+	presente (es. ORA-00001 su Oracle, duplicate key su PostgreSQL). pagoPA
+	incrementa la revisione mantenendo invariata la data_ora_flusso, mentre la
+	UNIQUE_FR_1 - che e' la chiave usata dalle API GovPay per la GET puntuale
+	/flussiRendicontazione/{idDominio}/{idFlusso}/{dataOraFlusso} - deve restare
+	univoca. La precedente gestione (marcaObsoleti) impostava solo il flag
+	obsoleto=true sulle righe precedenti senza modificarne la data_ora_flusso: il
+	successivo INSERT della nuova revisione ricadeva sulla stessa tripla e violava
+	il vincolo. Ora, in FdrPaymentsWriter, prima di inserire la nuova revisione le
+	righe precedenti dello stesso flusso (cod_dominio, cod_flusso, cod_psp) vengono
+	marcate obsolete e la loro data_ora_flusso viene spostata indietro di 1ms,
+	liberando lo slot per la nuova revisione che conserva la data_ora_flusso reale.
+	Lo spostamento avviene in ordine di data_ora_flusso crescente con flush immediato
+	riga per riga, per evitare collisioni transienti sul vincolo unique (verificato
+	subito dal DB) e per garantire l'ordine corretto rispetto all'INSERT finale.
+	Il fix e' DB-agnostico (shift calcolato in Java). Rimosso il metodo di repository
+	marcaObsoleti (query bulk) sostituito da
+	findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc. Aggiornati i test
+	esistenti e aggiunto test di regressione con 3 revisioni sullo stesso flusso.
+
 2026-07-23  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 1.1.7

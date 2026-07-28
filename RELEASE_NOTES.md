@@ -1,5 +1,25 @@
 # Release Notes
 
+## 1.1.8 — 2026-07-28
+
+Release di manutenzione: correzione della violazione del vincolo di unicità `UNIQUE_FR_1` all'acquisizione di una nuova revisione di un flusso già presente.
+
+### Correzioni — Violazione `UNIQUE_FR_1` su nuova revisione
+L'acquisizione di una **nuova revisione** di un flusso già presente falliva con violazione del vincolo `UNIQUE_FR_1 (cod_dominio, cod_flusso, data_ora_flusso)` (es. `ORA-00001` su Oracle, *duplicate key* su PostgreSQL). pagoPA **incrementa la revisione mantenendo invariata la `data_ora_flusso`**, mentre `UNIQUE_FR_1` — che è la chiave usata dalle API GovPay per la **GET puntuale** `/flussiRendicontazione/{idDominio}/{idFlusso}/{dataOraFlusso}` — deve restare univoca. La gestione precedente (`marcaObsoleti`) impostava solo il flag `obsoleto=true` sulle righe precedenti **senza modificarne la `data_ora_flusso`**: il successivo `INSERT` della nuova revisione ricadeva sulla stessa tripla e violava il vincolo.
+
+Ora, in `FdrPaymentsWriter`, prima di inserire la nuova revisione le righe precedenti dello stesso flusso (`cod_dominio, cod_flusso, cod_psp`) vengono marcate obsolete e la loro `data_ora_flusso` viene **spostata indietro di 1 ms**, liberando lo slot per la nuova revisione che conserva la `data_ora_flusso` reale (quella interrogata dalle API). Lo spostamento avviene in ordine di `data_ora_flusso` **crescente** con **flush immediato riga per riga**, per evitare collisioni transienti sul vincolo unique (verificato subito dal DB) e garantire l'ordine corretto rispetto all'`INSERT` finale. Il fix è **DB-agnostico** (shift calcolato in Java, non via SQL nativo per DBMS).
+
+### Note
+- Le vecchie revisioni restano consultabili come storico (`obsoleto=true`) ma con `data_ora_flusso` "sintetica" (spostata di N ms): la GET puntuale sulla data reale del flusso restituisce sempre l'**ultima revisione** (comportamento atteso).
+- Rimosso il metodo di repository `marcaObsoleti` (query bulk `@Modifying`), sostituito da `findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc`.
+
+### Test
+- Aggiornati i test `ObsoletoRevisioneTests` alla nuova logica di spostamento.
+- Aggiunto `testTreRevisioniStessoFlussoSpostamentoProgressivo`: scenario a 3 revisioni sullo stesso flusso (rev1 `T-1ms`, rev2 `T` → rev3 `T`), verifica shift progressivo (`rev1 → T-2ms`, `rev2 → T-1ms`), flag obsoleto e conservazione della `data_ora_flusso` reale sulla nuova revisione.
+
+### Compatibilità
+Nessuna breaking change: aggiornamento drop-in rispetto alla 1.1.7. Il vincolo `UNIQUE_FR_1` resta invariato.
+
 ## 1.1.7 — 2026-07-23
 
 Release di manutenzione: correzioni sui flussi di rendicontazione (quadratura importi e precisione dei timestamp) e aggiornamento di sicurezza del driver PostgreSQL.
