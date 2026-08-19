@@ -330,6 +330,13 @@
                             <autoUpdate>${owasp.autoUpdate}</autoUpdate>
                             <failBuildOnCVSS>${owasp.failBuildOnCVSS}</failBuildOnCVSS>
                             <format>ALL</format>
+                            <!-- Falsi positivi / vulnerabilita' non applicabili: un file per CVE,
+                                 le motivazioni e le condizioni di revisione sono nelle note dei file -->
+                            <suppressionFiles>
+                                <suppressionFile>${owasp.falsePositives.dir}/CVE-2018-14335.xml</suppressionFile>
+                                <suppressionFile>${owasp.falsePositives.dir}/CVE-2026-14683.xml</suppressionFile>
+                                <suppressionFile>${owasp.falsePositives.dir}/CVE-2026-14686.xml</suppressionFile>
+                            </suppressionFiles>
                             <nvdApiDelay>120000</nvdApiDelay><!-- 2 minuti -->
                             <nvdMaxRetryCount>3</nvdMaxRetryCount>
                             <!-- Disable OSS Index analyzer to avoid rate limits and auth issues -->
