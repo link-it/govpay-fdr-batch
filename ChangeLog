@@ -4,6 +4,10 @@
 
 2026-08-19  Giuliano Pintori <pintori@link.it>
 
+	* [Build]
+	Aggiornate le dipendenze GovPay alle versioni di release: parent govpay-bom
+	da 2.0.4-SNAPSHOT a 2.0.4 e govpay-common da 2.0.3-SNAPSHOT a 2.0.3.
+
 	* [BatchCore]
 	Risolto Bug - violazione del vincolo UNIQUE_FR_1 sulle revisioni successive
 	di uno stesso flusso. pagoPA incrementa la revisione mantenendo invariata
