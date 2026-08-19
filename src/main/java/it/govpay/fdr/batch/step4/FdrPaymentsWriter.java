@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.MessageFormat;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -164,16 +165,17 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    fr.setStato(Costanti.FLUSSO_STATO_ANOMALA);
 		}
 
-		// Se la revisione è > 1, marco come obsoleti i flussi precedenti con la stessa chiave (codDominio, codFlusso, codPsp)
-		if (fr.getRevisione() != null && fr.getRevisione() > 1) {
-		    int obsoleti = frRepository.marcaObsoleti(fr.getCodDominio(), fr.getCodFlusso(), fr.getCodPsp());
-		    if (obsoleti > 0) {
-		        log.info("Marcati come obsoleti {} flussi precedenti per [Dominio:{}, Flusso:{}, PSP:{}]",
-		            obsoleti, fr.getCodDominio(), fr.getCodFlusso(), fr.getCodPsp());
-		    }
-		}
+		// Gestione revisioni precedenti dello stesso flusso (codDominio, codFlusso, codPsp).
+		// pagoPA incrementa la revisione mantenendo invariata data_ora_flusso, ma UNIQUE_FR_1
+		// (cod_dominio, cod_flusso, data_ora_flusso) — chiave usata dalla GET puntuale delle API —
+		// deve restare univoca. Per non violare il vincolo, le righe precedenti vengono marcate
+		// obsolete e la loro data_ora_flusso viene spostata indietro di 1ms, liberando lo slot per
+		// la nuova revisione (che conserva la data_ora_flusso reale). Lo spostamento avviene in
+		// ordine di data_ora_flusso crescente con flush immediato per evitare collisioni transienti
+		// sul vincolo unique.
+		marcaObsoletiPrecedenti(fr);
 
-		// Save FR
+		// Save FR (nuova revisione con data_ora_flusso reale)
 		fr = frRepository.save(fr);
 
 		log.info("FDR salvato sul DB - Flusso: {}, IUR: {}, ID: {}, NumPagamenti: {}, ImportoTotale: {}, Stato: {}, Rendicontazioni salvate: {}, Anomalie: {}",
@@ -189,6 +191,38 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
 		    log.info("Flusso di rendicontazione acquisito con anomalie.");
 		else
 		    log.info("Flusso di rendicontazione acquisito senza anomalie.");
+	}
+
+	/**
+	 * Marca come obsolete le righe precedenti dello stesso flusso (codDominio, codFlusso, codPsp)
+	 * e ne sposta la data_ora_flusso indietro di 1ms, per non violare UNIQUE_FR_1
+	 * (cod_dominio, cod_flusso, data_ora_flusso) quando pagoPA pubblica una nuova revisione
+	 * mantenendo la stessa data_ora_flusso.
+	 *
+	 * Lo spostamento è eseguito in ordine di data_ora_flusso crescente, con flush immediato riga
+	 * per riga: shiftando prima le righe più vecchie il nuovo timestamp è sempre libero e non si
+	 * generano collisioni transienti sul vincolo unique (verificato subito dal DB).
+	 */
+	private void marcaObsoletiPrecedenti(Fr fr) {
+		List<Fr> precedenti = frRepository.findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc(
+			fr.getCodDominio(), fr.getCodFlusso(), fr.getCodPsp());
+
+		if (precedenti.isEmpty()) {
+			return;
+		}
+
+		for (Fr precedente : precedenti) {
+			precedente.setObsoleto(true);
+			if (precedente.getDataOraFlusso() != null) {
+				precedente.setDataOraFlusso(precedente.getDataOraFlusso().minus(1, ChronoUnit.MILLIS));
+			}
+			// flush immediato: forza l'UPDATE (che Hibernate eseguirebbe dopo gli INSERT) prima
+			// dell'inserimento della nuova revisione e mantiene l'ordine di spostamento crescente.
+			frRepository.saveAndFlush(precedente);
+		}
+
+		log.info("Marcate obsolete e spostate indietro di 1ms {} righe precedenti per [Dominio:{}, Flusso:{}, PSP:{}]",
+			precedenti.size(), fr.getCodDominio(), fr.getCodFlusso(), fr.getCodPsp());
 	}
 
 	private Rendicontazione buildRendicontazione(Fr fr, FdrPaymentsProcessor.PaymentData paymentData, Pagamento pagamento) {

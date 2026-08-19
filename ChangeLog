@@ -1,3 +1,47 @@
+2026-08-19  Giuliano Pintori <pintori@link.it>
+
+	* [BatchCore]
+	Risolto Bug - violazione del vincolo UNIQUE_FR_1 sulle revisioni successive
+	di uno stesso flusso. pagoPA incrementa la revisione mantenendo invariata
+	data_ora_flusso, ma il vincolo UNIQUE_FR_1 (cod_dominio, cod_flusso,
+	data_ora_flusso) - chiave usata dalla GET puntuale delle API - deve restare
+	univoco: l'inserimento della nuova revisione falliva perche' la riga
+	precedente occupava gia' lo stesso slot.
+	La marcatura del flag 'obsoleto' introdotta con la #34 non era sufficiente,
+	perche' non liberava la data_ora_flusso.
+	Ora, prima di inserire la nuova revisione, tutte le righe precedenti dello
+	stesso flusso (cod_dominio, cod_flusso, cod_psp) vengono marcate obsolete e
+	la loro data_ora_flusso viene spostata indietro di 1ms; la nuova revisione
+	conserva quindi la data_ora_flusso reale ricevuta da pagoPA.
+	Lo spostamento e' eseguito in ordine di data_ora_flusso crescente, con flush
+	immediato riga per riga: shiftando prima le righe piu' vecchie il nuovo
+	timestamp e' sempre libero e non si generano collisioni transienti sul
+	vincolo unique, che il DB verifica ad ogni statement. Con N revisioni
+	successive lo scalamento e' progressivo (-1ms, -2ms, ...).
+	Modifiche:
+	- FrRepository: rimosso marcaObsoleti() (query JPQL @Modifying, che non
+	  poteva aggiornare la data_ora_flusso riga per riga), sostituito da
+	  findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc()
+	- FdrPaymentsWriter: nuovo metodo marcaObsoletiPrecedenti() con
+	  saveAndFlush() per riga; la marcatura non e' piu' condizionata a
+	  revisione > 1
+	- FdrPaymentsWriterTest: test aggiornati sui nuovi mock e aggiunto
+	  testTreRevisioniStessoFlussoSpostamentoProgressivo()
+
+	* [Sicurezza]
+	Aggiunte le soppressioni OWASP Dependency-Check per i falsi positivi
+	segnalati dal report, sotto src/main/resources/owasp/falsePositives/
+	(un file per CVE, come negli altri progetti GovPay):
+	- CVE-2026-14683 e CVE-2026-14686 (HdrHistogram 2.2.2, transitiva da
+	  govpay-common -> micrometer-core): nessuna versione con il fix
+	  pubblicata, segnalazioni disputed/Deferred su NVD, CVSS 3.3 LOW con
+	  vettore AV:L;
+	- CVE-2018-14335 (H2 2.4.240): falso positivo, riguarda la funzione di
+	  backup di H2 1.4.197 e precedenti; H2 e' in scope provided ed esclusa
+	  dall'assembly di distribuzione.
+	Collegata la configurazione suppressionFiles del plugin
+	dependency-check-maven alla proprieta' owasp.falsePositives.dir.
+
 2026-07-25  Giuliano Pintori <pintori@link.it>
 
 	* [Build]

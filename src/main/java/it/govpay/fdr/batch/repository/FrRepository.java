@@ -2,11 +2,9 @@ package it.govpay.fdr.batch.repository;
 
 import it.govpay.fdr.batch.entity.Fr;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -29,11 +27,11 @@ public interface FrRepository extends JpaRepository<Fr, Long> {
         String codDominio, String codFlusso, String codPsp, Long revision);
 
     /**
-     * Marca come obsoleti tutti i flussi con la stessa chiave (codDominio, codFlusso, codPsp)
-     * che non sono già obsoleti.
-     * @return il numero di record aggiornati
+     * Recupera tutte le righe (comprese quelle già obsolete) di uno stesso flusso
+     * (codDominio, codFlusso, codPsp) ordinate per data_ora_flusso crescente.
+     * L'ordinamento crescente è indispensabile per lo spostamento del timestamp: shiftando
+     * prima le righe più vecchie si libera lo slot senza collisioni transienti su UNIQUE_FR_1.
      */
-    @Modifying(clearAutomatically = true)
-    @Query("UPDATE Fr f SET f.obsoleto = true WHERE f.codDominio = :codDominio AND f.codFlusso = :codFlusso AND f.codPsp = :codPsp AND f.obsoleto = false")
-    int marcaObsoleti(@Param("codDominio") String codDominio, @Param("codFlusso") String codFlusso, @Param("codPsp") String codPsp);
+    List<Fr> findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc(
+        String codDominio, String codFlusso, String codPsp);
 }
