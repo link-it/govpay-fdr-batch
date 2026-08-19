@@ -1,5 +1,9 @@
 2026-08-19  Giuliano Pintori <pintori@link.it>
 
+	* Avanzamento versione 2.0.1
+
+2026-08-19  Giuliano Pintori <pintori@link.it>
+
 	* [BatchCore]
 	Risolto Bug - violazione del vincolo UNIQUE_FR_1 sulle revisioni successive
 	di uno stesso flusso. pagoPA incrementa la revisione mantenendo invariata
