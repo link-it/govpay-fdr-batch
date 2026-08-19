@@ -8,13 +8,13 @@
     <parent>
         <groupId>org.gov4j.govpay</groupId>
         <artifactId>govpay-bom</artifactId>
-        <version>2.0.4-SNAPSHOT</version>
+        <version>2.0.4</version>
         <relativePath/>
     </parent>
 
     <groupId>it.govpay</groupId>
     <artifactId>govpay-fdr-batch</artifactId>
-    <version>2.0.0</version>
+    <version>2.0.1</version>
     <packaging>jar</packaging>
 
     <name>GovPay FDR Batch</name>
@@ -30,7 +30,7 @@
         <sonar.coverage.exclusions>**/test/**,**/*Test*.java</sonar.coverage.exclusions>
 
         <!-- Dependencies -->
-        <govpay-common.version>2.0.3-SNAPSHOT</govpay-common.version>
+        <govpay-common.version>2.0.3</govpay-common.version>
 
         <!-- Security override: bump PostgreSQL JDBC (GHSA-j92g-9f8w-j867, CVSS 8.2, fissata in 42.7.12); il govpay-bom 2.0.1 pinna ancora 42.7.11 -->
         <postgresql.version>42.7.13</postgresql.version>
@@ -330,6 +330,13 @@
                             <autoUpdate>${owasp.autoUpdate}</autoUpdate>
                             <failBuildOnCVSS>${owasp.failBuildOnCVSS}</failBuildOnCVSS>
                             <format>ALL</format>
+                            <!-- Falsi positivi / vulnerabilita' non applicabili: un file per CVE,
+                                 le motivazioni e le condizioni di revisione sono nelle note dei file -->
+                            <suppressionFiles>
+                                <suppressionFile>${owasp.falsePositives.dir}/CVE-2018-14335.xml</suppressionFile>
+                                <suppressionFile>${owasp.falsePositives.dir}/CVE-2026-14683.xml</suppressionFile>
+                                <suppressionFile>${owasp.falsePositives.dir}/CVE-2026-14686.xml</suppressionFile>
+                            </suppressionFiles>
                             <nvdApiDelay>120000</nvdApiDelay><!-- 2 minuti -->
                             <nvdMaxRetryCount>3</nvdMaxRetryCount>
                             <!-- Disable OSS Index analyzer to avoid rate limits and auth issues -->
