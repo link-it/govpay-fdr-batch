@@ -1,5 +1,39 @@
 # Release Notes
 
+## 2.0.1 — 2026-08-19
+
+Release di manutenzione: correzione della violazione del vincolo di unicità `UNIQUE_FR_1` all'acquisizione di una nuova revisione di un flusso già presente, allineamento all'ecosistema GovPay 2.0.4 e runtime Docker su JDK 25.
+
+### Correzioni — Violazione `UNIQUE_FR_1` su nuova revisione
+L'acquisizione di una **nuova revisione** di un flusso già presente falliva con violazione del vincolo `UNIQUE_FR_1 (cod_dominio, cod_flusso, data_ora_flusso)` (es. `ORA-00001` su Oracle, *duplicate key* su PostgreSQL). pagoPA **incrementa la revisione mantenendo invariata la `data_ora_flusso`**, mentre `UNIQUE_FR_1` — che è la chiave usata dalle API GovPay per la **GET puntuale** `/flussiRendicontazione/{idDominio}/{idFlusso}/{dataOraFlusso}` — deve restare univoca. La gestione precedente (`marcaObsoleti`, introdotta con la #34) impostava solo il flag `obsoleto=true` sulle righe precedenti **senza modificarne la `data_ora_flusso`**: il successivo `INSERT` della nuova revisione ricadeva sulla stessa tripla e violava il vincolo.
+
+Ora, in `FdrPaymentsWriter`, prima di inserire la nuova revisione le righe precedenti dello stesso flusso (`cod_dominio, cod_flusso, cod_psp`) vengono marcate obsolete e la loro `data_ora_flusso` viene **spostata indietro di 1 ms**, liberando lo slot per la nuova revisione che conserva la `data_ora_flusso` reale (quella interrogata dalle API). Lo spostamento avviene in ordine di `data_ora_flusso` **crescente** con **flush immediato riga per riga**, per evitare collisioni transienti sul vincolo unique (verificato dal DB ad ogni statement) e garantire l'ordine corretto rispetto all'`INSERT` finale. Con N revisioni successive lo scalamento è progressivo (`-1ms`, `-2ms`, ...). Il fix è **DB-agnostico** (shift calcolato in Java, non via SQL nativo per DBMS). *(Porting da 1.1.8.)*
+
+- Rimosso il metodo di repository `marcaObsoleti` (query bulk `@Modifying`, che non poteva aggiornare la `data_ora_flusso` riga per riga), sostituito da `findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc`.
+- La marcatura non è più condizionata a `revisione > 1`: vengono considerate tutte le righe presenti per la chiave del flusso.
+- Le vecchie revisioni restano consultabili come storico (`obsoleto=true`) ma con `data_ora_flusso` "sintetica" (spostata di N ms): la GET puntuale sulla data reale del flusso restituisce sempre l'**ultima revisione** (comportamento atteso).
+
+### Docker
+- Immagini portate al **runtime JDK 25**: base image aggiornata da `eclipse-temurin:21-jre-alpine` a `eclipse-temurin:25-jre-alpine` in `docker/govpay-fdr/Dockerfile.github` e `Dockerfile.daFile`. Cambia **solo il runtime**: il target di compilazione resta **Java 21**. Verificata l'esecuzione dell'intera suite di test su OpenJDK 25.0.3 LTS.
+
+### Sicurezza
+Nessuna nuova vulnerabilità da correggere in questa release. Formalizzata la gestione dei **falsi positivi** del report OWASP Dependency-Check: aggiunti i file di soppressione sotto `src/main/resources/owasp/falsePositives/` (un file per CVE, come negli altri progetti GovPay), collegati al plugin `dependency-check-maven` tramite la property `owasp.falsePositives.dir`.
+- **CVE-2026-14683**, **CVE-2026-14686** (HdrHistogram 2.2.2, transitiva da `govpay-common` → `micrometer-core`): nessuna versione con il fix pubblicata, segnalazioni *disputed*/*Deferred* su NVD, CVSS 3.3 LOW con vettore `AV:L`. Da rivalutare all'uscita di una release corretta di HdrHistogram.
+- **CVE-2018-14335** (H2 2.4.240): falso positivo, riguarda la funzione di backup di H2 **1.4.197 e precedenti**; H2 è in scope `provided` ed esclusa dall'assembly di distribuzione.
+
+### Aggiornamenti dipendenze
+- `govpay-bom` aggiornato da **2.0.1** a **2.0.4** (parent BOM).
+- `govpay-common` aggiornato da **2.0.0** a **2.0.3**.
+- Nel `pom.xml` non restano riferimenti a versioni `SNAPSHOT`.
+
+### Test
+Suite completa verde: **273 test, 0 failures, 0 errors, 0 skipped**.
+- Aggiornati i test sulle revisioni alla nuova logica di spostamento (mock su `findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc` al posto di `marcaObsoleti`).
+- Aggiunto `testTreRevisioniStessoFlussoSpostamentoProgressivo`: scenario a 3 revisioni sullo stesso flusso (rev1 `T-1ms`, rev2 `T` → rev3 `T`), verifica lo shift progressivo (`rev1 → T-2ms`, `rev2 → T-1ms`), il flag obsoleto e la conservazione della `data_ora_flusso` reale sulla nuova revisione.
+
+### Compatibilità
+Nessuna breaking change: aggiornamento **drop-in** rispetto alla 2.0.0. Il vincolo `UNIQUE_FR_1` resta invariato e non sono richieste migrazioni dello schema dati né modifiche alle configurazioni applicative. Il runtime delle immagini Docker passa a JDK 25; per le installazioni non containerizzate resta supportato Java 21.
+
 ## 2.0.0 — 2026-07-11
 
 Major di piattaforma: migrazione a **Spring Boot 4.x / Spring Framework 7.x** (Spring Batch 6, Hibernate ORM 7, Jackson 3), con allineamento all'ecosistema GovPay 2.0.
