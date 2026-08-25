@@ -37,7 +37,7 @@ curl -fL -o /tmp/govpay-fdr-batch.jar "https://github.com/link-it/govpay-fdr-bat
 mv /tmp/govpay-fdr-batch.jar ${GOVPAY_FDR_HOME}/govpay-fdr-batch.jar; \
 chown govpay:govpay ${GOVPAY_FDR_HOME}/govpay-fdr-batch.jar; \
 ls -la ${GOVPAY_FDR_HOME}/; \
-curl -kL -sS -q -o /tmp/sql.zip "https://github.com/link-it/govpay-fdr-batch/releases/download/${GOVPAY_FDR_FULLVERSION}/sql.zip"; \
+curl -fkL -sS -q -o /tmp/sql.zip "https://github.com/link-it/govpay-fdr-batch/releases/download/${GOVPAY_FDR_FULLVERSION}/sql.zip"; \
 unzip -q /tmp/sql.zip -d /opt && rm /tmp/sql.zip; \
 chown -R govpay:govpay /opt/sql; \
 curl -kL -sS -q -o /var/tmp/hsqldb-${HSQLDB_FULLVERSION}.zip https://sourceforge.net/projects/hsqldb/files/hsqldb/hsqldb_2_7/hsqldb-${HSQLDB_FULLVERSION}.zip/download; \
