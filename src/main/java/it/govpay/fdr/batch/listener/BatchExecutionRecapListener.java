@@ -2,6 +2,7 @@ package it.govpay.fdr.batch.listener;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -40,7 +41,7 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
         log.info("=".repeat(80));
 
         // Statistiche generali
-        Duration duration = Duration.between(
+        Duration duration = durationBetween(
             jobExecution.getStartTime(),
             jobExecution.getEndTime()
         );
@@ -86,7 +87,7 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
     private void printCleanupStats(StepExecution stepExecution) {
         log.info("--- STEP 1: CLEANUP FR_TEMP ---");
         log.info("Status: {}", stepExecution.getStatus());
-        long durationMs = Duration.between(stepExecution.getStartTime(), stepExecution.getEndTime()).toMillis();
+        long durationMs = durationBetween(stepExecution.getStartTime(), stepExecution.getEndTime()).toMillis();
         log.info("Durata: {} ms", durationMs);
         log.info("");
     }
@@ -107,7 +108,7 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
         log.info("Flussi skippati (già in FR_TEMP): {}", skippedFrTempCount);
         log.info("Totale flussi skippati: {}", totalSkipped);
         log.info("Errori: {}", stepExecution.getReadSkipCount() + stepExecution.getProcessSkipCount());
-        long durationMs = Duration.between(stepExecution.getStartTime(), stepExecution.getEndTime()).toMillis();
+        long durationMs = durationBetween(stepExecution.getStartTime(), stepExecution.getEndTime()).toMillis();
         log.info("Durata: {} ms", durationMs);
         log.info("");
     }
@@ -143,7 +144,7 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
             totalSkipped += (int) partitionExec.getWriteSkipCount();
             totalErrors += (int) (partitionExec.getReadSkipCount() + partitionExec.getProcessSkipCount());
 
-            long duration = Duration.between(partitionExec.getStartTime(), partitionExec.getEndTime()).toMillis();
+            long duration = durationBetween(partitionExec.getStartTime(), partitionExec.getEndTime()).toMillis();
             totalDuration += duration;
 
             // Estrai codDominio dal nome della partizione o dal context
@@ -191,6 +192,17 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
             log.info("-".repeat(80));
         }
         log.info("");
+    }
+
+    /**
+     * Calcola la durata fra due istanti ancorandoli al fuso orario di sistema.
+     * Spring Batch espone start/end time come LocalDateTime: calcolare la differenza
+     * direttamente fra i due valori misura il tempo di orologio, che a cavallo di un
+     * cambio di ora legale non coincide col tempo realmente trascorso.
+     */
+    private static Duration durationBetween(LocalDateTime inizio, LocalDateTime fine) {
+        ZoneId zone = ZoneId.systemDefault();
+        return Duration.between(inizio.atZone(zone), fine.atZone(zone));
     }
 
     private String extractCodDominio(StepExecution stepExecution) {
