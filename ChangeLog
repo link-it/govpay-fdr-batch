@@ -1,3 +1,18 @@
+2026-08-27  Giuliano Pintori <pintori@link.it>
+
+	* [CodeQuality]
+	Risoluzione segnalazioni SonarCloud - calcolo delle durate non time zone-aware
+	in BatchExecutionRecapListener (4 bug di severita' Major, stessa regola su
+	quattro punti diversi). Le durate erano calcolate con Duration.between su
+	LocalDateTime, i tipi esposti da Spring Batch per start/end time: privi
+	dell'informazione di fuso, misurano il tempo di orologio e a cavallo di un
+	cambio di ora legale non coincidono con il tempo realmente trascorso.
+	Introdotto l'helper durationBetween() che ancora entrambi gli argomenti al
+	fuso orario di sistema (ZonedDateTime) prima del calcolo; sostituite le
+	quattro chiamate dirette in afterJob() (durata totale del job),
+	printCleanupStats(), printHeadersStats() e printPartitionedStepStats()
+	(durata delle singole partizioni).
+
 2026-08-19  Giuliano Pintori <pintori@link.it>
 
 	* Avanzamento versione 2.0.1
