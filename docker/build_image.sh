@@ -65,7 +65,16 @@ done
 rm -rf buildcontext
 mkdir -p buildcontext/
 cp -fr commons buildcontext/
-cp -fr ../src/main/resources/sql buildcontext/
+# Gli script SQL dell'immagine arrivano da target/sql.zip, prodotto dal profilo
+# dist: contiene lo schema dei metadati Spring Batch estratto da
+# spring-batch-core piu' gli script delle tabelle applicative. E' lo stesso
+# archivio che la pipeline pubblica come asset di release.
+if [ -f ../target/sql.zip ]; then
+  unzip -q -o ../target/sql.zip -d buildcontext/
+else
+  mkdir -p buildcontext/sql
+  echo "WARN: ../target/sql.zip non trovato: eseguire 'mvn -Pjar,dist package' per generarlo."
+fi
 
 DOCKERBUILD_OPT=()
 DOCKERBUILD_OPTS=(${DOCKERBUILD_OPTS[@]} '--build-arg' "govpay_fdr_fullversion=${VER:-${LATEST_GOVPAY_FDR_RELEASE}}")
