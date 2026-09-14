@@ -1,5 +1,24 @@
 2026-09-14  Giuliano Pintori <pintori@link.it>
 
+	* [Docker]
+	Corretto il DDL applicativo eseguito all'avvio: init_fdr_db.sh eseguiva
+	/tmp/fdr_sql/create-db.sql, un file che non e' mai esistito in questo
+	repository. Il DDL della tabella FR_TEMP sta in create.sql, presente per tutti
+	e cinque i vendor. L'inizializzazione del database via Docker non poteva
+	funzionare: la tabella su cui lavora il batch non veniva creata.
+
+	Il difetto non era emerso perche' l'inizializzazione e' disattivata di default
+	(GOVPAY_FDR_POP_DB_SKIP=TRUE) e il job docker gira solo sui tag.
+
+	La verifica di esistenza a monte ora copre entrambi gli script, lo schema dei
+	metadati Spring Batch e create.sql, cosi' un file mancante fallisce subito con
+	un messaggio chiaro invece che dentro SqlTool.
+
+	Verificato costruendo l'immagine e avviandola contro PostgreSQL 16: nascono le
+	6 tabelle batch, le 3 sequence con i nomi di Spring Batch 6 e FR_TEMP con i
+	suoi 6 indici.
+2026-09-14  Giuliano Pintori <pintori@link.it>
+
 	* [DDL]
 	Gli schemi dei metadati Spring Batch non sono piu' mantenuti in questo
 	repository. Rimossi gli schemi tenuti a mano

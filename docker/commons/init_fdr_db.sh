@@ -219,18 +219,25 @@ if [ -f /opt/sql/VERSION ]; then
     grep -v '^#' /opt/sql/VERSION | grep -v '^$' | while read -r riga; do log_info "  ${riga}"; done
 fi
 
-# Verifica esistenza script SQL
-SQL_FILE="${BATCH_SCHEMA}"
-if [ ! -f "${SQL_FILE}" ]; then
-    log_error "Script SQL non trovato: ${SQL_FILE}"
-    log_error "File disponibili in /opt/sql:"
-    ls -la /opt/sql/ 2>/dev/null || echo "  directory /opt/sql non trovata"
-    if [ -d /opt/sql/spring-batch ]; then
-        log_error "File in /opt/sql/spring-batch:"
-        ls -la /opt/sql/spring-batch/ 2>/dev/null
+# Verifica esistenza script SQL: lo schema dei metadati Spring Batch e il DDL
+# della tabella applicativa FR_TEMP. Controllarli entrambi qui fa fallire
+# l'inizializzazione con un messaggio chiaro invece che dentro SqlTool.
+for SQL_FILE in "${BATCH_SCHEMA}" "/opt/sql/${SQL_DIR}/create.sql"; do
+    if [ ! -f "${SQL_FILE}" ]; then
+        log_error "Script SQL non trovato: ${SQL_FILE}"
+        log_error "File disponibili in /opt/sql:"
+        ls -la /opt/sql/ 2>/dev/null || echo "  directory /opt/sql non trovata"
+        if [ -d "/opt/sql/${SQL_DIR}" ]; then
+            log_error "File in /opt/sql/${SQL_DIR}:"
+            ls -la "/opt/sql/${SQL_DIR}/" 2>/dev/null
+        fi
+        if [ -d /opt/sql/spring-batch ]; then
+            log_error "File in /opt/sql/spring-batch:"
+            ls -la /opt/sql/spring-batch/ 2>/dev/null
+        fi
+        exit 1
     fi
-    exit 1
-fi
+done
 
 # Copia script in posizione temporanea
 mkdir -p /tmp/fdr_sql
@@ -263,7 +270,7 @@ java ${INVOCAZIONE_CLIENT} \
 SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 ${START_TRANSACTION}
 \i /tmp/fdr_sql/schema-${GOVPAY_DB_TYPE}.sql
-\i /tmp/fdr_sql/create-db.sql
+\i /tmp/fdr_sql/create.sql
 COMMIT;
 EOSQL
 
