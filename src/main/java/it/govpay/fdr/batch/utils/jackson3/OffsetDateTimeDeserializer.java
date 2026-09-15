@@ -1,5 +1,9 @@
 package it.govpay.fdr.batch.utils.jackson3;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.DateTimeException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -69,7 +73,9 @@ public class OffsetDateTimeDeserializer extends StdScalarDeserializer<OffsetDate
 
 	@Override
 	public OffsetDateTime deserialize(JsonParser jsonParser, DeserializationContext ctxt) {
-		if (jsonParser.currentToken() == JsonToken.VALUE_STRING) {
+		JsonToken token = jsonParser.currentToken();
+
+		if (token == JsonToken.VALUE_STRING) {
 			try {
 				return parseOffsetDateTime(jsonParser.getString(), this.formatter);
 			} catch (DateTimeParseException e) {
@@ -77,7 +83,37 @@ public class OffsetDateTimeDeserializer extends StdScalarDeserializer<OffsetDate
 						"Failed to parse OffsetDateTime: %s", e.getMessage());
 			}
 		}
+
+		if (token == JsonToken.VALUE_NUMBER_INT || token == JsonToken.VALUE_NUMBER_FLOAT) {
+			try {
+				return parseEpochSeconds(jsonParser.getDecimalValue());
+			} catch (ArithmeticException | DateTimeException e) {
+				return ctxt.reportInputMismatch(OffsetDateTime.class,
+						"Failed to parse OffsetDateTime from epoch: %s", e.getMessage());
+			}
+		}
+
 		return null;
+	}
+
+	/**
+	 * Converte un istante espresso come secondi dall'epoch, con eventuale parte
+	 * frazionaria fino al nanosecondo (es. {@code 1786109246.000000000}).
+	 * <p>
+	 * Le API pagoPA serializzano gli {@code Instant} come stringa ISO, ma i tracciati
+	 * depositati su file system possono arrivare da esportazioni che li scrivono come
+	 * numero: senza questa gestione la data verrebbe silenziosamente persa.
+	 * <p>
+	 * Il valore e' un istante assoluto, quindi viene restituito con offset UTC; la
+	 * conversione al fuso applicativo resta in carico ai processor.
+	 */
+	private static OffsetDateTime parseEpochSeconds(BigDecimal epochSeconds) {
+		long secondi = epochSeconds.longValue();
+		int nanos = epochSeconds.subtract(BigDecimal.valueOf(secondi))
+				.movePointRight(9)
+				.setScale(0, RoundingMode.DOWN)
+				.intValueExact();
+		return Instant.ofEpochSecond(secondi, nanos).atOffset(ZoneOffset.UTC);
 	}
 
 	/**

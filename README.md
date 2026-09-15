@@ -20,6 +20,18 @@ Il sistema scarica, processa e riconcilia i flussi di rendicontazione con i paga
 - **Classe**: `CleanupFrTempTasklet`
 - **Funzione**: Svuota la tabella `FR_TEMP` prima di iniziare il processo di acquisizione
 
+### Step 1-bis: Acquisizione da File System (opzionale)
+- **Reader**: `FdrFileSystemReader` - Elenca i file della directory di acquisizione e ne prende in carico uno alla volta rinominandolo (la rinomina atomica e' il lock fra nodi)
+- **Processor**: `FdrFileSystemProcessor` - Per ogni file:
+  - Deserializza il JSON con lo stesso mapper usato verso pagoPA
+  - Verifica che il dominio sia censito e abilitato
+  - Verifica che il flusso non sia gia' presente in `FR`
+  - Produce lo stesso `FdrCompleteData` dello Step 4, senza passare da `FR_TEMP`
+- **Writer**: `FdrFileSystemWriter` - Persiste il flusso riusando `FdrPaymentsWriter` (stessa riconciliazione e stesse anomalie del canale API) e archivia il file
+- **Attivazione**: lo step entra nel job solo con `govpay.fdr.input.enabled=true`; disabilitato di default
+
+Vedi [Acquisizione da file system](#acquisizione-da-file-system) per formato e configurazione.
+
 ### Step 2: Acquisizione Headers FDR (Multi-threaded)
 - **Reader**: `FdrHeadersReader` - Legge tutti i domini abilitati dal database
 - **Processor**: `FdrHeadersProcessor` - Per ogni dominio, chiama l'API pagoPA per ottenere la lista dei flussi pubblicati
@@ -148,6 +160,84 @@ scheduler.fdrAcquisitionJob.fixedDelayString=7200000
 # Ritardo iniziale prima della prima esecuzione (ms)
 scheduler.initialDelayString=1
 ```
+
+### Acquisizione da file system
+
+Canale alternativo alle API pagoPA: i flussi depositati come file JSON in una directory
+vengono acquisiti all'inizio di ogni esecuzione del job, prima dell'interrogazione del Nodo.
+Serve a riacquisire flussi non piu' esposti da pagoPA, a caricare tracciati forniti
+direttamente dal PSP o dall'ente e a sanare disallineamenti senza interventi manuali sul database.
+
+```properties
+# Abilitazione del canale (default: false, comportamento del batch invariato)
+govpay.fdr.input.enabled=true
+
+# Directory di acquisizione (obbligatoria quando enabled=true)
+govpay.fdr.input.dir=/var/govpay/fdr/input
+
+# Destinazioni post-elaborazione (default: <dir>/processed e <dir>/error)
+govpay.fdr.input.processed-dir=/var/govpay/fdr/processed
+govpay.fdr.input.error-dir=/var/govpay/fdr/error
+
+# Estensione dei file da acquisire
+govpay.fdr.input.extension=.json
+
+# Numero massimo di file elaborati in una singola esecuzione del job
+govpay.fdr.input.max-files-per-run=1000
+```
+
+**Formato del file**: la response della GET puntuale sul flusso
+(`/organizations/{organizationId}/fdrs/{fdr}/revisions/{revision}/psps/{pspId}`) con in piu' la
+lista dei pagamenti inline nel campo `payments`, cioe' l'unione dei due endpoint pagoPA.
+Le date sono accettate sia come stringa ISO sia come secondi dall'epoch. I campi non
+riconosciuti vengono ignorati.
+
+```json
+{
+  "fdr": "2026-08-06ABI03365-B6FXC00000004719",
+  "fdrDate": 1786109246.000000000,
+  "revision": 1,
+  "published": 1786109996.592019000,
+  "status": "PUBLISHED",
+  "sender": { "type": "BIC_CODE", "pspId": "ABI03365", "pspName": "CHERRY BANK SPA" },
+  "receiver": { "organizationId": "09788660968", "organizationName": "RIENERGIA SRLS" },
+  "regulation": "Bonifico SEPA-03365-B6FXC",
+  "regulationDate": "2026-08-06",
+  "computedTotPayments": 1,
+  "computedSumPayments": 70.43,
+  "payments": [
+    {
+      "index": 1,
+      "iuv": "00551000024916517",
+      "iur": "8c1d4c6cf55a42108cc8820456031b0f",
+      "pay": 70.43,
+      "payDate": "2026-08-06T00:00:00Z",
+      "payStatus": "EXECUTED",
+      "idTransfer": 1
+    }
+  ]
+}
+```
+
+Se `totPayments` e `sumPayments` sono assenti si usano `computedTotPayments` e
+`computedSumPayments`, cosi' i controlli di quadratura restano attivi.
+
+**Ciclo di vita dei file**: un file non viene mai cancellato.
+
+| Esito | Destinazione |
+|---|---|
+| Flusso acquisito | `processed-dir`, col nome originale |
+| Flusso gia' presente in `FR` | `processed-dir`, senza reinserimento |
+| File malformato, dominio non censito o non abilitato, scrittura fallita | `error-dir`, con un `.error.txt` contenente la motivazione |
+
+**Multi-nodo**: la directory puo' essere condivisa. Ogni nodo prende in carico un file
+rinominandolo in `<nome>.<cluster-id>.processing` con una move atomica; se la rinomina
+fallisce il file e' di un altro nodo e viene ignorato. Un file rimasto con quel suffisso
+indica un nodo terminato durante l'elaborazione: e' visibile all'operatore, che puo'
+rinominarlo per rimetterlo in coda.
+
+**Tracciamento**: ogni file produce un evento GDE `ACQUISIZIONE_FLUSSO_FILE_SYSTEM`
+di categoria `INTERNO`, con esito `OK` per gli acquisiti e i duplicati e `KO` per gli scarti.
 
 ### Database
 ```properties
@@ -285,6 +375,11 @@ curl http://localhost:8080/api/batch/nextExecution
 - Gestione anomalie con classificazione
 - Stati FR: ACCETTATA, ANOMALA
 - Stati Rendicontazione: OK, ANOMALA, ALTRO_INTERMEDIARIO
+
+### ✅ Acquisizione da file system
+- Canale alternativo alle API pagoPA, disabilitato di default
+- Stessa persistenza, riconciliazione e gestione anomalie del canale API
+- Deduplica sul flusso gia' presente in `FR`, archiviazione dei file, lock fra nodi
 
 ### ✅ Multi-nodo e Recovery
 - Gestione esecuzioni su cluster multi-nodo

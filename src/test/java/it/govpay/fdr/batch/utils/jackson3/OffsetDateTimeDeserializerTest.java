@@ -3,6 +3,7 @@ package it.govpay.fdr.batch.utils.jackson3;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -217,6 +218,24 @@ class OffsetDateTimeDeserializerTest {
         assertThat(result.getMinute()).isEqualTo(30);
         assertThat(result.getSecond()).isEqualTo(0);
         assertThat(result.getOffset()).isEqualTo(ZoneOffset.ofHours(1));
+    }
+
+    @Test
+    @DisplayName("Should deserialize an instant written as epoch seconds")
+    void testDeserializeEpochSeconds() {
+        OffsetDateTime result = read(new OffsetDateTimeDeserializer(), "1786109246");
+        assertThat(result).isNotNull();
+        assertThat(result.getOffset()).isEqualTo(ZoneOffset.UTC);
+        assertThat(result.toInstant()).isEqualTo(Instant.ofEpochSecond(1786109246L));
+    }
+
+    @Test
+    @DisplayName("Should deserialize an instant written as epoch seconds with nanoseconds")
+    void testDeserializeEpochSecondsWithNanos() {
+        OffsetDateTime result = read(new OffsetDateTimeDeserializer(), "1786109996.570225000");
+        assertThat(result).isNotNull();
+        assertThat(result.getOffset()).isEqualTo(ZoneOffset.UTC);
+        assertThat(result.toInstant()).isEqualTo(Instant.ofEpochSecond(1786109996L, 570_225_000));
     }
 
     @Test
