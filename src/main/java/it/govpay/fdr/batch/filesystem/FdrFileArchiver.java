@@ -60,6 +60,12 @@ public class FdrFileArchiver {
     }
 
     private Path archivia(Path file, String nomeOriginale, Path destinazione) {
+        if (destinazione == null) {
+            // Non raggiungibile in pratica: senza directory di acquisizione non ci sono file
+            log.error("Nessuna destinazione di archiviazione ricavabile per il file {}: il file resta"
+                + " in carico a questo nodo", nomeOriginale);
+            return null;
+        }
         try {
             Files.createDirectories(destinazione);
             Path target = destinazioneLibera(destinazione, nomeOriginale);

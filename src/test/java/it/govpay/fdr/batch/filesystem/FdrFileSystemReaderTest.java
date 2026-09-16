@@ -48,12 +48,30 @@ class FdrFileSystemReaderTest {
     }
 
     @Test
-    @DisplayName("Le directory di lavoro vengono create all'apertura dello step")
-    void creaLeDirectory() {
+    @DisplayName("Senza directory configurata lo step e' inerte e non crea nulla")
+    void directoryNonConfigurata() {
+        properties.setDir(null);
+
+        assertThat(leggiTutto(reader())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Una directory configurata ma inesistente non viene creata ne' fa fallire lo step")
+    void directoryInesistente() {
+        Path inesistente = tempDir.resolve("mai-creata");
+        properties.setDir(inesistente.toString());
+
+        assertThat(leggiTutto(reader())).isEmpty();
+        assertThat(inesistente).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("Le directory di archiviazione non vengono create finche' non c'e' un file")
+    void nonCreaLeDirectoryDiArchiviazione() {
         reader();
 
-        assertThat(properties.getProcessedDirPath()).exists();
-        assertThat(properties.getErrorDirPath()).exists();
+        assertThat(properties.getProcessedDirPath()).doesNotExist();
+        assertThat(properties.getErrorDirPath()).doesNotExist();
     }
 
     @Test

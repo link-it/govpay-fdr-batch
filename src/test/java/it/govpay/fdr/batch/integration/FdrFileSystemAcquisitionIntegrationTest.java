@@ -233,6 +233,28 @@ class FdrFileSystemAcquisitionIntegrationTest {
     }
 
     @Test
+    @DisplayName("Senza directory configurata lo step non fa nulla e non fallisce")
+    void directoryNonConfigurata() {
+        inputProperties.setDir(null);
+
+        eseguiStep();
+
+        assertThat(frRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Una directory configurata ma inesistente non viene creata ne' fa fallire lo step")
+    void directoryInesistente() {
+        Path inesistente = inputDir.resolve("mai-creata");
+        inputProperties.setDir(inesistente.toString());
+
+        eseguiStep();
+
+        assertThat(frRepository.findAll()).isEmpty();
+        assertThat(inesistente).doesNotExist();
+    }
+
+    @Test
     @DisplayName("Un flusso di dominio non censito viene scartato senza toccare il database")
     void scartaIlDominioNonCensito() throws IOException {
         deposita("flusso.json", FLUSSO_JSON.replace(COD_DOMINIO, "00000000000"));

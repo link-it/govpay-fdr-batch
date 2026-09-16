@@ -15,7 +15,6 @@ import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.infrastructure.item.ExecutionContext;
 import org.springframework.batch.infrastructure.item.ItemReader;
 import org.springframework.batch.infrastructure.item.ItemStream;
-import org.springframework.batch.infrastructure.item.ItemStreamException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -26,7 +25,13 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Reader dei flussi depositati nella directory di acquisizione.
  * <p>
- * Ogni file viene "preso in carico" rinominandolo in
+ * L'acquisizione da file system e' una procedura di emergenza, usata quando un flusso e'
+ * uscito dalla finestra di ricerca di pagoPA: la directory puo' quindi non essere
+ * configurata, non esistere o essere vuota per tutta la vita dell'installazione. Lo step
+ * verifica e, se non c'e' nulla da elaborare, non produce item senza segnalare errori:
+ * l'assenza e' la condizione normale, non un guasto.
+ * <p>
+ * Ogni file presente viene "preso in carico" rinominandolo in
  * {@code <nome>.<clusterId>.processing} con una move atomica: la rinomina e' il lock.
  * Se piu' nodi insistono sulla stessa directory condivisa, solo quello che riesce a
  * rinominare elabora il file; gli altri ricevono un errore dal file system e passano
@@ -52,27 +57,38 @@ public class FdrFileSystemReader implements ItemReader<FdrClaimedFile>, ItemStre
     }
 
     @Override
-    public void open(ExecutionContext executionContext) throws ItemStreamException {
+    public void open(ExecutionContext executionContext) {
         candidati = new ArrayDeque<>();
         presiInCarico = 0;
 
+        if (!inputProperties.isDirConfigurata()) {
+            log.debug("Acquisizione da file system: nessuna directory configurata, niente da elaborare");
+            return;
+        }
+
         Path inputDir = inputProperties.getDirPath();
-        try {
-            Files.createDirectories(inputDir);
-            Files.createDirectories(inputProperties.getProcessedDirPath());
-            Files.createDirectories(inputProperties.getErrorDirPath());
-        } catch (IOException e) {
-            throw new ItemStreamException(
-                "Impossibile predisporre le directory di acquisizione dei flussi da file system: " + e.getMessage(), e);
+        if (!Files.isDirectory(inputDir)) {
+            log.debug("Acquisizione da file system: {} non esiste o non e' una directory, niente da elaborare",
+                inputDir.toAbsolutePath());
+            return;
         }
 
         List<Path> files = elencaFile(inputDir);
         candidati.addAll(files);
 
-        log.info("Acquisizione da file system: trovati {} file '{}' in {}",
-            files.size(), inputProperties.getExtension(), inputDir.toAbsolutePath());
+        if (files.isEmpty()) {
+            log.debug("Acquisizione da file system: nessun file '{}' in {}",
+                inputProperties.getExtension(), inputDir.toAbsolutePath());
+        } else {
+            log.info("Acquisizione da file system: trovati {} file '{}' in {}",
+                files.size(), inputProperties.getExtension(), inputDir.toAbsolutePath());
+        }
     }
 
+    /**
+     * Elenca i file da acquisire. Una directory illeggibile viene segnalata ma non fa
+     * fallire il job: il canale ordinario verso pagoPA deve proseguire comunque.
+     */
     private List<Path> elencaFile(Path inputDir) {
         String estensione = inputProperties.getExtension();
         try (Stream<Path> stream = Files.list(inputDir)) {
@@ -83,8 +99,9 @@ public class FdrFileSystemReader implements ItemReader<FdrClaimedFile>, ItemStre
                 .limit(inputProperties.getMaxFilesPerRun())
                 .toList();
         } catch (IOException e) {
-            throw new ItemStreamException(
-                "Impossibile elencare i file nella directory di acquisizione " + inputDir.toAbsolutePath(), e);
+            log.warn("Impossibile elencare i file nella directory di acquisizione {}: {}."
+                + " L'acquisizione da file system viene saltata.", inputDir.toAbsolutePath(), e.getMessage());
+            return List.of();
         }
     }
 
@@ -99,7 +116,9 @@ public class FdrFileSystemReader implements ItemReader<FdrClaimedFile>, ItemStre
             }
         }
 
-        log.info("Acquisizione da file system: presi in carico {} file da questo nodo", presiInCarico);
+        if (presiInCarico > 0) {
+            log.info("Acquisizione da file system: presi in carico {} file da questo nodo", presiInCarico);
+        }
         return null;
     }
 
@@ -133,12 +152,12 @@ public class FdrFileSystemReader implements ItemReader<FdrClaimedFile>, ItemStre
     }
 
     @Override
-    public void update(ExecutionContext executionContext) throws ItemStreamException {
+    public void update(ExecutionContext executionContext) {
         // Nessuno stato da salvare: la presa in carico e' gia' persistita sul file system
     }
 
     @Override
-    public void close() throws ItemStreamException {
+    public void close() {
         candidati = null;
     }
 }

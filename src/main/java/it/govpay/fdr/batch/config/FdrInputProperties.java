@@ -62,14 +62,31 @@ public class FdrInputProperties {
      */
     private int maxFilesPerRun = 1000;
 
-    public Path getDirPath() {
-        return Path.of(dir);
+    /**
+     * La directory di acquisizione e' facoltativa anche a canale abilitato: se non e'
+     * configurata lo step non ha nulla da fare e si limita a non produrre item.
+     */
+    public boolean isDirConfigurata() {
+        return dir != null && !dir.isBlank();
     }
 
+    /**
+     * @return la directory di acquisizione, oppure {@code null} se non configurata
+     */
+    public Path getDirPath() {
+        return isDirConfigurata() ? Path.of(dir) : null;
+    }
+
+    /**
+     * @return la destinazione dei file acquisiti, oppure {@code null} se non ricavabile
+     */
     public Path getProcessedDirPath() {
         return resolveOrDefault(processedDir, DEFAULT_PROCESSED_DIR);
     }
 
+    /**
+     * @return la destinazione dei file scartati, oppure {@code null} se non ricavabile
+     */
     public Path getErrorDirPath() {
         return resolveOrDefault(errorDir, DEFAULT_ERROR_DIR);
     }
@@ -78,6 +95,7 @@ public class FdrInputProperties {
         if (configured != null && !configured.isBlank()) {
             return Path.of(configured);
         }
-        return getDirPath().resolve(defaultName);
+        Path inputDir = getDirPath();
+        return inputDir != null ? inputDir.resolve(defaultName) : null;
     }
 }

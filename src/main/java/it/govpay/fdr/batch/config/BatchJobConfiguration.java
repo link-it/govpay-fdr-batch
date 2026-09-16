@@ -119,9 +119,10 @@ public class BatchJobConfiguration {
             .start(cleanupStep);
 
         if (fdrInputProperties.isEnabled()) {
-            validaConfigurazioneFileSystem();
             log.info("Acquisizione dei flussi da file system abilitata sulla directory {}",
-                fdrInputProperties.getDirPath().toAbsolutePath());
+                fdrInputProperties.isDirConfigurata()
+                    ? fdrInputProperties.getDirPath().toAbsolutePath()
+                    : "<non configurata>");
             jobBuilder.next(fdrFileSystemAcquisitionStep);
         }
 
@@ -132,15 +133,6 @@ public class BatchJobConfiguration {
             .build();
     }
 
-    private void validaConfigurazioneFileSystem() {
-        String dir = fdrInputProperties.getDir();
-        if (dir == null || dir.isBlank()) {
-            throw new IllegalStateException(
-                "govpay.fdr.input.enabled=true richiede govpay.fdr.input.dir: indicare la directory"
-                + " da cui acquisire i flussi, oppure disabilitare il canale da file system");
-        }
-    }
-
     /**
      * Step di acquisizione dei flussi depositati su file system, eseguito subito dopo il
      * cleanup e prima dell'interrogazione delle API pagoPA.
@@ -148,6 +140,10 @@ public class BatchJobConfiguration {
      * Chunk di 1: ogni file viene persistito e archiviato per conto suo, cosi' l'esito di
      * un flusso non influenza gli altri. Non serve una skip policy perche' il writer
      * intercetta gli errori di scrittura e sposta il file fra gli scarti.
+     * <p>
+     * Lo step e' inerte quando non c'e' nulla da elaborare (directory non configurata,
+     * inesistente o vuota): non produce item e non fallisce, cosi' il canale di emergenza
+     * non puo' mai bloccare l'acquisizione ordinaria verso pagoPA.
      */
     @Bean
     public Step fdrFileSystemAcquisitionStep(

@@ -29,6 +29,7 @@ Il sistema scarica, processa e riconcilia i flussi di rendicontazione con i paga
   - Produce lo stesso `FdrCompleteData` dello Step 4, senza passare da `FR_TEMP`
 - **Writer**: `FdrFileSystemWriter` - Persiste il flusso riusando `FdrPaymentsWriter` (stessa riconciliazione e stesse anomalie del canale API) e archivia il file
 - **Attivazione**: lo step entra nel job solo con `govpay.fdr.input.enabled=true`; disabilitato di default
+- **Inerzia**: se la directory non e' configurata, non esiste o e' vuota lo step non produce item e non fallisce; niente viene creato sul file system
 
 Vedi [Acquisizione da file system](#acquisizione-da-file-system) per formato e configurazione.
 
@@ -165,14 +166,19 @@ scheduler.initialDelayString=1
 
 Canale alternativo alle API pagoPA: i flussi depositati come file JSON in una directory
 vengono acquisiti all'inizio di ogni esecuzione del job, prima dell'interrogazione del Nodo.
-Serve a riacquisire flussi non piu' esposti da pagoPA, a caricare tracciati forniti
-direttamente dal PSP o dall'ente e a sanare disallineamenti senza interventi manuali sul database.
+
+E' una **procedura di emergenza**, pensata per i flussi usciti dalla finestra di ricerca di
+pagoPA (30 giorni), per i tracciati forniti direttamente dal PSP o dall'ente e per sanare
+disallineamenti senza interventi manuali sul database. Di conseguenza la directory puo'
+non essere configurata, non esistere o restare vuota per sempre: in quel caso lo step non
+produce item, non crea directory e non fallisce. L'assenza e' la condizione normale, non
+un guasto, e il canale di emergenza non puo' bloccare l'acquisizione ordinaria.
 
 ```properties
 # Abilitazione del canale (default: false, comportamento del batch invariato)
 govpay.fdr.input.enabled=true
 
-# Directory di acquisizione (obbligatoria quando enabled=true)
+# Directory di acquisizione: se assente o inesistente lo step non fa nulla
 govpay.fdr.input.dir=/var/govpay/fdr/input
 
 # Destinazioni post-elaborazione (default: <dir>/processed e <dir>/error)
@@ -229,6 +235,8 @@ Se `totPayments` e `sumPayments` sono assenti si usano `computedTotPayments` e
 | Flusso acquisito | `processed-dir`, col nome originale |
 | Flusso gia' presente in `FR` | `processed-dir`, senza reinserimento |
 | File malformato, dominio non censito o non abilitato, scrittura fallita | `error-dir`, con un `.error.txt` contenente la motivazione |
+
+Le directory di archiviazione vengono create solo quando c'e' un file da archiviare.
 
 **Multi-nodo**: la directory puo' essere condivisa. Ogni nodo prende in carico un file
 rinominandolo in `<nome>.<cluster-id>.processing` con una move atomica; se la rinomina
