@@ -1,3 +1,49 @@
+2026-09-15  Giuliano Pintori <pintori@link.it>
+
+	* [Acquisizione FDR]
+	Aggiunto un canale di acquisizione alternativo alle API pagoPA: i flussi di
+	rendicontazione possono essere depositati come file JSON in una directory sul file
+	system e vengono acquisiti all'inizio di ogni esecuzione del job, prima
+	dell'interrogazione del Nodo. Serve a riacquisire flussi che pagoPA non espone piu',
+	a caricare tracciati forniti dal PSP o dall'ente e a sanare disallineamenti senza
+	intervenire a mano sul database. Riprende la funzionalita' che GovPay aveva sui
+	tracciati XML in <resourceDir>/input/fr.
+
+	Il formato accettato e' la response della GET puntuale sul flusso con la lista dei
+	pagamenti inline, cioe' l'unione dei due endpoint pagoPA. L'XML legacy
+	ctFlussoRiversamento non e' in scope.
+
+	Il canale e' disabilitato di default (govpay.fdr.input.enabled=false): in quel caso
+	lo step non entra nemmeno nel job e la sequenza degli step resta quella storica.
+
+	Trattandosi di una procedura di emergenza, la directory puo' non essere configurata,
+	non esistere o restare vuota per sempre: lo step verifica e, se non c'e' nulla da
+	elaborare, non produce item, non crea directory e non fallisce. Il canale di
+	emergenza non puo' quindi bloccare l'acquisizione ordinaria verso pagoPA. Le
+	directory di archiviazione nascono solo quando c'e' un file da archiviare.
+
+	La persistenza riusa FdrPaymentsWriter: riconciliazione con i pagamenti, controlli di
+	quadratura, anomalie e gestione delle revisioni sono gli stessi del canale API, quindi
+	un flusso acquisito da file e uno scaricato dalle API producono gli stessi dati. Il
+	flusso non passa da FR_TEMP.
+
+	Ogni file viene persistito in una transazione propria e archiviato: in processed se
+	acquisito o gia' presente in FR, in error con un .error.txt di motivazione se
+	malformato, se il dominio non e' censito o abilitato, o se la scrittura fallisce. Un
+	file non viene mai cancellato e un errore su un file non ferma gli altri.
+
+	La directory puo' essere condivisa fra nodi: la presa in carico e' una rinomina
+	atomica in <nome>.<cluster-id>.processing, che fa da lock.
+
+	Ogni file produce un evento GDE ACQUISIZIONE_FLUSSO_FILE_SYSTEM di categoria INTERNO.
+
+	* [Deserializzazione date]
+	OffsetDateTimeDeserializer (Jackson 3) accetta ora anche gli istanti scritti come
+	secondi dall'epoch con parte frazionaria (es. 1786109246.000000000), oltre alle
+	stringhe ISO gia' gestite. Prima un valore numerico finiva silenziosamente a null:
+	le API pagoPA serializzano gli Instant come stringa, ma i tracciati depositati su
+	file system possono arrivare da esportazioni che li scrivono come numero.
+
 2026-09-14  Giuliano Pintori <pintori@link.it>
 
 	* [Docker]

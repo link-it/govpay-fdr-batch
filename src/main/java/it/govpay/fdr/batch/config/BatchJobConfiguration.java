@@ -1,8 +1,14 @@
 package it.govpay.fdr.batch.config;
 
+import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.dto.DominioProcessingContext;
+import it.govpay.fdr.batch.dto.FdrClaimedFile;
+import it.govpay.fdr.batch.dto.FdrFileItem;
 import it.govpay.fdr.batch.dto.FdrHeadersBatch;
 import it.govpay.fdr.batch.entity.FrTemp;
+import it.govpay.fdr.batch.filesystem.FdrFileSystemProcessor;
+import it.govpay.fdr.batch.filesystem.FdrFileSystemReader;
+import it.govpay.fdr.batch.filesystem.FdrFileSystemWriter;
 import it.govpay.fdr.batch.step2.FdrHeadersProcessor;
 import it.govpay.fdr.batch.step2.FdrHeadersReader;
 import it.govpay.fdr.batch.step2.FdrHeadersWriter;
@@ -22,6 +28,7 @@ import java.util.Map;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.job.builder.SimpleJobBuilder;
 import org.springframework.batch.core.job.parameters.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -50,17 +57,20 @@ public class BatchJobConfiguration {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final BatchProperties batchProperties;
+    private final FdrInputProperties fdrInputProperties;
     private final SimpleAsyncTaskExecutor taskExecutor;
 
     public BatchJobConfiguration(
         JobRepository jobRepository,
         PlatformTransactionManager transactionManager,
         BatchProperties batchProperties,
+        FdrInputProperties fdrInputProperties,
         SimpleAsyncTaskExecutor taskExecutor
     ) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.batchProperties = batchProperties;
+        this.fdrInputProperties = fdrInputProperties;
         this.taskExecutor = taskExecutor;
     }
 
@@ -88,23 +98,64 @@ public class BatchJobConfiguration {
 	}
 
     /**
-     * Main FDR Acquisition Job with 3 steps
+     * Main FDR Acquisition Job.
+     * <p>
+     * Lo step di acquisizione da file system entra nel job solo se il canale e'
+     * abilitato: con {@code govpay.fdr.input.enabled=false} (default) la sequenza
+     * degli step resta quella storica.
      */
     @Bean
     public Job fdrAcquisitionJob(
         Step cleanupStep,
+        Step fdrFileSystemAcquisitionStep,
         Step fdrHeadersAcquisitionStep,
         Step fdrMetadataAcquisitionStep,
         Step fdrPaymentsAcquisitionStep,
         it.govpay.fdr.batch.listener.BatchExecutionRecapListener batchExecutionRecapListener
     ) {
-        return new JobBuilder("fdrAcquisitionJob", jobRepository)
+        SimpleJobBuilder jobBuilder = new JobBuilder(Costanti.FDR_ACQUISITION_JOB_NAME, jobRepository)
             .incrementer(new RunIdIncrementer())
             .listener(batchExecutionRecapListener)
-            .start(cleanupStep)
+            .start(cleanupStep);
+
+        if (fdrInputProperties.isEnabled()) {
+            log.info("Acquisizione dei flussi da file system abilitata sulla directory {}",
+                fdrInputProperties.isDirConfigurata()
+                    ? fdrInputProperties.getDirPath().toAbsolutePath()
+                    : "<non configurata>");
+            jobBuilder.next(fdrFileSystemAcquisitionStep);
+        }
+
+        return jobBuilder
             .next(fdrHeadersAcquisitionStep)
             .next(fdrMetadataAcquisitionStep)
             .next(fdrPaymentsAcquisitionStep)
+            .build();
+    }
+
+    /**
+     * Step di acquisizione dei flussi depositati su file system, eseguito subito dopo il
+     * cleanup e prima dell'interrogazione delle API pagoPA.
+     * <p>
+     * Chunk di 1: ogni file viene persistito e archiviato per conto suo, cosi' l'esito di
+     * un flusso non influenza gli altri. Non serve una skip policy perche' il writer
+     * intercetta gli errori di scrittura e sposta il file fra gli scarti.
+     * <p>
+     * Lo step e' inerte quando non c'e' nulla da elaborare (directory non configurata,
+     * inesistente o vuota): non produce item e non fallisce, cosi' il canale di emergenza
+     * non puo' mai bloccare l'acquisizione ordinaria verso pagoPA.
+     */
+    @Bean
+    public Step fdrFileSystemAcquisitionStep(
+        FdrFileSystemReader fdrFileSystemReader,
+        FdrFileSystemProcessor fdrFileSystemProcessor,
+        FdrFileSystemWriter fdrFileSystemWriter
+    ) {
+        return new StepBuilder("fdrFileSystemAcquisitionStep", jobRepository)
+            .<FdrClaimedFile, FdrFileItem>chunk(1, transactionManager)
+            .reader(fdrFileSystemReader)
+            .processor(fdrFileSystemProcessor)
+            .writer(fdrFileSystemWriter)
             .build();
     }
 

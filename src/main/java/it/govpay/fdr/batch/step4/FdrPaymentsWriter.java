@@ -449,6 +449,10 @@ public class FdrPaymentsWriter implements ItemWriter<FdrPaymentsProcessor.FdrCom
     }
 
     private void markFrTempAsProcessed(Long frTempId) {
+        if (frTempId == null) {
+            // Flusso acquisito da file system: non passa da FR_TEMP, non c'e' nulla da rimuovere
+            return;
+        }
         frTempRepository.findById(frTempId).ifPresent(frTemp -> {
             frTempRepository.delete(frTemp);
             log.debug("Removed FR_TEMP id={}", frTempId);

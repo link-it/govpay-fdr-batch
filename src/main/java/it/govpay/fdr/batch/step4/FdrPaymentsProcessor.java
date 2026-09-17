@@ -91,7 +91,13 @@ public class FdrPaymentsProcessor implements ItemProcessor<FrTemp, FdrPaymentsPr
         }
     }
 
-    private PaymentData convertPayment(Payment payment) {
+    /**
+     * Converte un pagamento della response pagoPA nel modello interno.
+     * <p>
+     * Visibile anche fuori dal package perche' riusata dall'acquisizione dei flussi
+     * da file system, che deve produrre esattamente gli stessi dati del canale API.
+     */
+    public PaymentData convertPayment(Payment payment) {
         return PaymentData.builder()
             .iuv(payment.getIuv())
             .iur(payment.getIur())
