@@ -134,6 +134,17 @@ class FdrFileSystemProcessorTest {
     }
 
     @Test
+    @DisplayName("Se presenti, totPayments e sumPayments prevalgono sui valori computed")
+    void totaliDichiaratiPrevalgono() throws IOException {
+        FdrFileItem item = processor.process(scrivi(FLUSSO_JSON.replace(
+            "\"computedTotPayments\":1,\"computedSumPayments\":70.43",
+            "\"computedTotPayments\":1,\"computedSumPayments\":70.43,\"totPayments\":2,\"sumPayments\":99.99")));
+
+        assertThat(item.data().getNumeroPagamenti()).isEqualTo(2L);
+        assertThat(item.data().getImportoTotalePagamenti()).isEqualTo(99.99);
+    }
+
+    @Test
     @DisplayName("I pagamenti sono convertiti con la stessa codifica dello step 4")
     void pagamentiConvertiti() throws IOException {
         FdrFileItem item = processor.process(scrivi(FLUSSO_JSON));
