@@ -15,6 +15,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.concurrent.Executor;
@@ -41,6 +42,7 @@ import it.govpay.common.repository.DominioRepository;
 import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
+import it.govpay.gde.client.beans.CategoriaEvento;
 import it.govpay.gde.client.beans.ComponenteEvento;
 import it.govpay.gde.client.beans.DatiPagoPA;
 import it.govpay.gde.client.beans.EsitoEvento;
@@ -462,5 +464,121 @@ class GdeServiceTest {
 
         // Then: RestTemplate should NOT be called
         verify(gdeRestTemplate, never()).postForEntity(anyString(), any(), any());
+    }
+
+    @Test
+    void testSaveAcquisizioneFileSystemOk() {
+        // Given
+        OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime end = start.plusSeconds(2);
+
+        NuovoEvento mockEvento = new NuovoEvento();
+        mockEvento.setTipoEvento(Costanti.OPERATION_ACQUISIZIONE_FLUSSO_FILE_SYSTEM);
+        mockEvento.setDatiPagoPA(new DatiPagoPA());
+
+        when(eventoFdrMapper.createEventoOk(eq(testFr),
+            eq(Costanti.OPERATION_ACQUISIZIONE_FLUSSO_FILE_SYSTEM), anyString(), eq(start), eq(end)))
+            .thenReturn(mockEvento);
+        doNothing().when(eventoFdrMapper).setParametriRichiesta(any(), anyString(), anyString(), anyList());
+        when(gdeRestTemplate.postForEntity(anyString(), any(), eq(Void.class)))
+            .thenReturn(ResponseEntity.ok().build());
+
+        // When
+        gdeService.saveAcquisizioneFileSystemOk(testFr, start, end, "flusso.json", "Acquisito flusso con 3 rendicontazioni");
+
+        // Then
+        assertThat(mockEvento.getCategoriaEvento()).isEqualTo(CategoriaEvento.INTERNO);
+        assertThat(mockEvento.getDettaglioEsito()).isEqualTo("Acquisito flusso con 3 rendicontazioni");
+        assertThat(mockEvento.getDatiPagoPA().getIdIntermediario()).isEqualTo("INT001");
+        assertThat(mockEvento.getDatiPagoPA().getIdStazione()).isEqualTo("STAZ001");
+        assertThat(mockEvento.getParametriRisposta()).isNotNull();
+        assertThat(mockEvento.getParametriRisposta().getStatus()).isEqualTo(BigDecimal.valueOf(200));
+        assertThat(mockEvento.getParametriRisposta().getDataOraRisposta()).isEqualTo(end);
+
+        verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento), eq("file://flusso.json"), eq("FILE"), anyList());
+        verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
+    }
+
+    @Test
+    void testSaveAcquisizioneFileSystemKo() {
+        // Given
+        OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime end = start.plusSeconds(1);
+
+        NuovoEvento mockEvento = new NuovoEvento();
+        mockEvento.setTipoEvento(Costanti.OPERATION_ACQUISIZIONE_FLUSSO_FILE_SYSTEM);
+        mockEvento.setDatiPagoPA(new DatiPagoPA());
+
+        when(eventoFdrMapper.createEvento(eq(testFr),
+            eq(Costanti.OPERATION_ACQUISIZIONE_FLUSSO_FILE_SYSTEM), anyString(), eq(start), eq(end)))
+            .thenReturn(mockEvento);
+        doNothing().when(eventoFdrMapper).setParametriRichiesta(any(), anyString(), anyString(), anyList());
+        when(gdeRestTemplate.postForEntity(anyString(), any(), eq(Void.class)))
+            .thenReturn(ResponseEntity.ok().build());
+
+        // When
+        gdeService.saveAcquisizioneFileSystemKo(testFr, start, end, "rotto.json", "Parsing del file fallito");
+
+        // Then
+        assertThat(mockEvento.getEsito()).isEqualTo(EsitoEvento.KO);
+        assertThat(mockEvento.getSottotipoEsito()).isEqualTo("400");
+        assertThat(mockEvento.getCategoriaEvento()).isEqualTo(CategoriaEvento.INTERNO);
+        assertThat(mockEvento.getDettaglioEsito()).isEqualTo("Parsing del file fallito");
+        assertThat(mockEvento.getParametriRisposta().getStatus()).isEqualTo(BigDecimal.valueOf(400));
+
+        verify(eventoFdrMapper).setParametriRichiesta(eq(mockEvento), eq("file://rotto.json"), eq("FILE"), anyList());
+        verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
+    }
+
+    @Test
+    void testSaveAcquisizioneFileSystemKoConDominioNonCensito() {
+        // Un file puo' essere scartato proprio perche' riferisce un dominio sconosciuto:
+        // l'evento deve comunque partire, senza intermediario e stazione.
+        OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime end = start.plusSeconds(1);
+        Fr frDominioIgnoto = Fr.builder().codDominio("00000000000").codFlusso("FDR-X").build();
+
+        NuovoEvento mockEvento = new NuovoEvento();
+        mockEvento.setDatiPagoPA(new DatiPagoPA());
+
+        when(dominioRepository.findByCodDominio("00000000000")).thenReturn(java.util.Optional.empty());
+        when(eventoFdrMapper.createEvento(eq(frDominioIgnoto),
+            eq(Costanti.OPERATION_ACQUISIZIONE_FLUSSO_FILE_SYSTEM), anyString(), eq(start), eq(end)))
+            .thenReturn(mockEvento);
+        doNothing().when(eventoFdrMapper).setParametriRichiesta(any(), anyString(), anyString(), anyList());
+        when(gdeRestTemplate.postForEntity(anyString(), any(), eq(Void.class)))
+            .thenReturn(ResponseEntity.ok().build());
+
+        // When
+        gdeService.saveAcquisizioneFileSystemKo(frDominioIgnoto, start, end, "ignoto.json", "Dominio 00000000000 non censito");
+
+        // Then
+        assertThat(mockEvento.getDatiPagoPA().getIdIntermediario()).isNull();
+        assertThat(mockEvento.getDatiPagoPA().getIdStazione()).isNull();
+        verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
+    }
+
+    @Test
+    void testSaveAcquisizioneFileSystemSenzaFr() {
+        // Uno scarto avvenuto prima di poter leggere qualunque identificativo
+        OffsetDateTime start = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime end = start.plusSeconds(1);
+
+        NuovoEvento mockEvento = new NuovoEvento();
+
+        when(eventoFdrMapper.createEvento(isNull(),
+            eq(Costanti.OPERATION_ACQUISIZIONE_FLUSSO_FILE_SYSTEM), anyString(), eq(start), eq(end)))
+            .thenReturn(mockEvento);
+        doNothing().when(eventoFdrMapper).setParametriRichiesta(any(), anyString(), anyString(), anyList());
+        when(gdeRestTemplate.postForEntity(anyString(), any(), eq(Void.class)))
+            .thenReturn(ResponseEntity.ok().build());
+
+        // When
+        gdeService.saveAcquisizioneFileSystemKo(null, start, end, "vuoto.json", "Lettura del file fallita");
+
+        // Then
+        assertThat(mockEvento.getCategoriaEvento()).isEqualTo(CategoriaEvento.INTERNO);
+        assertThat(mockEvento.getParametriRisposta().getStatus()).isEqualTo(BigDecimal.valueOf(400));
+        verify(gdeRestTemplate).postForEntity(anyString(), eq(mockEvento), eq(Void.class));
     }
 }

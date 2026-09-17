@@ -73,4 +73,41 @@ class FdrFileArchiverTest {
                 assertThat(nome).startsWith("flusso-").endsWith(".json"));
         }
     }
+
+    @Test
+    @DisplayName("Senza directory di acquisizione non c'e' destinazione: il file resta dov'e'")
+    void destinazioneNonRicavabile() throws IOException {
+        properties.setDir(null);
+        Path file = Files.writeString(tempDir.resolve("flusso.json.nodo-1.processing"), "{}");
+
+        archiver.archiviaProcessato(file, "flusso.json");
+
+        assertThat(file).exists();
+    }
+
+    @Test
+    @DisplayName("Se la destinazione non e' creabile il file resta in carico al nodo")
+    void archiviazioneFallita() throws IOException {
+        // processed-dir punta a un file regolare: createDirectories fallisce
+        Path ostacolo = Files.writeString(tempDir.resolve("processed"), "non sono una directory");
+        properties.setProcessedDir(ostacolo.toString());
+        Path file = presoInCarico("flusso.json");
+
+        archiver.archiviaProcessato(file, "flusso.json");
+
+        assertThat(file).exists();
+    }
+
+    @Test
+    @DisplayName("Se la destinazione dello scarto non e' creabile non si scrive nessun .error.txt")
+    void scartoNonArchiviabile() throws IOException {
+        Path ostacolo = Files.writeString(tempDir.resolve("error"), "non sono una directory");
+        properties.setErrorDir(ostacolo.toString());
+        Path file = presoInCarico("flusso.json");
+
+        archiver.archiviaScartato(file, "flusso.json", "Dominio non censito");
+
+        assertThat(file).exists();
+        assertThat(tempDir.resolve("flusso.json.error.txt")).doesNotExist();
+    }
 }

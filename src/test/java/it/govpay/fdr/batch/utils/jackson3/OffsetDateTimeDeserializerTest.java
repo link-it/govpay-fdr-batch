@@ -239,6 +239,13 @@ class OffsetDateTimeDeserializerTest {
     }
 
     @Test
+    @DisplayName("Should reject an epoch value outside the representable range")
+    void testDeserializeEpochFuoriRange() {
+        assertThatThrownBy(() -> read(new OffsetDateTimeDeserializer(), "999999999999999999"))
+            .hasMessageContaining("epoch");
+    }
+
+    @Test
     @DisplayName("Should handle dates at end of day")
     void testDeserializeEndOfDay() {
         OffsetDateTime result = read(
