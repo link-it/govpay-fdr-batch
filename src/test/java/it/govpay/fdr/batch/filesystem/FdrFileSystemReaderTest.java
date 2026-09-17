@@ -117,6 +117,25 @@ class FdrFileSystemReaderTest {
     }
 
     @Test
+    @DisplayName("Un file sparito fra l'elenco e la presa in carico viene saltato")
+    void fileSparitoDopoLElenco() throws IOException {
+        Files.writeString(tempDir.resolve("conteso.json"), "{}");
+        Files.writeString(tempDir.resolve("mio.json"), "{}");
+
+        // Due nodi aprono lo step insieme: entrambi vedono i due file in elenco
+        FdrFileSystemReader nodo1 = reader();
+        FdrFileSystemReader nodo2 = new FdrFileSystemReader(properties, "nodo-2");
+        nodo2.open(new ExecutionContext());
+
+        // Il primo nodo si prende conteso.json, il secondo non lo trova piu'
+        FdrClaimedFile presoDaNodo1 = nodo1.read();
+        List<FdrClaimedFile> presiDaNodo2 = leggiTutto(nodo2);
+
+        assertThat(presoDaNodo1.nomeOriginale()).isEqualTo("conteso.json");
+        assertThat(presiDaNodo2).extracting(FdrClaimedFile::nomeOriginale).containsExactly("mio.json");
+    }
+
+    @Test
     @DisplayName("Il numero di file per esecuzione e' limitato da max-files-per-run")
     void rispettaIlLimitePerEsecuzione() throws IOException {
         for (int i = 0; i < 5; i++) {
