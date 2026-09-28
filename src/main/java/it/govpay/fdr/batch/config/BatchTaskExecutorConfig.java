@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 
+import it.govpay.common.logging.MdcTaskDecorator;
+
 /**
  * Configurazione del task executor per l'elaborazione parallela degli step batch.
  * <p>
@@ -30,6 +32,10 @@ public class BatchTaskExecutorConfig {
     public SimpleAsyncTaskExecutor taskExecutor() {
         SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor("fdr-batch-");
         executor.setConcurrencyLimit(batchProperties.getThreadPoolSize());
+        // Propaga transaction id e correlation id ai thread delle partizioni
+        // (BP-LOG-3): senza decoratore i log paralleli perderebbero gli
+        // identificativi dell'esecuzione che li ha generati.
+        executor.setTaskDecorator(new MdcTaskDecorator());
         return executor;
     }
 }
