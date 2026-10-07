@@ -12,6 +12,7 @@ import org.springframework.batch.core.JobExecutionListener;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.stereotype.Component;
 
+import it.govpay.fdr.batch.filesystem.FdrFileSystemWriter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -64,6 +65,12 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
             .findFirst()
             .ifPresent(this::printCleanupStats);
 
+        // Step opzionale: acquisizione da file system (presente solo se il canale e' abilitato)
+        stepExecutions.stream()
+            .filter(se -> se.getStepName().equals("fdrFileSystemAcquisitionStep"))
+            .findFirst()
+            .ifPresent(this::printFileSystemStats);
+
         // Step 2: Headers Acquisition
         stepExecutions.stream()
             .filter(se -> se.getStepName().equals("fdrHeadersAcquisitionStep"))
@@ -86,6 +93,21 @@ public class BatchExecutionRecapListener implements JobExecutionListener {
     private void printCleanupStats(StepExecution stepExecution) {
         log.info("--- STEP 1: CLEANUP FR_TEMP ---");
         log.info("Status: {}", stepExecution.getStatus());
+        long durationMs = Duration.between(stepExecution.getStartTime(), stepExecution.getEndTime()).toMillis();
+        log.info("Durata: {} ms", durationMs);
+        log.info("");
+    }
+
+    private void printFileSystemStats(StepExecution stepExecution) {
+        log.info("--- STEP 1-BIS: ACQUISIZIONE DA FILE SYSTEM ---");
+        log.info("Status: {}", stepExecution.getStatus());
+        log.info("File presi in carico: {}", stepExecution.getReadCount());
+        log.info("Flussi acquisiti: {}",
+            stepExecution.getExecutionContext().getInt(FdrFileSystemWriter.STATS_ACQUISITI, 0));
+        log.info("File skippati (flusso gia' in FR): {}",
+            stepExecution.getExecutionContext().getInt(FdrFileSystemWriter.STATS_DUPLICATI, 0));
+        log.info("File scartati: {}",
+            stepExecution.getExecutionContext().getInt(FdrFileSystemWriter.STATS_SCARTATI, 0));
         long durationMs = Duration.between(stepExecution.getStartTime(), stepExecution.getEndTime()).toMillis();
         log.info("Durata: {} ms", durationMs);
         log.info("");

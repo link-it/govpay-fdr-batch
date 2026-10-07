@@ -32,6 +32,13 @@ public class Costanti {
 	// Operazioni interne batch
 	public static final String OPERATION_SAVE_FLOW = "SAVE_FLOW";
 
+	// Acquisizione di un flusso depositato su file system (canale alternativo alle API pagoPA)
+	public static final String OPERATION_ACQUISIZIONE_FLUSSO_FILE_SYSTEM = "ACQUISIZIONE_FLUSSO_FILE_SYSTEM";
+
+	// Pseudo-metodo e schema usati nei parametri richiesta degli eventi GDE di origine file system
+	public static final String FILE_SYSTEM_METHOD = "FILE";
+	public static final String FILE_SYSTEM_URL_SCHEME = "file://";
+
 	// Path delle operazioni FDR API (da fdr_organization.json)
 	// Questi sono path template fissi definiti dalla specifica OpenAPI di pagoPA.
 	// Non sono URI completi (mancano protocollo e host) ma template che vengono

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -430,5 +431,45 @@ class OffsetDateTimeDeserializerTest {
         assertThat(result.getMinute()).isEqualTo(59);
         assertThat(result.getSecond()).isEqualTo(59);
         assertThat(result.getNano()).isEqualTo(999_000_000);
+    }
+
+    @Test
+    @DisplayName("Should deserialize an instant written as epoch seconds")
+    void testDeserializeEpochSeconds() throws IOException {
+        OffsetDateTimeDeserializer deserializer = new OffsetDateTimeDeserializer();
+        JsonParser jsonParser = new JsonFactory().createParser("1786109246");
+        jsonParser.nextToken(); // Move to VALUE_NUMBER_INT
+
+        OffsetDateTime result = deserializer.deserialize(jsonParser, null);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getOffset()).isEqualTo(ZoneOffset.UTC);
+        assertThat(result.toInstant()).isEqualTo(Instant.ofEpochSecond(1786109246L));
+    }
+
+    @Test
+    @DisplayName("Should deserialize an instant written as epoch seconds with nanoseconds")
+    void testDeserializeEpochSecondsWithNanos() throws IOException {
+        OffsetDateTimeDeserializer deserializer = new OffsetDateTimeDeserializer();
+        JsonParser jsonParser = new JsonFactory().createParser("1786109996.570225000");
+        jsonParser.nextToken(); // Move to VALUE_NUMBER_FLOAT
+
+        OffsetDateTime result = deserializer.deserialize(jsonParser, null);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getOffset()).isEqualTo(ZoneOffset.UTC);
+        assertThat(result.toInstant()).isEqualTo(Instant.ofEpochSecond(1786109996L, 570_225_000));
+    }
+
+    @Test
+    @DisplayName("Should reject an epoch value outside the representable range")
+    void testDeserializeEpochFuoriRange() throws IOException {
+        OffsetDateTimeDeserializer deserializer = new OffsetDateTimeDeserializer();
+        JsonParser jsonParser = new JsonFactory().createParser("999999999999999999");
+        jsonParser.nextToken();
+
+        assertThatThrownBy(() -> deserializer.deserialize(jsonParser, null))
+            .isInstanceOf(IOException.class)
+            .hasMessageContaining("epoch");
     }
 }

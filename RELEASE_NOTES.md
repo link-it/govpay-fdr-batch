@@ -1,5 +1,58 @@
 # Release Notes
 
+## 1.1.9 — 2026-10-07
+
+Release di manutenzione: backport sulla linea 1.1.x del canale di acquisizione dei flussi di rendicontazione da **directory sul file system**, gia' presente sulla linea 2.x.
+
+### Novita' — Acquisizione da file system
+Canale alternativo alle API pagoPA: i flussi depositati come file JSON in una directory vengono acquisiti all'inizio di ogni esecuzione del job, prima dell'interrogazione del Nodo.
+
+```
+cleanup -> [file system] -> headers -> metadata -> payments
+```
+
+E' una **procedura di emergenza**, pensata per i flussi usciti dalla finestra di ricerca di pagoPA (30 giorni), per i tracciati forniti direttamente dal PSP o dall'ente e per sanare disallineamenti senza interventi manuali sul database. Riprende la funzionalita' che GovPay aveva sui tracciati XML in `<resourceDir>/input/fr`.
+
+Il formato accettato e' la response della GET puntuale sul flusso (`/organizations/{organizationId}/fdrs/{fdr}/revisions/{revision}/psps/{pspId}`) con in piu' la lista dei pagamenti inline nel campo `payments`, cioe' l'unione dei due endpoint pagoPA. Le date sono accettate sia come stringa ISO sia come secondi dall'epoch. L'XML legacy `ctFlussoRiversamento` non e' supportato.
+
+La persistenza riusa `FdrPaymentsWriter`: riconciliazione con i pagamenti, controlli di quadratura, anomalie e gestione delle revisioni sono gli stessi del canale API, quindi un flusso acquisito da file e uno scaricato dalle API producono gli stessi dati. Il flusso non passa da `FR_TEMP`.
+
+### Configurazione
+Disabilitato di default: con `govpay.fdr.input.enabled=false` lo step non entra nel job e la sequenza degli step resta quella storica.
+
+```properties
+govpay.fdr.input.enabled=true
+govpay.fdr.input.dir=/var/govpay/fdr/input
+govpay.fdr.input.processed-dir=/var/govpay/fdr/processed   # default <dir>/processed
+govpay.fdr.input.error-dir=/var/govpay/fdr/error           # default <dir>/error
+govpay.fdr.input.extension=.json
+govpay.fdr.input.max-files-per-run=1000
+```
+
+Lo step e' **inerte** quando non c'e' nulla da elaborare — directory non configurata, inesistente o vuota: non produce item, non crea directory e non fallisce. Il canale di emergenza non puo' quindi bloccare l'acquisizione ordinaria verso pagoPA. Le directory di archiviazione nascono solo quando c'e' un file da archiviare.
+
+### Ciclo di vita dei file
+Un file non viene mai cancellato. Ogni file e' persistito in una transazione propria, quindi un errore su un file non ferma gli altri.
+
+| Esito | Destinazione |
+|---|---|
+| Flusso acquisito | `processed-dir`, col nome originale |
+| Flusso gia' presente in `FR` | `processed-dir`, senza reinserimento |
+| File malformato, dominio non censito o non abilitato, scrittura fallita | `error-dir`, con un `.error.txt` contenente la motivazione |
+
+**Multi-nodo**: la directory puo' essere condivisa. Ogni nodo prende in carico un file rinominandolo in `<nome>.<cluster-id>.processing` con una move atomica; se la rinomina fallisce il file e' di un altro nodo e viene ignorato. Un file rimasto con quel suffisso indica un nodo terminato durante l'elaborazione: e' visibile all'operatore, che puo' rinominarlo per rimetterlo in coda.
+
+**Tracciamento**: ogni file produce un evento GDE `ACQUISIZIONE_FLUSSO_FILE_SYSTEM` di categoria `INTERNO`, con esito `OK` per gli acquisiti e i duplicati e `KO` per gli scarti.
+
+### Correzioni — Deserializzazione delle date
+`OffsetDateTimeDeserializer` accetta ora anche gli istanti scritti come **secondi dall'epoch** con parte frazionaria (es. `1786109246.000000000`), oltre alle stringhe ISO gia' gestite. Prima un valore numerico finiva silenziosamente a `null`: le API pagoPA serializzano gli `Instant` come stringa, ma i tracciati depositati su file system possono arrivare da esportazioni che li scrivono come numero.
+
+### Note sul backport
+Il codice e' adattato alla linea 1.1.x (Spring Boot 3 / Spring Batch 5, Jackson 2): package `org.springframework.batch.item.*`, `ObjectMapper` al posto di `JsonMapper` e, nel processor, una catch dedicata a `JsonProcessingException` — che essendo sottoclasse di `IOException` verrebbe altrimenti segnalata come errore di lettura invece che di parsing.
+
+### Compatibilita'
+Nessuna breaking change: aggiornamento drop-in rispetto alla 1.1.8. A canale disabilitato (default) il comportamento del batch e' invariato. Nessuna modifica allo schema del database.
+
 ## 1.1.8 — 2026-07-28
 
 Release di manutenzione: correzione della violazione del vincolo di unicità `UNIQUE_FR_1` all'acquisizione di una nuova revisione di un flusso già presente.
