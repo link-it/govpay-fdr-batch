@@ -1,5 +1,9 @@
 2026-10-07  Giuliano Pintori <pintori@link.it>
 
+	* Avanzamento versione 1.1.9
+
+2026-10-07  Giuliano Pintori <pintori@link.it>
+
 	* [Acquisizione FDR]
 	Backport sulla linea 1.1.x del canale di acquisizione dei flussi di rendicontazione
 	da directory sul file system, sviluppato sulla linea 2.x. I flussi possono essere
