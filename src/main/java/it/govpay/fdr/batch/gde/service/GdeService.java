@@ -1,6 +1,8 @@
 package it.govpay.fdr.batch.gde.service;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -29,8 +31,11 @@ import it.govpay.fdr.batch.Costanti;
 import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.gde.mapper.EventoFdrMapper;
 import it.govpay.fdr.batch.service.FdrApiService.DomainInfo;
+import it.govpay.gde.client.beans.CategoriaEvento;
 import it.govpay.gde.client.beans.ComponenteEvento;
 import it.govpay.gde.client.beans.DatiPagoPA;
+import it.govpay.gde.client.beans.DettaglioRisposta;
+import it.govpay.gde.client.beans.EsitoEvento;
 import it.govpay.gde.client.beans.NuovoEvento;
 import lombok.extern.slf4j.Slf4j;
 
@@ -340,6 +345,87 @@ public class GdeService extends AbstractGdeService {
         setResponsePayload(nuovoEvento, responseEntity, exception);
 
         sendEventAsync(nuovoEvento);
+    }
+
+    /**
+     * Registra l'acquisizione riuscita di un flusso depositato su file system.
+     *
+     * @param fr        entita' minimale con dominio, flusso e PSP del tracciato acquisito
+     * @param nomeFile  nome del file cosi' come depositato dall'operatore
+     * @param dettaglio descrizione dell'esito (numero di pagamenti acquisiti, deduplica, ...)
+     */
+    public void saveAcquisizioneFileSystemOk(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
+                                             String nomeFile, String dettaglio) {
+        NuovoEvento nuovoEvento = eventoFdrMapper.createEventoOk(
+                fr, Costanti.OPERATION_ACQUISIZIONE_FLUSSO_FILE_SYSTEM,
+                UUID.randomUUID().toString(), dataStart, dataEnd);
+
+        completaEventoFileSystem(nuovoEvento, fr, nomeFile, dataEnd, 200);
+        nuovoEvento.setDettaglioEsito(dettaglio);
+
+        sendEventAsync(nuovoEvento);
+    }
+
+    /**
+     * Registra lo scarto di un file depositato su file system.
+     *
+     * @param fr       entita' minimale con i dati estraibili dal file (puo' essere incompleta)
+     * @param nomeFile nome del file cosi' come depositato dall'operatore
+     * @param motivo   descrizione dello scarto, la stessa riportata nel file .error.txt
+     */
+    public void saveAcquisizioneFileSystemKo(Fr fr, OffsetDateTime dataStart, OffsetDateTime dataEnd,
+                                             String nomeFile, String motivo) {
+        NuovoEvento nuovoEvento = eventoFdrMapper.createEvento(
+                fr, Costanti.OPERATION_ACQUISIZIONE_FLUSSO_FILE_SYSTEM,
+                UUID.randomUUID().toString(), dataStart, dataEnd);
+
+        nuovoEvento.setEsito(EsitoEvento.KO);
+        nuovoEvento.setSottotipoEsito("400");
+        completaEventoFileSystem(nuovoEvento, fr, nomeFile, dataEnd, 400);
+        nuovoEvento.setDettaglioEsito(motivo);
+
+        sendEventAsync(nuovoEvento);
+    }
+
+    /**
+     * Completa un evento di origine file system: l'operazione non passa da HTTP, quindi
+     * la "richiesta" e' il file letto e la "risposta" porta solo lo stato sintetico
+     * dell'elaborazione. La categoria e' INTERNO: non c'e' nessuna interfaccia coinvolta.
+     */
+    private void completaEventoFileSystem(NuovoEvento nuovoEvento, Fr fr, String nomeFile,
+                                          OffsetDateTime dataEnd, int status) {
+        nuovoEvento.setCategoriaEvento(CategoriaEvento.INTERNO);
+
+        if (fr != null && fr.getCodDominio() != null) {
+            DomainInfo domainInfo = resolveDomainInfoSafe(fr.getCodDominio());
+            if (nuovoEvento.getDatiPagoPA() != null && domainInfo != null) {
+                nuovoEvento.getDatiPagoPA().setIdIntermediario(domainInfo.codIntermediario());
+                nuovoEvento.getDatiPagoPA().setIdStazione(domainInfo.codStazione());
+            }
+        }
+
+        eventoFdrMapper.setParametriRichiesta(nuovoEvento,
+                Costanti.FILE_SYSTEM_URL_SCHEME + nomeFile, Costanti.FILE_SYSTEM_METHOD, List.of());
+
+        DettaglioRisposta dettaglioRisposta = new DettaglioRisposta();
+        dettaglioRisposta.setDataOraRisposta(dataEnd);
+        dettaglioRisposta.setStatus(BigDecimal.valueOf(status));
+        dettaglioRisposta.setHeaders(List.of());
+        nuovoEvento.setParametriRisposta(dettaglioRisposta);
+    }
+
+    /**
+     * Come {@link #resolveDomainInfo(String)}, ma tollera i domini non censiti: un file
+     * scartato proprio perche' riferisce un dominio sconosciuto deve comunque produrre
+     * il suo evento.
+     */
+    private DomainInfo resolveDomainInfoSafe(String codDominio) {
+        try {
+            return resolveDomainInfo(codDominio);
+        } catch (IllegalStateException e) {
+            log.debug("Dominio {} non risolvibile per l'evento GDE: {}", codDominio, e.getMessage());
+            return null;
+        }
     }
 
     /**
