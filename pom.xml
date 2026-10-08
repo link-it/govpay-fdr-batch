@@ -32,15 +32,85 @@
         <!-- Dependencies -->
         <govpay-common.version>1.1.2</govpay-common.version>
 
-        <!-- Security override: bump tomcat-embed to patched release (CVEs fixed in 10.1.55) -->
-        <tomcat.version>10.1.55</tomcat.version>
-        <!-- Security override: bump jackson-databind (CVE fissate in 2.21.4/2.21.5, es. GHSA-j3rv-43j4-c7qm, GHSA-rmj7-2vxq-3g9f, GHSA-5jmj-h7xm-6q6v) -->
-        <jackson.version>2.21.5</jackson.version>
+        <!-- Security override: bump tomcat-embed (GHSA-9xv2-5v5q-p794 CVSS 9.8, GHSA-gcx9-497g-6cp6 e
+             GHSA-h3x4-894j-xpx5 CVSS 9.1, fissate in 10.1.58) -->
+        <tomcat.version>10.1.60</tomcat.version>
+        <!-- Security override: bump jackson (GHSA-cxp5-3px4-pw24 e GHSA-wv8q-qhhj-9h54 su jackson-databind,
+             GHSA-7hhh-6rmp-j9qf e GHSA-p6pp-m3f8-5c89 su jackson-core, fissate in 2.21.7) -->
+        <jackson.version>2.21.7</jackson.version>
         <!-- Security override: bump logback (GHSA-jhq6-gfmj-v8fx / GHSA-p47f-322f-whfh, fissate in 1.5.35) -->
         <logback.version>1.5.35</logback.version>
         <!-- Security override: bump PostgreSQL JDBC (GHSA-j92g-9f8w-j867, CVSS 8.2, fissata in 42.7.12) -->
         <postgresql.version>42.7.13</postgresql.version>
+        <!-- Security override: bump Spring Boot (GHSA-ggg2-9786-hwc8 su spring-boot-autoconfigure, fissata
+             in 3.5.15). Patch della stessa linea 3.5.x: aggiorna anche le versioni gestite di
+             spring-framework, spring-data, micrometer, httpclient5 e spring-retry. -->
+        <spring-boot.version>3.5.16</spring-boot.version>
+        <!-- Security override: bump log4j-api (GHSA-qv9r-c865-cp47, fissata in 2.25.5) -->
+        <log4j2.version>2.25.5</log4j2.version>
+
+        <!-- Versioni pinnate nel dependencyManagement locale (vedi sotto) -->
+        <spring-framework.version>6.2.19</spring-framework.version>
+        <micrometer.version>1.15.12</micrometer.version>
+        <httpclient5.version>5.6.4</httpclient5.version>
+        <httpcore5.version>5.4.4</httpcore5.version>
+        <spring-retry.version>2.0.13</spring-retry.version>
     </properties>
+
+    <!--
+        Il dependencyManagement locale vince sugli import del govpay-bom, dove
+        spring-boot-dependencies e' importato PRIMA di spring-framework-bom: senza queste voci
+        la property spring-framework.version del parent non avrebbe effetto, perche' per quegli
+        artifact prevarrebbe comunque il BOM di Spring Boot. Ogni voce chiude segnalazioni OSV
+        che il solo avanzamento di Spring Boot non copre.
+
+        spring-data NON va pinnato qui: il treno 2025.1.x e' Spring Data 4.0, che richiede
+        Spring Framework 7. La versione corretta per questa linea (3.5.13) arriva da Spring Boot.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- GHSA-659m-px2c-25wj, GHSA-9f52-rjqv-25qv, GHSA-r5w3-xv2f-j59q, GHSA-wxpp-56q6-5pcg,
+                 GHSA-7m2p-62gw-p8qq e le segnalazioni su spring-webmvc fissate in 6.2.19 -->
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-framework-bom</artifactId>
+                <version>${spring-framework.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- GHSA-g3pr-3p32-fp23 e GHSA-w737-wx49-qj23 su micrometer-core, fissate in 1.15.12 -->
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-bom</artifactId>
+                <version>${micrometer.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- GHSA-hjcp-jmpx-g3qm su httpclient5, fissata in 5.6.3 -->
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5</artifactId>
+                <version>${httpclient5.version}</version>
+            </dependency>
+            <!-- GHSA-hf6x-8p5f-cgmf e GHSA-v3jc-474w-2wm6 su httpcore5 e httpcore5-h2, fissate in 5.4.3 -->
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5</artifactId>
+                <version>${httpcore5.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5-h2</artifactId>
+                <version>${httpcore5.version}</version>
+            </dependency>
+            <!-- GHSA-2827-2mxx-j8pv su spring-retry, fissata in 2.0.13 -->
+            <dependency>
+                <groupId>org.springframework.retry</groupId>
+                <artifactId>spring-retry</artifactId>
+                <version>${spring-retry.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     
     <profiles>
 		<profile>

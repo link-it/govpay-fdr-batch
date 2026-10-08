@@ -4,7 +4,29 @@
 # Soppressioni temporanee: usare "ignoreUntil" cosi' la vulnerabilita' torna a
 # essere segnalata dopo la data indicata (evita soppressioni permanenti dimenticate).
 
+# GHSA-5jmj-h7xm-6q6v rimossa: era una soppressione temporanea per un falso positivo su
+# jackson-databind 2.21.5 (DB OSV non aggiornato). Con l'aggiornamento a 2.21.7 la
+# dipendenza e' oltre la versione fissata e la soppressione non serve piu'.
+
+# Le due segnalazioni che seguono riguardano spring-webmvc e NON hanno una versione
+# correttiva sulla linea Spring Framework 6.2: per entrambe OSV riporta
+# last_affected = 6.2.19 (l'ultima release 6.2.x disponibile) e fixed = 7.0.9.
+# Spring Framework 7 richiede Spring Boot 4, che su questo progetto e' la linea 2.x:
+# sulla 1.1.x non esiste alcun aggiornamento che le chiuda.
+#
+# Nessuna delle due e' raggiungibile da questa applicazione, che espone solo quattro
+# GET JSON sotto /api/batch piu' gli endpoint actuator: non usa SSE (nessun SseEmitter
+# ne' text/event-stream), non usa XsltView ne' alcun ViewResolver.
+#
+# Da rivedere alla scadenza: o Spring rilascia una 6.2.x correttiva, o la linea 1.1.x
+# viene dismessa in favore della 2.x.
+
 [[IgnoredVulns]]
-id = "GHSA-5jmj-h7xm-6q6v"
-ignoreUntil = 2026-09-30T00:00:00Z
-reason = "Falso positivo da database OSV non aggiornato. jackson-databind e' gia' su 2.21.5, che e' la versione FISSATA per questo advisory (range OSV: 2.19.0 -> <2.21.5, fix 2.21.5 / CVE-2026-54515, advisory modificato 2026-06-30). Soppressione temporanea in attesa che il DB dello scanner recepisca il fix; rimuovere dopo la scadenza."
+id = "GHSA-j9f9-w8pj-32f8"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "spring-webmvc: Server Sent Event stream corruption while rendering fragments (CVSS 9.8). Nessun fix sulla linea 6.2 (OSV: last_affected 6.2.19, fixed 7.0.9 che richiede Spring Boot 4 / linea 2.x). Non raggiungibile: l'applicazione non espone SSE ne' rendering di fragment."
+
+[[IgnoredVulns]]
+id = "GHSA-pc63-qcmh-9cmg"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "spring-webmvc: Improper Path Limitation in XsltView (CVSS 9.8). Nessun fix sulla linea 6.2 (OSV: last_affected 6.2.19, fixed 7.0.9 che richiede Spring Boot 4 / linea 2.x). Non raggiungibile: l'applicazione non usa XsltView ne' alcun ViewResolver."
