@@ -27,3 +27,6 @@ third-party-licenses/
 
 # Docker build context (generated)
 docker/buildcontext/
+
+# Report di docker/scan_image.sh
+image-scan-report/
