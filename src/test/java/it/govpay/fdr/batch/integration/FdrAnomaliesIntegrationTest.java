@@ -140,6 +140,8 @@ class FdrAnomaliesIntegrationTest {
             .autoIuv(false)
             .trusted(false)
             .firmaRicevuta("N")
+            // id_utenza e' obbligatorio e univoco da govpay-common 5a4bfea
+            .idUtenza(1L)
             .build();
         testApplicazione = applicazioneRepository.save(testApplicazione);
     }
