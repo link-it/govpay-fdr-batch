@@ -1,3 +1,32 @@
+2026-10-30  Giuliano Pintori <pintori@link.it>
+
+	* [Docker] init_fdr_db.sh crea la tabella fr_temp anche quando le tabelle
+	Spring Batch esistono gia' (database condiviso con altri batch GovPay): i
+	controlli sono separati e si esegue solo lo script di cio' che manca.
+	Corretti anche il nuovo tentativo di connessione con set -e, la creazione
+	con GOVPAY_FDR_READY_DB_CHECK_SKIP=TRUE, il messaggio sugli errori di
+	SqlTool e il controllo su Oracle (UPPER(owner)). Il file rc di SqlTool,
+	con la password, non resta piu' in /tmp.
+
+	* [Docker] L'entrypoint non usa piu' set -x ne' /tmp/entrypoint_debug.log,
+	dove finiva la password del database. SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING
+	impostata direttamente ha la precedenza su GOVPAY_FDR_BATCH_INTERVALLO_CRON;
+	un intervallo non numerico o zero blocca l'avvio con un errore.
+
+	* [Docker] Rimosse dal Dockerfile LOGGING_DIRECTORYPATH e LOGGING_FILEPREFIX,
+	mai lette. DOCKER.md, DOCKERHUB.md e jdbc-drivers/README.md riscritti
+	(modalita' di esecuzione, intervallo di default, versioni dei driver).
+
+	* [Build] Il profilo war produce un war deployabile: packaging
+	${packaging.type}, layout WAR del plugin Spring Boot (ZIP resta per il jar),
+	GovpayFdrBatchApplication estende SpringBootServletInitializer. Il war usa
+	il datasource JNDI dell'application server (spring.datasource.jndi-name).
+	Rimossi gli override di postgresql e swagger-annotations, piu' vecchi delle
+	versioni di govpay-bom. La pipeline passa -Dowasp.autoUpdate=false invece di
+	-DautoUpdate=false, che il plugin ignorava.
+
+	* [Documentazione] README allineato al modello comune dei progetti GovPay.
+
 2026-09-28  Giuliano Pintori <pintori@link.it>
 
 	* [Logging] Transaction ID e Correlation ID nelle esecuzioni batch (BP-LOG-3).

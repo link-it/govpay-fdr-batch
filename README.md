@@ -51,13 +51,14 @@ Le modifiche ai livelli di log fatte dalla console (riga `log_level` della tabel
 Requisiti: JDK 21 e Maven 3.8.1 o successivo.
 
 ```bash
-mvn clean install
+mvn clean install -P jar     # fat jar, per esecuzione standalone e container (profilo di default)
+mvn clean install -P war     # war, per il deploy su application server
 ```
 
-Il risultato è il fat jar `target/govpay-fdr-batch.jar`, senza driver JDBC. La build esegue i test e l'analisi OWASP Dependency-Check delle dipendenze; per escludere l'analisi OWASP, per esempio in sviluppo:
+Il profilo sceglie il packaging; il risultato è in `target/govpay-fdr-batch.jar` o `target/govpay-fdr-batch.war`. In entrambi i casi i driver JDBC non sono inclusi. La build esegue i test e l'analisi OWASP Dependency-Check delle dipendenze (esecuzione `check-owasp` di govpay-bom); per escluderla, per esempio in sviluppo:
 
 ```bash
-mvn clean install -Dowasp.phase=none
+mvn clean install -P jar -Dowasp.phase=none
 ```
 
 Per produrre anche `target/sql.zip`, con lo schema Spring Batch per ogni database, gli script della tabella `fr_temp` e gli script di svecchiamento dei metadati, usato dall'immagine Docker e allegato alle release:
@@ -131,7 +132,8 @@ URL, autenticazione e timeout di pagoPA e del GDE non sono proprietà del batch:
 
 | Proprietà | Default | Descrizione |
 |-----------|---------|-------------|
-| `spring.datasource.url` | - | URL JDBC del database di GovPay (obbligatoria) |
+| `spring.datasource.url` | - | URL JDBC del database di GovPay (obbligatoria con il jar) |
+| `spring.datasource.jndi-name` | - | Nome JNDI del datasource, per il deploy del war su application server (es. `java:comp/env/jdbc/govpay`); se impostata, le altre proprietà `spring.datasource.*` sono ignorate |
 | `spring.datasource.username` | - | Utente del database |
 | `spring.datasource.password` | - | Password del database |
 | `spring.datasource.driver-class-name` | dedotto dall'URL | Classe del driver JDBC |
@@ -144,7 +146,7 @@ URL, autenticazione e timeout di pagoPA e del GDE non sono proprietà del batch:
 | `spring.datasource.hikari.idle-timeout` | `600000` (`10000` nel container) | Tempo dopo cui una connessione inattiva viene chiusa, in ms |
 | `spring.datasource.hikari.max-lifetime` | `1800000` (`600000` nel container) | Durata massima di una connessione, in ms |
 
-I driver JDBC non sono inclusi nel jar: vedi [Esecuzione](#esecuzione).
+I driver JDBC non sono inclusi né nel jar né nel war: vedi [Esecuzione](#esecuzione).
 
 ### Logging
 
@@ -195,7 +197,7 @@ Prima del primo avvio, nel database di GovPay devono esistere:
 - le tabelle dei metadati Spring Batch: script `sql/spring-batch/schema-<database>.sql` di `sql.zip`;
 - la tabella `fr_temp`: script `sql/<database>/create.sql` di `sql.zip` (`postgresql`, `mysql`, `oracle`, `sqlserver`, `hsqldb`).
 
-`sql/<database>/add-indexes.sql` aggiunge alle tabelle `fr`, `pagamenti` e `rendicontazioni` gli indici usati dalle query del batch; `drop.sql` e `delete.sql` rimuovono o svuotano `fr_temp`. Gli script in `sql/cleanup/` cancellano i metadati delle esecuzioni vecchie e vanno pianificati periodicamente. L'immagine Docker esegue da sola lo schema Spring Batch e `create.sql` se `GOVPAY_FDR_POP_DB_SKIP=FALSE`.
+`sql/<database>/add-indexes.sql` aggiunge alle tabelle `fr`, `pagamenti` e `rendicontazioni` gli indici usati dalle query del batch; `drop.sql` e `delete.sql` rimuovono o svuotano `fr_temp`. Gli script in `sql/cleanup/` cancellano i metadati delle esecuzioni vecchie e vanno pianificati periodicamente. Con `GOVPAY_FDR_POP_DB_SKIP=FALSE` l'immagine Docker crea da sola le tabelle Spring Batch e `fr_temp`, ciascuna solo se manca.
 
 ### Jar standalone
 
@@ -223,6 +225,25 @@ java -Dloader.path=./jdbc-drivers \
      -Dspring.datasource.password=<password> \
      -jar target/govpay-fdr-batch.jar --spring.profiles.active=cron
 ```
+
+### War su application server
+
+Il war si produce con `mvn clean install -P war` (`target/govpay-fdr-batch.war`): non è allegato alle release né incluso nell'immagine Docker. Richiede un application server Jakarta EE 11 (Servlet 6.1), per esempio Tomcat 11.
+
+Il war usa il datasource dell'application server, indicato con `spring.datasource.jndi-name`; il driver JDBC va nelle librerie dell'application server. Le altre proprietà si passano come proprietà di sistema della JVM o variabili d'ambiente. Esempio per Tomcat, con il datasource definito in `conf/context.xml`:
+
+```xml
+<Resource name="jdbc/govpay" auth="Container" type="javax.sql.DataSource"
+          driverClassName="org.postgresql.Driver" url="jdbc:postgresql://localhost:5432/govpay"
+          username="govpay" password="<password>" maxTotal="10"/>
+```
+
+```bash
+export CATALINA_OPTS="-Dspring.datasource.jndi-name=java:comp/env/jdbc/govpay"
+cp target/govpay-fdr-batch.war $CATALINA_BASE/webapps/
+```
+
+Il batch gira con lo scheduler interno; API REST e actuator rispondono sotto il context path del war (es. `http://localhost:8080/govpay-fdr-batch/actuator/health`).
 
 ## Esecuzione con Docker
 
@@ -257,19 +278,20 @@ Variabili d'ambiente dell'immagine, oltre alle proprietà Spring Boot in forma d
 | `GOVPAY_FDR_MIN_POOL` | no | `2` | Connessioni minime inattive del pool |
 | `GOVPAY_FDR_MAX_POOL` | no | `10` | Connessioni massime del pool |
 | `GOVPAY_FDR_BATCH_USA_CRON` | no | - | `true`, `si`, `yes` o `1`: esecuzione singola con il profilo `cron`, senza server HTTP; il container termina a fine job e va pianificato dall'esterno (es. CronJob Kubernetes). Altrimenti scheduler interno |
-| `GOVPAY_FDR_BATCH_INTERVALLO_CRON` | no | `120` | Minuti tra un'esecuzione e l'altra con lo scheduler interno; l'entrypoint la converte in `SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING`, sovrascrivendo un valore passato direttamente |
+| `GOVPAY_FDR_BATCH_INTERVALLO_CRON` | no | `120` | Minuti tra un'esecuzione e l'altra con lo scheduler interno, intero maggiore di zero; l'entrypoint la converte in `SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING`. Un valore non valido blocca l'avvio |
+| `SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING` | no | - | Intervallo in millisecondi; se impostata ha la precedenza su `GOVPAY_FDR_BATCH_INTERVALLO_CRON` |
 | `SERVER_PORT` | no | `10001` | Porta HTTP con lo scheduler interno |
 | `MANAGEMENT_SERVER_PORT` | no | porta del servizio | Porta dedicata agli endpoint actuator |
 | `MANAGEMENT_ENDPOINTS` | no | `health,info,metrics,prometheus` | Endpoint actuator esposti |
 | `LOG_LEVEL_REFRESH_INTERVAL` | no | `60s` | Intervallo di rilettura dei livelli di log dal database |
-| `GOVPAY_FDR_POP_DB_SKIP` | no | `TRUE` | `FALSE` crea all'avvio le tabelle Spring Batch e `fr_temp`, se la tabella `GOVPAY_FDR_DB_CHECK_TABLE` non esiste |
-| `GOVPAY_FDR_DB_CHECK_TABLE` | no | `batch_job_execution_context` | Tabella che indica che lo schema è già presente |
+| `GOVPAY_FDR_POP_DB_SKIP` | no | `TRUE` | `FALSE` crea all'avvio le tabelle Spring Batch, se manca la tabella `GOVPAY_FDR_DB_CHECK_TABLE`, e la tabella `fr_temp`, se manca |
+| `GOVPAY_FDR_DB_CHECK_TABLE` | no | `batch_job_execution_context` | Tabella che indica che lo schema Spring Batch è già presente |
 | `GOVPAY_FDR_LIVE_DB_CHECK_SKIP` | no | `FALSE` | Salta l'attesa della porta del database prima dell'inizializzazione |
 | `GOVPAY_FDR_LIVE_DB_CHECK_MAX_RETRY` | no | `30` | Tentativi di connessione alla porta del database |
 | `GOVPAY_FDR_LIVE_DB_CHECK_SLEEP_TIME` | no | `2` | Secondi tra un tentativo e l'altro |
 | `GOVPAY_FDR_LIVE_DB_CHECK_CONNECT_TIMEOUT` | no | `5` | Timeout di ogni tentativo di connessione, in secondi |
-| `GOVPAY_FDR_READY_DB_CHECK_SKIP` | no | `FALSE` | Salta la verifica della tabella e crea comunque lo schema |
-| `GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY` | no | `5` | Tentativi della verifica della tabella |
+| `GOVPAY_FDR_READY_DB_CHECK_SKIP` | no | `FALSE` | Salta la verifica delle tabelle e le crea comunque |
+| `GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY` | no | `5` | Tentativi della verifica delle tabelle |
 | `GOVPAY_FDR_READY_DB_CHECK_SLEEP_TIME` | no | `2` | Secondi tra un tentativo e l'altro |
 | `GOVPAY_FDR_JVM_MAX_RAM_PERCENTAGE` | no | `80` | `-XX:MaxRAMPercentage` della JVM |
 | `GOVPAY_FDR_JVM_INITIAL_RAM_PERCENTAGE` | no | - | `-XX:InitialRAMPercentage` della JVM |
@@ -280,13 +302,13 @@ Variabili d'ambiente dell'immagine, oltre alle proprietà Spring Boot in forma d
 
 Il Dockerfile imposta anche, con i valori di default del batch, `SPRING_BATCH_JOB_ENABLED`, `GOVPAY_BATCH_ENABLED`, `GOVPAY_BATCH_MAX_RETRIES`, `GOVPAY_BATCH_PAGE_SIZE`, `GOVPAY_BATCH_THREAD_POOL_SIZE`, `GOVPAY_BATCH_HEADERS_CHUNK_SIZE`, `GOVPAY_BATCH_METADATA_CHUNK_SIZE`, `GOVPAY_BATCH_PAYMENTS_CHUNK_SIZE`, `GOVPAY_BATCH_SKIP_LIMIT`, `GOVPAY_BATCH_STALE_THRESHOLD_MINUTES`, `MANAGEMENT_ENDPOINTS_WEB_BASE_PATH`, i parametri del pool `SPRING_DATASOURCE_HIKARI_*` (vedi [Database](#database)) e `LOGGING_FILE_NAME`: si possono sovrascrivere con `-e`.
 
-L'identificativo del nodo (`govpay.batch.cluster-id`) è impostato dall'entrypoint, con la variabile `GOVPAY_BATCH_CLUSTER_ID`, all'indirizzo IP del container o al suo hostname se l'IP non si ricava: un valore passato dall'esterno viene sovrascritto. Le altre variabili che compaiono negli script dell'immagine (es. `INTERVALLO_MINUTI`, `HSQLDB_SHA256`) sono interne e non vanno impostate. Il log di avvio dell'entrypoint è in `/tmp/entrypoint_debug.log` dentro il container.
+L'identificativo del nodo (`govpay.batch.cluster-id`) è impostato dall'entrypoint, con la variabile `GOVPAY_BATCH_CLUSTER_ID`, all'indirizzo IP del container o al suo hostname se l'IP non si ricava: un valore passato dall'esterno viene sovrascritto. Le altre variabili che compaiono negli script dell'immagine (es. `INTERVALLO_MINUTI`, `HSQLDB_SHA256`) sono interne e non vanno impostate. I messaggi dell'entrypoint sono nei log del container.
 
 Costruzione dell'immagine in locale, scansione delle vulnerabilità e pacchetti inclusi sono descritti in [docker/DOCKER.md](docker/DOCKER.md) e [docker/SCANSIONE.md](docker/SCANSIONE.md).
 
 ## Monitoraggio
 
-Con lo scheduler interno gli endpoint actuator rispondono di default sulla porta del servizio (`8080` con il jar, `10001` nel container):
+Con lo scheduler interno gli endpoint actuator rispondono di default sulla porta del servizio (`8080` con il jar, `10001` nel container; con il war, sotto il context path dell'applicazione):
 
 ```bash
 curl http://localhost:10001/actuator/health       # stato, compresa la connessione al database
