@@ -117,8 +117,7 @@ GOVPAY_FDR_MAX_POOL=${GOVPAY_FDR_MAX_POOL:-10}
 
 if [ "${GOVPAY_FDR_POP_DB_SKIP:-TRUE}" != "TRUE" ] && [ -n "${GOVPAY_DB_TYPE}" ]; then
     log_info "Esecuzione script di inizializzazione database..."
-    /usr/local/bin/init_fdr_db.sh
-    if [ $? -ne 0 ]; then
+    if ! /usr/local/bin/init_fdr_db.sh; then
         log_error "Inizializzazione database fallita"
         exit 1
     fi
@@ -154,12 +153,24 @@ case "${GOVPAY_FDR_BATCH_USA_CRON,,}" in
         log_info "Modalità deployment: SCHEDULER INTERNO (auto-schedulato)"
         SERVER_PORT=${SERVER_PORT:-10001}
 
-        # Conversione intervallo da minuti a millisecondi (default: 120 minuti = 2 ore)
-        INTERVALLO_MINUTI=${GOVPAY_FDR_BATCH_INTERVALLO_CRON:-120}
-        SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING=$((INTERVALLO_MINUTI * 60 * 1000))
+        # Intervallo del job (proprieta' scheduler.fdrAcquisitionJob.fixedDelayString,
+        # in ms). Un valore impostato direttamente con SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING
+        # ha la precedenza; altrimenti si converte GOVPAY_FDR_BATCH_INTERVALLO_CRON
+        # da minuti a millisecondi (default: 120 minuti = 2 ore).
+        if [ -n "${SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING}" ]; then
+            [ -n "${GOVPAY_FDR_BATCH_INTERVALLO_CRON}" ] && log_warn "GOVPAY_FDR_BATCH_INTERVALLO_CRON ignorata: e' impostata SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING."
+            log_info "Porta HTTP: ${SERVER_PORT}, Intervallo scheduler: ${SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING}ms (da SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING)"
+        else
+            INTERVALLO_MINUTI=${GOVPAY_FDR_BATCH_INTERVALLO_CRON:-120}
+            if ! [[ "${INTERVALLO_MINUTI}" =~ ^[0-9]+$ ]] || [ "$((10#${INTERVALLO_MINUTI}))" -eq 0 ]; then
+                log_error "GOVPAY_FDR_BATCH_INTERVALLO_CRON deve essere un numero intero di minuti maggiore di zero: ${INTERVALLO_MINUTI}"
+                exit 1
+            fi
+            SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING=$((10#${INTERVALLO_MINUTI} * 60 * 1000))
+            log_info "Porta HTTP: ${SERVER_PORT}, Intervallo scheduler: ${INTERVALLO_MINUTI} minuti (${SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING}ms)"
+        fi
 
         export SERVER_PORT SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING
-        log_info "Porta Actuator: ${SERVER_PORT}, Intervallo scheduler: ${INTERVALLO_MINUTI} minuti (${SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING}ms)"
         ;;
 esac
 
