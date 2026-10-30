@@ -156,7 +156,7 @@ mvn clean install
 
 ### Solo build e test (senza security check)
 ```bash
-mvn clean install -Dowasp=none
+mvn clean install -Dowasp.phase=none
 ```
 
 ### Solo security check
@@ -182,26 +182,23 @@ open target/dependency-check-report.html
 ## Configurazione Avanzata
 
 ### Disabilitare OWASP Dependency-Check
-Nel `pom.xml`, modifica:
+L'analisi e' l'esecuzione `check-owasp` di govpay-bom, legata alla fase `${owasp.phase}`. Da riga di comando `-Dowasp.phase=none`, oppure nel `pom.xml`:
 ```xml
-<owasp>none</owasp>
+<owasp.phase>none</owasp.phase>
 ```
 
 ### Modificare la soglia CVSS
 Nel `pom.xml`, modifica:
 ```xml
-<owasp.plugin.failBuildOnCVSS>7</owasp.plugin.failBuildOnCVSS>
+<owasp.failBuildOnCVSS>7</owasp.failBuildOnCVSS>
 ```
 Valori:
 - `11`: Non blocca mai (default)
 - `7`: Blocca per vulnerabilità HIGH
 - `4`: Blocca per vulnerabilità MEDIUM
 
-### Disabilitare auto-update OWASP DB
-Utile quando il repository NIST ha problemi:
-```xml
-<owasp.plugin.autoUpdate>false</owasp.plugin.autoUpdate>
-```
+### Auto-update del database OWASP
+In govpay-bom `owasp.autoUpdate` vale `false`: il database NVD e' aggiornato dal workflow `refresh-owasp-db.yml` e la build usa la cache. Per forzare l'aggiornamento in una build locale: `-Dowasp.autoUpdate=true` (non `-DautoUpdate`, che il plugin ignora perche' il pom fissa `<autoUpdate>${owasp.autoUpdate}</autoUpdate>`).
 
 ## License Analysis
 
