@@ -4,11 +4,12 @@
 # Script di Inizializzazione Database GovPay FDR
 # Questo script inizializza il database FDR eseguendo:
 # 1. Liveness check (connessione TCP al database)
-# 2. Readiness check (verifica esistenza tabelle)
-# 3. Esecuzione script SQL se il database non è inizializzato
+# 2. Readiness check (verifica esistenza delle tabelle Spring Batch e FR_TEMP)
+# 3. Esecuzione degli script SQL delle tabelle mancanti
 #
 ##############################################################################
-set -x
+# Niente 'set -x': il tracing scriverebbe nei log la password del database
+# (file rc di SqlTool).
 set -e
 
 # Configurazione con valori di default
@@ -72,8 +73,13 @@ if [ "${GOVPAY_FDR_LIVE_DB_CHECK_SKIP^^}" == "FALSE" ]; then
     DB_ALIVE=1
 
     while [ ${DB_ALIVE} -ne 0 ] && [ ${RETRY} -lt ${GOVPAY_FDR_LIVE_DB_CHECK_MAX_RETRY} ]; do
-        nc -w ${GOVPAY_FDR_LIVE_DB_CHECK_CONNECT_TIMEOUT} -z "${DB_HOST}" "${DB_PORT}"
-        DB_ALIVE=$?
+        # Con set -e un nc fallito fuori da un if chiuderebbe lo script al primo
+        # tentativo, senza riprovare.
+        if nc -w ${GOVPAY_FDR_LIVE_DB_CHECK_CONNECT_TIMEOUT} -z "${DB_HOST}" "${DB_PORT}"; then
+            DB_ALIVE=0
+        else
+            DB_ALIVE=$?
+        fi
         RETRY=$((RETRY + 1))
 
         if [ ${DB_ALIVE} -ne 0 ]; then
@@ -132,7 +138,12 @@ log_info "URL JDBC: ${JDBC_URL}"
 # CREAZIONE FILE RC SQLTOOL
 ##############################################################################
 
-SQLTOOL_RC_FILE="/tmp/sqltool_fdr.rc"
+# Il file rc contiene la password del database: viene rimosso all'uscita
+# insieme alla copia temporanea degli script.
+SQLTOOL_RC_FILE="$(mktemp /tmp/sqltool_fdr.XXXXXX)"
+SQL_TMP_DIR="$(mktemp -d /tmp/fdr_sql.XXXXXX)"
+trap 'rm -rf "${SQLTOOL_RC_FILE}" "${SQL_TMP_DIR}"' EXIT
+
 cat > ${SQLTOOL_RC_FILE} <<EOSQLTOOL
 urlid fdr_db
 url ${JDBC_URL}
@@ -143,56 +154,66 @@ transiso TRANSACTION_READ_COMMITTED
 charset UTF-8
 EOSQLTOOL
 
+# Comando SqlTool, usato sia dal readiness check sia dalla creazione delle
+# tabelle: va definito qui perche' il readiness check si puo' saltare.
+INVOCAZIONE_CLIENT="-Dfile.encoding=UTF-8 -cp ${GOVPAY_DS_JDBC_LIBS}/*:/opt/hsqldb-${HSQLDB_FULLVERSION}/hsqldb/lib/sqltool.jar org.hsqldb.cmdline.SqlTool --rcFile=${SQLTOOL_RC_FILE} "
+
 ##############################################################################
-# READINESS CHECK (Esistenza Tabella)
+# READINESS CHECK (Esistenza Tabelle)
 ##############################################################################
 
-if [ "${GOVPAY_FDR_READY_DB_CHECK_SKIP^^}" == "FALSE" ]; then
-    log_info "Esecuzione readiness check (tabella: ${GOVPAY_FDR_DB_CHECK_TABLE})..."
-
-    # Costruzione query di verifica in base al tipo di database
-    # Costruzione query di verifica in base al tipo di database
+# Conta le tabelle con il nome indicato (0 o 1); esce con errore se il
+# database non risponde dopo GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY tentativi.
+conta_tabella() {
+    local TABELLA="${1,,}"
+    local CHECK_QUERY
     case "${GOVPAY_DB_TYPE}" in
         postgresql)
-            CHECK_QUERY="SELECT count(*) FROM information_schema.tables WHERE LOWER(table_name)='${GOVPAY_FDR_DB_CHECK_TABLE,,}' AND LOWER(table_catalog)='${GOVPAY_DB_NAME,,}';"
+            CHECK_QUERY="SELECT count(*) FROM information_schema.tables WHERE LOWER(table_name)='${TABELLA}' AND LOWER(table_catalog)='${GOVPAY_DB_NAME,,}';"
             ;;
         mysql|mariadb)
-            CHECK_QUERY="SELECT count(*) FROM information_schema.tables WHERE LOWER(table_name)='${GOVPAY_FDR_DB_CHECK_TABLE,,}' AND LOWER(table_schema)='${GOVPAY_DB_NAME,,}';"
+            CHECK_QUERY="SELECT count(*) FROM information_schema.tables WHERE LOWER(table_name)='${TABELLA}' AND LOWER(table_schema)='${GOVPAY_DB_NAME,,}';"
             ;;
         oracle)
-            CHECK_QUERY="SELECT count(*) FROM all_tables WHERE LOWER(table_name)='${GOVPAY_FDR_DB_CHECK_TABLE,,}' AND LOWER(owner)='${GOVPAY_DB_USER^^}';"
+            CHECK_QUERY="SELECT count(*) FROM all_tables WHERE LOWER(table_name)='${TABELLA}' AND UPPER(owner)='${GOVPAY_DB_USER^^}';"
             ;;
     esac
 
-    RETRY=0
-    TABLE_EXISTS=-1
-
-    INVOCAZIONE_CLIENT="-Dfile.encoding=UTF-8 -cp ${GOVPAY_DS_JDBC_LIBS}/*:/opt/hsqldb-${HSQLDB_FULLVERSION}/hsqldb/lib/sqltool.jar org.hsqldb.cmdline.SqlTool --rcFile=${SQLTOOL_RC_FILE} "
-
-    while [ ${TABLE_EXISTS} -lt 0 ] && [ ${RETRY} -lt ${GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY} ]; do
-        TABLE_COUNT=$(java ${INVOCAZIONE_CLIENT} \
-            --sql="${CHECK_QUERY}" \
-            fdr_db 2>/dev/null | tail -1 | tr -d ' \n\r')
-
+    local RETRY=0
+    local TABLE_COUNT
+    while [ ${RETRY} -lt ${GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY} ]; do
+        TABLE_COUNT=$(java ${INVOCAZIONE_CLIENT} --sql="${CHECK_QUERY}" fdr_db 2>/dev/null | tail -1 | tr -d ' \n\r') || true
         if [[ "${TABLE_COUNT}" =~ ^[0-9]+$ ]]; then
-            TABLE_EXISTS=${TABLE_COUNT}
-        else
-            RETRY=$((RETRY + 1))
-            if [ ${RETRY} -lt ${GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY} ]; then
-                log_info "Readiness check fallito, tentativo ${RETRY}/${GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY}..."
-                sleep ${GOVPAY_FDR_READY_DB_CHECK_SLEEP_TIME}
-            fi
+            echo "${TABLE_COUNT}"
+            return 0
+        fi
+        RETRY=$((RETRY + 1))
+        if [ ${RETRY} -lt ${GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY} ]; then
+            log_info "Readiness check fallito, tentativo ${RETRY}/${GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY}..." >&2
+            sleep ${GOVPAY_FDR_READY_DB_CHECK_SLEEP_TIME}
         fi
     done
+    log_error "FATALE: Readiness check fallito dopo ${GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY} tentativi"
+    return 1
+}
 
-    if [ ${TABLE_EXISTS} -lt 0 ]; then
-        log_error "FATALE: Readiness check fallito dopo ${GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY} tentativi"
-        exit 1
-    fi
+# Le tabelle Spring Batch possono esistere gia' (database condiviso con altri
+# batch GovPay) senza la tabella FR_TEMP di questo batch: i due controlli sono
+# separati e si esegue solo lo script di cio' che manca.
+CREA_SCHEMA_BATCH=TRUE
+CREA_FR_TEMP=TRUE
 
-    log_info "Risultato readiness check: ${TABLE_EXISTS} tabella/e trovata/e"
+if [ "${GOVPAY_FDR_READY_DB_CHECK_SKIP^^}" == "FALSE" ]; then
+    log_info "Esecuzione readiness check (tabelle: ${GOVPAY_FDR_DB_CHECK_TABLE}, fr_temp)..."
 
-    if [ ${TABLE_EXISTS} -gt 0 ]; then
+    COUNT_BATCH=$(conta_tabella "${GOVPAY_FDR_DB_CHECK_TABLE}")
+    COUNT_FR_TEMP=$(conta_tabella "fr_temp")
+    log_info "Risultato readiness check: ${GOVPAY_FDR_DB_CHECK_TABLE}=${COUNT_BATCH}, fr_temp=${COUNT_FR_TEMP}"
+
+    [ "${COUNT_BATCH}" -gt 0 ] && CREA_SCHEMA_BATCH=FALSE
+    [ "${COUNT_FR_TEMP}" -gt 0 ] && CREA_FR_TEMP=FALSE
+
+    if [ "${CREA_SCHEMA_BATCH}" == "FALSE" ] && [ "${CREA_FR_TEMP}" == "FALSE" ]; then
         log_info "Database già inizializzato, esecuzione SQL saltata"
         exit 0
     fi
@@ -219,10 +240,14 @@ if [ -f /opt/sql/VERSION ]; then
     grep -v '^#' /opt/sql/VERSION | grep -v '^$' | while read -r riga; do log_info "  ${riga}"; done
 fi
 
-# Verifica esistenza script SQL: lo schema dei metadati Spring Batch e il DDL
-# della tabella applicativa FR_TEMP. Controllarli entrambi qui fa fallire
+# Script da eseguire: lo schema dei metadati Spring Batch e/o il DDL della
+# tabella applicativa FR_TEMP. Controllarne l'esistenza qui fa fallire
 # l'inizializzazione con un messaggio chiaro invece che dentro SqlTool.
-for SQL_FILE in "${BATCH_SCHEMA}" "/opt/sql/${SQL_DIR}/create.sql"; do
+SCRIPT_DA_ESEGUIRE=()
+[ "${CREA_SCHEMA_BATCH}" == "TRUE" ] && SCRIPT_DA_ESEGUIRE+=("${BATCH_SCHEMA}")
+[ "${CREA_FR_TEMP}" == "TRUE" ] && SCRIPT_DA_ESEGUIRE+=("/opt/sql/${SQL_DIR}/create.sql")
+
+for SQL_FILE in "${SCRIPT_DA_ESEGUIRE[@]}"; do
     if [ ! -f "${SQL_FILE}" ]; then
         log_error "Script SQL non trovato: ${SQL_FILE}"
         log_error "File disponibili in /opt/sql:"
@@ -239,24 +264,31 @@ for SQL_FILE in "${BATCH_SCHEMA}" "/opt/sql/${SQL_DIR}/create.sql"; do
     fi
 done
 
-# Copia script in posizione temporanea
-mkdir -p /tmp/fdr_sql
-cp "/opt/sql/${SQL_DIR}"/*.sql /tmp/fdr_sql/ 2>/dev/null || true
-cp "${BATCH_SCHEMA}" /tmp/fdr_sql/
-log_info "Script SQL copiati in /tmp/fdr_sql/"
+# Copia degli script nella directory temporanea, con un nome per ruolo
+INCLUDE_SQL=""
+if [ "${CREA_SCHEMA_BATCH}" == "TRUE" ]; then
+    cp "${BATCH_SCHEMA}" "${SQL_TMP_DIR}/schema-batch.sql"
+    INCLUDE_SQL="${INCLUDE_SQL}\\i ${SQL_TMP_DIR}/schema-batch.sql"$'\n'
+    log_info "Creazione delle tabelle Spring Batch (${BATCH_SCHEMA})"
+fi
+if [ "${CREA_FR_TEMP}" == "TRUE" ]; then
+    cp "/opt/sql/${SQL_DIR}/create.sql" "${SQL_TMP_DIR}/create-fr-temp.sql"
+    INCLUDE_SQL="${INCLUDE_SQL}\\i ${SQL_TMP_DIR}/create-fr-temp.sql"$'\n'
+    log_info "Creazione della tabella fr_temp (/opt/sql/${SQL_DIR}/create.sql)"
+fi
 
 # Applica trasformazioni specifiche per vendor
 case "${GOVPAY_DB_TYPE}" in
     mysql|mariadb)
         log_info "Applicazione trasformazioni MySQL/MariaDB..."
         # Rimuove quote escaped negli statement COMMENT
-        sed -i -e "/COMMENT/s%\\\\'% %g" /tmp/fdr_sql/*.sql
+        sed -i -e "/COMMENT/s%\\\\'% %g" "${SQL_TMP_DIR}"/*.sql
         ;;
     oracle)
         log_info "Applicazione trasformazioni Oracle..."
         # Abilita modalità raw per trigger e funzioni
         sed -i -r -e '/^CREATE( OR REPLACE)? (TRIGGER|FUNCTION|PROCEDURE)/i .' \
-                  -e 's/^\/$/.\n:;/' /tmp/fdr_sql/*.sql
+                  -e 's/^\/$/.\n:;/' "${SQL_TMP_DIR}"/*.sql
         ;;
 esac
 
@@ -264,21 +296,16 @@ esac
 # Esecuzione script SQL
 log_info "Esecuzione script SQL in corso..."
 
+# Con set -e un errore di SqlTool chiuderebbe lo script senza il messaggio
+# d'errore: l'exit code si raccoglie con ||.
+SQL_EXIT_CODE=0
 java ${INVOCAZIONE_CLIENT} \
     --continueOnErr=false \
-    fdr_db <<EOSQL
+    fdr_db <<EOSQL || SQL_EXIT_CODE=$?
 SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 ${START_TRANSACTION}
-\i /tmp/fdr_sql/schema-${GOVPAY_DB_TYPE}.sql
-\i /tmp/fdr_sql/create.sql
-COMMIT;
+${INCLUDE_SQL}COMMIT;
 EOSQL
-
-SQL_EXIT_CODE=$?
-
-# Pulizia
-#rm -rf /tmp/fdr_sql
-#rm -f ${SQLTOOL_RC_FILE}
 
 if [ ${SQL_EXIT_CODE} -eq 0 ]; then
     log_info "========================================"
