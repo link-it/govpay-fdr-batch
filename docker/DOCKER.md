@@ -1,220 +1,97 @@
-# GovPay FDR - Configurazione Docker
+# GovPay FDR Batch - Immagine Docker
 
-Containerizzazione Docker per il batch GovPay FDR che gestisce l'acquisizione dei flussi di rendicontazione tramite il servizio REST di pagoPA.
+Immagine del batch che acquisisce da pagoPA i Flussi di Rendicontazione (FDR) degli Enti Creditori e li riconcilia con i pagamenti di GovPay. Cosa fa il batch, come si configura e l'elenco completo delle variabili d'ambiente sono nel [README](../README.md#esecuzione-con-docker): qui solo ciò che riguarda l'immagine.
 
-## Panoramica
+## Contenuto
 
-Questa configurazione Docker fornisce:
-- Supporto multi-database (PostgreSQL, MySQL/MariaDB, Oracle)
-- Modalità di deployment flessibili (schedulato da orchestratore o modalita cron)
-- Integrazione con il servizio FDR di pagoPA
-- Integrazione opzionale con GDE (Giornale degli Eventi)
-- Health check e monitoraggio
-- Connection pooling configurabile
+| Percorso | Contenuto |
+|----------|-----------|
+| `/opt/govpay-fdr/govpay-fdr-batch.jar` | Fat jar del batch |
+| `/opt/jdbc-drivers` | Driver JDBC, da montare: non sono inclusi nell'immagine (vedi [jdbc-drivers/README.md](jdbc-drivers/README.md)) |
+| `/opt/sql` | Script SQL di `sql.zip`: schema Spring Batch per database (`spring-batch/`), tabella `fr_temp` e indici per database (`postgresql/`, `mysql/`, `oracle/`, `sqlserver/`, `hsqldb/`), svecchiamento dei metadati (`cleanup/`) |
+| `/opt/hsqldb-<versione>` | SqlTool di HSQLDB, usato per creare le tabelle all'avvio |
+| `/var/log/govpay-fdr/govpay-fdr.log` | File di log dell'applicazione |
 
-## Avvio Rapido
+Il processo gira con l'utente `govpay`; l'entrypoint è `/usr/local/bin/entrypoint.sh` e scrive i propri messaggi sullo standard output del container.
 
-### 1. Costruire l'Immagine Docker
-
-```bash
-# Build con supporto PostgreSQL (predefinito)
-./build_image.sh
-```
-
-### 2. Configurazione obbligatoria
-- `GOVPAY_DB_TYPE`: Tipo database (postgresql, mysql, mariadb, oracle)
-- `GOVPAY_DB_SERVER`: Server database (formato: host:porta)
-- `GOVPAY_DB_NAME`: Nome del database
-- `GOVPAY_DB_USER`: Username del database
-- `GOVPAY_DB_PASSWORD`: Password del database
-
-**Nota:** La configurazione della connessione verso le API pagoPA FDR (URL, credenziali, timeouts) viene gestita tramite la tabella `CONNETTORI` del database GovPay, utilizzando la libreria `govpay-common`.
-
-### 3. Avviare i Servizi
+## Costruzione
 
 ```bash
-# Avvio con docker-compose
-docker compose up -d
-
-# Visualizzare i log
-docker compose logs -f govpay-fdr
-
-# Verificare lo stato
-docker compose ps
+cd docker
+./build_image.sh                       # ultima release pubblicata su GitHub
+./build_image.sh -v <versione>         # una release specifica
+./build_image.sh -l ../target/govpay-fdr-batch.jar -t govpay-fdr-batch:locale   # jar compilato in locale
 ```
 
-## Architettura
+Con una release, jar e `sql.zip` sono scaricati da GitHub e verificati con lo sha256 letto dalle API delle release (`-s` e `-q` per indicarlo a mano). Con `-l` si usa `Dockerfile.daFile` e gli script SQL vengono da `../target/sql.zip`, prodotto da `mvn clean install -Pjar,dist`: senza, l'immagine non ha gli script per creare le tabelle. `./build_image.sh -h` elenca tutte le opzioni.
+
+## Modalità di esecuzione
+
+| Modalità | Come si attiva | Comportamento |
+|----------|----------------|---------------|
+| Scheduler interno | default (`GOVPAY_FDR_BATCH_USA_CRON` non impostata o falsa) | Il container resta attivo ed esegue il job all'avvio e poi a intervalli; espone API REST e actuator sulla porta `10001` |
+| Esecuzione singola | `GOVPAY_FDR_BATCH_USA_CRON=true` (anche `si`, `yes`, `1`) | Profilo `cron`: esegue il job una volta e termina, senza server HTTP. La pianificazione è esterna (cron di sistema, CronJob Kubernetes) |
+
+Con lo scheduler interno l'intervallo si indica in minuti con `GOVPAY_FDR_BATCH_INTERVALLO_CRON` (default `120`), che l'entrypoint converte nella proprietà `scheduler.fdrAcquisitionJob.fixedDelayString`. Se è impostata direttamente `SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING` (in millisecondi), vale quella e `GOVPAY_FDR_BATCH_INTERVALLO_CRON` viene ignorata. Il valore usato è scritto nel log di avvio:
 
 ```
-┌─────────────────────────────────────┐
-│   GovPay FDR Batch Processor        │
-│                                     │
-│  ┌──────────────────────────────┐  │
-│  │   Applicazione Spring Boot   │  │
-│  │   - Spring Batch             │  │
-│  │   - Client FDR               │  │
-│  │   - Client GDE (opzionale)   │  │
-│  └──────────────────────────────┘  │
-│              │                      │
-│              ▼                      │
-│  ┌──────────────────────────────┐  │
-│  │   HikariCP Connection Pool   │  │
-│  └──────────────────────────────┘  │
-└─────────────────┬───────────────────┘
-                  │
-                  ▼
-      ┌───────────────────────┐
-      │   Database (RDBMS)    │
-      │  - PostgreSQL         │
-      │  - MySQL/MariaDB      │
-      │  - Oracle             │
-      └───────────────────────┘
+[INFO] ... - Porta HTTP: 10001, Intervallo scheduler: 120 minuti (7200000ms)
 ```
 
-## Modalità di Deployment
+In esecuzione singola l'exit code è `0` anche quando il job fallisce: l'esito va letto nei log.
 
-### Modalità CRON (Auto-schedulata)
+Esempio di CronJob Kubernetes per l'esecuzione singola:
 
-Esecuzione continua con job batch auto-schedulati tramite Spring Scheduler:
-
-```env
-GOVPAY_FDR_BATCH_USA_CRON=true
-GOVPAY_FDR_BATCH_INTERVALLO_CRON=5  # Intervallo in minuti (default: 5)
-SERVER_PORT=10001  # Porta per Actuator (default: 10001)
-```
-
-**Caratteristiche:**
-- Il container rimane attivo come daemon
-- Scheduler interno esegue il batch ad intervalli regolari
-- Espone endpoint Spring Boot Actuator per health check e metriche
-- Ideale per deployment con orchestratori (Kubernetes, Docker Swarm, systemd)
-
-### Modalità GESTITO (Schedulazione Esterna)
-
-Esegue il batch una volta ed esce (per schedulazione esterna tramite cron, Kubernetes CronJob, ecc.):
-
-```env
-GOVPAY_FDR_BATCH_USA_CRON=false  # o non impostare la variabile
-```
-
-**Caratteristiche:**
-- Il container esegue il batch ed esce immediatamente
-- Non espone endpoint Actuator
-- La schedulazione è gestita esternamente (cron, orchestratore)
-- Ideale per CronJob di Kubernetes o cron di sistema
-
-Esempio di configurazione cron:
-```bash
-# Esecuzione ogni ora
-0 * * * * docker run --rm --env-file .env govpay-fdr-batch:latest
-```
-
-Esempio CronJob Kubernetes:
 ```yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: govpay-fdr-batch
 spec:
-  schedule: "0 * * * *"  # Ogni ora
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
   jobTemplate:
     spec:
       template:
         spec:
           containers:
           - name: govpay-fdr
-            image: govpay-fdr-batch:latest
+            image: linkitaly/govpay-fdr-batch
+            env:
+            - name: GOVPAY_FDR_BATCH_USA_CRON
+              value: "true"
             envFrom:
             - configMapRef:
                 name: govpay-fdr-config
+            - secretRef:
+                name: govpay-fdr-db
+            volumeMounts:
+            - { name: jdbc-drivers, mountPath: /opt/jdbc-drivers, readOnly: true }
+          volumes:
+          - name: jdbc-drivers
+            persistentVolumeClaim:
+              claimName: govpay-jdbc-drivers
           restartPolicy: OnFailure
 ```
 
-## Configurazione Database
+## Inizializzazione del database
 
-Il container supporta la nomenclatura delle variabili compatibile con govpay-docker. L'URL JDBC viene costruito automaticamente in base al tipo di database.
+Con `GOVPAY_FDR_POP_DB_SKIP=FALSE` l'entrypoint attende la porta del database e controlla separatamente due tabelle:
 
-### PostgreSQL (Default)
+- `GOVPAY_FDR_DB_CHECK_TABLE` (default `batch_job_execution_context`): se manca, crea le tabelle dei metadati Spring Batch con `/opt/sql/spring-batch/schema-<database>.sql`;
+- `fr_temp`: se manca, la crea con `/opt/sql/<database>/create.sql`.
 
-```env
-GOVPAY_DB_TYPE=postgresql
-GOVPAY_DB_SERVER=postgres:5432
-GOVPAY_DB_NAME=govpay
-GOVPAY_DB_USER=govpay
-GOVPAY_DB_PASSWORD=yourpassword
-```
+Si esegue solo lo script di ciò che manca, così il batch si può aggiungere a un database dove un altro batch GovPay ha già creato le tabelle Spring Batch. Con `GOVPAY_FDR_READY_DB_CHECK_SKIP=TRUE` i controlli si saltano e si eseguono entrambi gli script. Le tabelle di GovPay non vengono create: sono degli script di installazione di GovPay. Gli indici di `sql/<database>/add-indexes.sql` si applicano a mano.
 
-**Parametri opzionali:**
-```env
-GOVPAY_DS_CONN_PARAM=sslmode=require&connectTimeout=10  # Parametri JDBC aggiuntivi
-GOVPAY_FDR_MIN_POOL=2  # Connessioni minime nel pool (default: 2)
-GOVPAY_FDR_MAX_POOL=10  # Connessioni massime nel pool (default: 10)
-```
+L'inizializzazione supporta PostgreSQL, MySQL/MariaDB e Oracle; per SQL Server le tabelle si creano a mano con gli script di `sql.zip`.
 
-### MySQL/MariaDB
+## Giornale degli Eventi
 
-```env
-GOVPAY_DB_TYPE=mysql  # oppure mariadb
-GOVPAY_DB_SERVER=mysql:3306
-GOVPAY_DB_NAME=govpay
-GOVPAY_DB_USER=govpay
-GOVPAY_DB_PASSWORD=yourpassword
-```
+L'invio degli eventi al GDE non si configura con variabili del container ma con il connettore `govpay_gde_api` di GovPay (tabella `connettori`).
 
-**Parametri opzionali:**
-```env
-GOVPAY_DS_CONN_PARAM=zeroDateTimeBehavior=convertToNull&useSSL=false
-```
+## Acquisizione da file system
 
-### Oracle
-
-```env
-GOVPAY_DB_TYPE=oracle
-GOVPAY_DB_SERVER=oracle:1521
-GOVPAY_DB_NAME=XE  # Service name o SID
-GOVPAY_DB_USER=govpay
-GOVPAY_DB_PASSWORD=yourpassword
-```
-
-**Configurazione Service Name (default):**
-```env
-GOVPAY_ORACLE_JDBC_URL_TYPE=servicename  # Genera: jdbc:oracle:thin:@//host:port/service
-```
-
-**Configurazione SID:**
-```env
-GOVPAY_ORACLE_JDBC_URL_TYPE=sid  # Genera: jdbc:oracle:thin:@host:port:sid
-```
-
-**Nota:** Il formato con TNS Names non è attualmente supportato dalla configurazione automatica. Per utilizzare TNS Names, è necessario costruire manualmente l'URL JDBC.
-
-### Inizializzazione Database Automatica
-
-Il container può inizializzare automaticamente le tabelle del batch se non esistono:
-
-```env
-GOVPAY_FDR_POP_DB_SKIP=FALSE  # Abilita inizializzazione (default: TRUE)
-GOVPAY_FDR_DB_CHECK_TABLE=batch_job_execution_context  # Tabella di riferimento
-```
-
-**Configurazione health check:**
-```env
-# Liveness check (connessione TCP al DB)
-GOVPAY_FDR_LIVE_DB_CHECK_SKIP=FALSE
-GOVPAY_FDR_LIVE_DB_CHECK_MAX_RETRY=30
-GOVPAY_FDR_LIVE_DB_CHECK_SLEEP_TIME=2
-GOVPAY_FDR_LIVE_DB_CHECK_CONNECT_TIMEOUT=5
-
-# Readiness check (verifica esistenza tabelle)
-GOVPAY_FDR_READY_DB_CHECK_SKIP=FALSE
-GOVPAY_FDR_READY_DB_CHECK_MAX_RETRY=5
-GOVPAY_FDR_READY_DB_CHECK_SLEEP_TIME=2
-```
-
-## Integrazione con GDE (Giornale degli Eventi)
-
-L'integrazione con GDE (Giornale degli Eventi) viene configurata tramite la tabella `CONFIGURAZIONE` del database GovPay.
-Non sono necessarie variabili d'ambiente per abilitare o configurare il GDE.
+Per acquisire flussi depositati come file si monta una directory nel container e si impostano `GOVPAY_FDR_INPUT_ENABLED=true` e `GOVPAY_FDR_INPUT_DIR=<percorso nel container>`. L'utente `govpay` del container deve poter leggere, rinominare e spostare i file. Formato e ciclo di vita dei file sono descritti nel [README](../README.md#acquisizione-da-file-system).
 
 ## Certificati TLS / CA interne (OAuth2, endpoint HTTPS)
 
@@ -312,112 +189,6 @@ Se il certificato è firmato da una CA già nel bundle del cluster, creare una C
 
 > ⚠️ Non puntare `-Djavax.net.ssl.trustStore` a un truststore contenente **solo** la CA interna: sostituirebbe il default e romperebbe il TLS verso pagoPA. Usare sempre una **copia** del `cacerts` con la CA interna aggiunta (come sopra).
 
-## Configuration Reference
+## Scansione delle vulnerabilità
 
-L'elenco completo delle variabili d'ambiente dell'immagine, con default e descrizione, è nel [README](../README.md#esecuzione-con-docker).
-
-### Health Check
-
-In modalità CRON, il container espone gli endpoint Spring Boot Actuator:
-
-```bash
-# Health check
-curl http://localhost:10001/actuator/health
-
-# Verifica dettagliata
-curl http://localhost:10001/actuator/health/liveness
-curl http://localhost:10001/actuator/health/readiness
-```
-
-**Nota:** La porta di default è `10001` (configurabile tramite `SERVER_PORT`)
-
-### Logs
-
-```bash
-# Seguire i log del container
-docker-compose logs -f govpay-fdr
-
-# Log dall'interno del container
-docker exec -it govpay-fdr-batch tail -f /var/log/govpay/govpay-fdr.log
-
-# Debug dell'entrypoint (per troubleshooting avvio)
-docker exec -it govpay-fdr-batch cat /tmp/entrypoint_debug.log
-```
-
-### Metrics
-
-Accesso alle metriche Spring Boot (solo modalità CRON):
-```bash
-# Metriche generali
-curl http://localhost:10001/actuator/metrics
-
-# Metriche specifiche
-curl http://localhost:10001/actuator/metrics/jvm.memory.used
-curl http://localhost:10001/actuator/metrics/hikaricp.connections.active
-```
-
-## File Structure
-
-```
-govpay-fdr-batch/docker/
-├── govpay-fdr
-|   └── Dockerfile.github          # Definizione immagine Docker
-├── build_image.sh                 # Script di build
-├── DOCKER.md                      # Questa documentazione
-└── commons/
-    ├── entrypoint.sh             # Script di avvio container
-    └── init_fdr_db.sh            # Script inizializzazione Database
-```
-
-## Esempi di Configurazione
-
-### Esempio Minimo (PostgreSQL + UAT)
-
-```env
-# Database
-GOVPAY_DB_TYPE=postgresql
-GOVPAY_DB_SERVER=postgres:5432
-GOVPAY_DB_NAME=govpay
-GOVPAY_DB_USER=govpay
-GOVPAY_DB_PASSWORD=secret123
-
-# Modalità auto-schedulata (ogni 5 minuti)
-GOVPAY_FDR_BATCH_USA_CRON=true
-```
-
-**Nota:** La connessione verso le API pagoPA FDR viene configurata nella tabella `CONNETTORI` del database GovPay.
-
-### Esempio Completo (Oracle + Produzione + Inizializzazione DB)
-
-```env
-# Database Oracle
-GOVPAY_DB_TYPE=oracle
-GOVPAY_DB_SERVER=oracle-prod.example.com:1521
-GOVPAY_DB_NAME=GOVPAYDB
-GOVPAY_DB_USER=govpay_fdr
-GOVPAY_DB_PASSWORD=SecurePassword123!
-GOVPAY_ORACLE_JDBC_URL_TYPE=servicename
-GOVPAY_DS_CONN_PARAM=oracle.net.ssl_version=1.2
-
-# Pool connessioni
-GOVPAY_FDR_MIN_POOL=5
-GOVPAY_FDR_MAX_POOL=20
-
-# Inizializzazione database
-GOVPAY_FDR_POP_DB_SKIP=FALSE
-GOVPAY_FDR_LIVE_DB_CHECK_MAX_RETRY=60
-
-# Modalità gestita esternamente (CronJob K8s)
-GOVPAY_FDR_BATCH_USA_CRON=false
-
-# JVM Memory
-GOVPAY_FDR_JVM_MAX_RAM_PERCENTAGE=75
-GOVPAY_FDR_JVM_MAX_METASPACE_SIZE=256m
-```
-
-## Supporto
-
-Per problemi relativi a:
-- **GovPay**: https://github.com/link-it/govpay
-- **pagoPA GPD**: https://docs.pagopa.it/
-- **Sviluppo Java**: Consultare `README.md`
+Le immagini pubblicate dalla pipeline sono scansionate prima della pubblicazione: vedi [SCANSIONE.md](SCANSIONE.md).

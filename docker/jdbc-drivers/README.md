@@ -1,74 +1,15 @@
-# JDBC Drivers
+# Driver JDBC
 
-I driver JDBC non sono inclusi nel fat jar dell'applicazione e devono essere forniti esternamente.
-Collocare i file JAR dei driver in questa directory: verranno montati nel container al path `/opt/jdbc-drivers`.
+I driver JDBC non sono inclusi nel jar del batch né nell'immagine e vanno forniti a parte. Collocare i jar dei driver in questa directory e montarla nel container in `/opt/jdbc-drivers`: l'entrypoint imposta `LOADER_PATH` su quella directory (o su `GOVPAY_DS_JDBC_LIBS`), così il `PropertiesLauncher` di Spring Boot carica i driver all'avvio. La stessa directory è usata da SqlTool per creare le tabelle all'avvio.
 
-L'entrypoint del container imposta automaticamente `LOADER_PATH=/opt/jdbc-drivers` in modo che
-il `PropertiesLauncher` di Spring Boot carichi i driver a runtime.
+Versioni gestite da [govpay-bom](https://github.com/link-it/govpay-bom):
 
-## Driver supportati
+| Database | Driver | Licenza |
+|----------|--------|---------|
+| PostgreSQL | `wget https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.14/postgresql-42.7.14.jar` | BSD-2-Clause |
+| MySQL e MariaDB | `wget https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/26.10.0/mysql-connector-j-26.10.0.jar` | GPL-2.0 con eccezione FOSS |
+| Oracle | `wget https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc11/23.26.3.0.0/ojdbc11-23.26.3.0.0.jar` | Oracle Free Use Terms and Conditions (FUTC): verificarne i termini prima dell'uso in produzione |
 
-Scaricare il driver JDBC corrispondente al database utilizzato:
+Per MariaDB l'entrypoint usa il driver MySQL (`com.mysql.cj.jdbc.Driver`). L'immagine non supporta SQL Server (`GOVPAY_DB_TYPE`); il driver SQL Server serve solo eseguendo il jar fuori dal container.
 
-### PostgreSQL
-
-```bash
-wget https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.9/postgresql-42.7.9.jar
-```
-
-**License**: BSD-2-Clause
-
-### MySQL
-
-```bash
-wget https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.6.0/mysql-connector-j-9.6.0.jar
-```
-
-**License**: GPL-2.0
-
-### Oracle
-
-```bash
-wget https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc11/23.26.1.0.0/ojdbc11-23.26.1.0.0.jar
-```
-
-**License**: Oracle Free Use Terms and Conditions (FUTC)
-**Note**: Verificare i termini di licenza Oracle prima dell'uso in produzione.
-
-### SQL Server
-
-```bash
-wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.2.jre11/mssql-jdbc-12.8.2.jre11.jar
-```
-
-**License**: MIT
-
-## Verifica
-
-Dopo il download, verificare che il driver sia presente:
-
-```bash
-ls -lh *.jar
-```
-
-## Database multipli
-
-Se necessario supportare più tipi di database, è possibile collocare più driver in questa directory.
-L'applicazione caricherà quello appropriato in base alla configurazione `GOVPAY_DB_TYPE`.
-
-Esempio:
-```
-jdbc-drivers/
-├── postgresql-42.7.9.jar
-├── mysql-connector-j-9.6.0.jar
-└── ojdbc11-23.26.1.0.0.jar
-```
-
-## Troubleshooting
-
-Se si ottiene l'errore "No suitable driver found", verificare che:
-
-1. Il file JAR del driver sia presente in questa directory
-2. Il file JAR abbia i permessi corretti (leggibile)
-3. Il valore di `GOVPAY_DB_TYPE` corrisponda al database in uso
-4. Il nome della classe driver sia corretto per il tipo di database
+Se all'avvio compare "No suitable driver found", verificare che il jar del driver sia nella directory montata e leggibile dall'utente del container e che `GOVPAY_DB_TYPE` corrisponda al database in uso.
