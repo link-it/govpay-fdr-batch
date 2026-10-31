@@ -15,12 +15,17 @@
     <groupId>it.govpay</groupId>
     <artifactId>govpay-fdr-batch</artifactId>
     <version>2.0.2-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <packaging>${packaging.type}</packaging>
 
     <name>GovPay FDR Batch</name>
     <description>Batch di acquisizione dei flussi di rendicontazione da pagoPA</description>
 
     <properties>
+        <!-- Valori del profilo jar, usati anche quando si attiva solo un altro
+             profilo (es. -Pdist) e il profilo jar non e' attivo -->
+        <packaging.type>jar</packaging.type>
+        <spring-boot.layout>ZIP</spring-boot.layout>
+
         <!-- OWASP Dependency Check -->
         <owasp.falsePositives.dir>src/main/resources/owasp/falsePositives</owasp.falsePositives.dir>
         <owasp.phase>verify</owasp.phase> <!-- owasp phase, use 'none' for disable -->
@@ -31,9 +36,6 @@
 
         <!-- Dependencies -->
         <govpay-common.version>2.0.4-SNAPSHOT</govpay-common.version>
-
-        <!-- Security override: bump PostgreSQL JDBC (GHSA-j92g-9f8w-j867, CVSS 8.2, fissata in 42.7.12); il govpay-bom 2.0.1 pinna ancora 42.7.11 -->
-        <postgresql.version>42.7.13</postgresql.version>
     </properties>
     
     <profiles>
@@ -44,6 +46,8 @@
 			</activation>
 			<properties>
 				<packaging.type>jar</packaging.type>
+				<!-- Fat jar con PropertiesLauncher: i driver JDBC si aggiungono a runtime con loader.path -->
+				<spring-boot.layout>ZIP</spring-boot.layout>
 			</properties>
 			<dependencies>
 				<dependency>
@@ -77,12 +81,21 @@
 			<id>war</id>
 			<properties>
 				<packaging.type>war</packaging.type>
+				<!-- War per application server (datasource JNDI): con il layout ZIP il war
+				     verrebbe riorganizzato come un jar e non sarebbe deployabile -->
+				<spring-boot.layout>WAR</spring-boot.layout>
 			</properties>
 			<dependencies>
 				<dependency>
 					<groupId>org.springframework.boot</groupId>
 					<artifactId>spring-boot-starter-tomcat</artifactId>
 					<scope>provided</scope>
+				</dependency>
+				<!-- Database dei test; a runtime il war usa il datasource dell'application server -->
+				<dependency>
+					<groupId>com.h2database</groupId>
+					<artifactId>h2</artifactId>
+					<scope>test</scope>
 				</dependency>
 			</dependencies>
 		</profile>
@@ -162,7 +175,6 @@
         <dependency>
             <groupId>io.swagger.core.v3</groupId>
             <artifactId>swagger-annotations</artifactId>
-            <version>2.2.20</version>
         </dependency>
 
         <!-- Test Dependencies -->
@@ -226,7 +238,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <layout>ZIP</layout>
+                    <layout>${spring-boot.layout}</layout>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
