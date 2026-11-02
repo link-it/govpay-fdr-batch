@@ -83,7 +83,7 @@ Con `GOVPAY_FDR_POP_DB_SKIP=FALSE` l'entrypoint attende la porta del database e 
 
 Si esegue solo lo script di ciò che manca, così il batch si può aggiungere a un database dove un altro batch GovPay ha già creato le tabelle Spring Batch. Con `GOVPAY_FDR_READY_DB_CHECK_SKIP=TRUE` i controlli si saltano e si eseguono entrambi gli script. Le tabelle di GovPay non vengono create: sono degli script di installazione di GovPay. Gli indici di `sql/<database>/add-indexes.sql` si applicano a mano.
 
-L'inizializzazione supporta PostgreSQL, MySQL/MariaDB e Oracle; per SQL Server le tabelle si creano a mano con gli script di `sql.zip`.
+L'inizializzazione supporta PostgreSQL, MySQL/MariaDB, Oracle e SQL Server.
 
 ## Giornale degli Eventi
 
