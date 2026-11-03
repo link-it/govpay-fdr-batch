@@ -1,3 +1,13 @@
+2026-11-03  Giuliano Pintori <pintori@link.it>
+
+	* [Batch] Tolto il RunIdIncrementer dal job. Da Spring Batch 6
+	JobOperator.start() ignora i parametri passati a un job con incrementer e
+	avvia l'istanza successiva con i soli parametri dell'incrementer: si
+	perdevano ClusterID, TriggerType e CorrelationID impostati da
+	JobExecutionHelper, e all'avvio il log riportava l'ERROR "ha un
+	JobParametersIncrementer" (link-it/govpay-common#39). Ogni istanza resta
+	unica grazie al parametro When.
+
 2026-11-02  Giuliano Pintori <pintori@link.it>
 
 	* [Docker] Supporto a SQL Server nell'immagine (GOVPAY_DB_TYPE=sqlserver).

@@ -29,7 +29,6 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.job.builder.SimpleJobBuilder;
-import org.springframework.batch.core.job.parameters.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.skip.AlwaysSkipItemSkipPolicy;
@@ -114,7 +113,6 @@ public class BatchJobConfiguration {
         it.govpay.fdr.batch.listener.BatchExecutionRecapListener batchExecutionRecapListener
     ) {
         SimpleJobBuilder jobBuilder = new JobBuilder(Costanti.FDR_ACQUISITION_JOB_NAME, jobRepository)
-            .incrementer(new RunIdIncrementer())
             .listener(batchExecutionRecapListener)
             .start(cleanupStep);
 
