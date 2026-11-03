@@ -88,7 +88,7 @@ Le proprietà si impostano in `application.properties`, da riga di comando (`-D<
 | `govpay.batch.skip-limit` | `10` | Letta in `BatchProperties` ma non usata: lo step headers salta ogni dominio in errore senza limite |
 | `scheduler.fdrAcquisitionJob.fixedDelayString` | `7200000` | Intervallo tra la fine di un'esecuzione e l'avvio della successiva, in ms (2 ore) |
 | `scheduler.initialDelayString` | `1` | Ritardo della prima esecuzione dopo l'avvio, in ms |
-| `govpay.batch.enabled` | `true` | Letta in `BatchProperties` ma non usata: per non schedulare il job usare il profilo `cron` o un profilo diverso da `default` |
+| `govpay.batch.enabled` | `true` | Con `false` lo scheduler interno non avvia il job (all'avvio il log lo segnala); `/run` e il profilo `cron` restano disponibili. Nel profilo `cron` non ha effetto |
 
 ### Acquisizione da file system
 
