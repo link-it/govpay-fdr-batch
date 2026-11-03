@@ -1,5 +1,10 @@
 2026-11-03  Giuliano Pintori <pintori@link.it>
 
+	* [Config] govpay.batch.enabled spegne lo scheduler interno: con false il
+	job non parte ai tick, mentre /run e il profilo cron restano disponibili
+	(link-it/govpay-common#44, che legge la proprieta'). Tolto da
+	BatchProperties il campo enabled, mai letto.
+
 	* [Batch] Tolto il RunIdIncrementer dal job. Da Spring Batch 6
 	JobOperator.start() ignora i parametri passati a un job con incrementer e
 	avvia l'istanza successiva con i soli parametri dell'incrementer: si

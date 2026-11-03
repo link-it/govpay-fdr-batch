@@ -37,10 +37,6 @@ public class BatchProperties {
      */
     private int skipLimit = 10;
 
-    /**
-     * Enable/disable automatic scheduling
-     */
-    private boolean enabled = true;
 
     /**
      * Number of retries for failed API calls
