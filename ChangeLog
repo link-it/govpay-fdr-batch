@@ -5,6 +5,9 @@
 	(porta 1433 di default, parametri di GOVPAY_DS_CONN_PARAM separati da ';')
 	e l'inizializzazione crea le tabelle mancanti. Il driver mssql-jdbc si monta
 	in /opt/jdbc-drivers come gli altri. Stessa modifica di govpay-aca-batch.
+	Su SQL Server le tabelle Spring Batch si creano in minuscolo, come quelle
+	di GovPay: la validazione di Hibernate confronta i nomi rispettando
+	maiuscole e minuscole e tutti i batch condividono le stesse tabelle.
 
 2026-10-30  Giuliano Pintori <pintori@link.it>
 

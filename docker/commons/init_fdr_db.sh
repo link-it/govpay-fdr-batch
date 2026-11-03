@@ -277,7 +277,14 @@ done
 # Copia degli script nella directory temporanea, con un nome per ruolo
 INCLUDE_SQL=""
 if [ "${CREA_SCHEMA_BATCH}" == "TRUE" ]; then
-    cp "${BATCH_SCHEMA}" "${SQL_TMP_DIR}/schema-batch.sql"
+    if [ "${GOVPAY_DB_TYPE}" == "sqlserver" ]; then
+        # Su SQL Server le tabelle Spring Batch si creano in minuscolo come quelle di
+        # GovPay: la validazione di Hibernate confronta i nomi rispettando maiuscole e
+        # minuscole. Lo script di Spring Batch non contiene stringhe, si puo' convertire tutto.
+        tr 'A-Z' 'a-z' < "${BATCH_SCHEMA}" > "${SQL_TMP_DIR}/schema-batch.sql"
+    else
+        cp "${BATCH_SCHEMA}" "${SQL_TMP_DIR}/schema-batch.sql"
+    fi
     INCLUDE_SQL="${INCLUDE_SQL}\\i ${SQL_TMP_DIR}/schema-batch.sql"$'\n'
     log_info "Creazione delle tabelle Spring Batch (${BATCH_SCHEMA})"
 fi
