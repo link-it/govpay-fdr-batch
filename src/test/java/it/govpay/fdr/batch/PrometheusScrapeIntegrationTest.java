@@ -22,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import it.govpay.common.batch.runner.JobExecutionHelper;
 import it.govpay.common.batch.service.JobConcurrencyService;
 import it.govpay.fdr.batch.config.ScheduledJobRunner;
 import it.govpay.fdr.batch.config.TestScheduledJobRunnerConfig;
@@ -37,7 +38,8 @@ import it.govpay.fdr.batch.tasklet.CleanupFrTempTasklet;
  *   <li>lo scrape {@code GET /actuator/prometheus} risponde in formato
  *       testuale Prometheus, con il tag comune {@code application};</li>
  *   <li>l'esecuzione del job pubblica le metriche standard di Spring Batch
- *       ({@code spring_batch_job}).</li>
+ *       ({@code spring_batch_job}) e quelle di govpay-common
+ *       ({@code govpay_batch_*}), con il tag {@code nodo} uguale al cluster-id.</li>
  * </ul>
  *
  * <p>Il servizio non ha una porta management separata: essendo l'unico
@@ -53,9 +55,12 @@ import it.govpay.fdr.batch.tasklet.CleanupFrTempTasklet;
         // application.properties imposta initialDelayString=1 (1ms): senza questo
         // override lo @Scheduled reale lancia fdrAcquisitionJob quasi subito, in
         // corsa con la chiamata esplicita del test sullo stesso job.
-        "scheduler.initialDelayString=3600000"
+        "scheduler.initialDelayString=3600000",
+        "govpay.batch.cluster-id=" + PrometheusScrapeIntegrationTest.NODO
 })
 class PrometheusScrapeIntegrationTest {
+
+    static final String NODO = "nodo-test";
 
     @LocalServerPort
     private int serverPort;
@@ -106,6 +111,39 @@ class PrometheusScrapeIntegrationTest {
         String scrape = get("/actuator/prometheus").body();
         assertThat(scrape).contains("spring_batch_job_seconds_count");
         assertThat(scrape).contains("spring_batch_job_name=\"fdrAcquisitionJob\"");
+    }
+
+    @Test
+    void batchJobExecutionProducesGovpayBatchMetrics() throws Exception {
+        when(jobConcurrencyService.getCurrentRunningJobExecution(any())).thenReturn(null);
+        when(cleanupFrTemp.execute(any(), any())).thenReturn(RepeatStatus.FINISHED);
+        when(frTempRepository.findDistinctCodDominio()).thenReturn(List.of());
+        when(headersReader.read()).thenReturn(null);
+        when(metadataReader.read()).thenReturn(null);
+        when(paymentsReader.read()).thenReturn(null);
+
+        JobExecution execution = batchScheduler.runBatchFdrAcquisitionJob();
+        assertThat(execution).isNotNull();
+        // Senza incrementer sul job i parametri dell'helper arrivano all'esecuzione (govpay-common#39)
+        assertThat(execution.getJobParameters().getString(JobExecutionHelper.JOB_PARAM_CLUSTER_ID)).isEqualTo(NODO);
+        assertThat(execution.getJobParameters().getString(JobExecutionHelper.JOB_PARAM_TRIGGER_TYPE)).isEqualTo("SCHEDULED");
+        assertThat(execution.getJobParameters().getString(JobExecutionHelper.JOB_PARAM_CORRELATION_ID)).isNotBlank();
+
+        String scrape = get("/actuator/prometheus").body();
+        String nodo = "nodo=\"" + NODO + "\"";
+        assertThat(righe(scrape, "govpay_batch_job_seconds_count{"))
+                .anyMatch(r -> r.contains("job_name=\"fdrAcquisitionJob\"") && r.contains("trigger=\"SCHEDULED\"")
+                        && r.contains("esito=\"COMPLETED\"") && r.contains(nodo));
+        assertThat(righe(scrape, "govpay_batch_schedule_ticks_total{"))
+                .anyMatch(r -> r.contains("esito_tick=\"CAN_PROCEED\"") && r.contains(nodo));
+        assertThat(righe(scrape, "govpay_batch_schedule_interval_seconds{"))
+                .anyMatch(r -> r.contains("tipo=\"fixedDelay\"") && r.contains(nodo) && r.endsWith(" 7200.0"));
+        assertThat(righe(scrape, "govpay_batch_stale_threshold_seconds{")).anyMatch(r -> r.contains(nodo));
+        assertThat(righe(scrape, "govpay_batch_job_last_success_timestamp_seconds{")).anyMatch(r -> r.contains(nodo));
+    }
+
+    private static List<String> righe(String scrape, String prefisso) {
+        return scrape.lines().filter(r -> r.startsWith(prefisso)).toList();
     }
 
     private HttpResponse<String> get(String path) throws Exception {

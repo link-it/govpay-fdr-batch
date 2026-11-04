@@ -18,6 +18,7 @@ import org.springframework.batch.infrastructure.item.ItemStream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import it.govpay.fdr.batch.config.BatchInfraConfig;
 import it.govpay.fdr.batch.config.FdrInputProperties;
 import it.govpay.fdr.batch.dto.FdrClaimedFile;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +52,7 @@ public class FdrFileSystemReader implements ItemReader<FdrClaimedFile>, ItemStre
     private int presiInCarico;
 
     public FdrFileSystemReader(FdrInputProperties inputProperties,
-                               @Value("${govpay.batch.cluster-id}") String clusterId) {
+                               @Value(BatchInfraConfig.CLUSTER_ID) String clusterId) {
         this.inputProperties = inputProperties;
         this.clusterId = clusterId;
     }

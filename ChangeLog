@@ -1,5 +1,24 @@
 2026-11-03  Giuliano Pintori <pintori@link.it>
 
+	* [Batch] Cluster-id del nodo come default (govpay-common#35, #36).
+	Il cluster-id identifica il nodo e deve essere diverso su ogni nodo, ma
+	fuori dal container il default era la costante GovPay-FDR-Batch, uguale su
+	tutti i nodi: un'esecuzione in corso su un altro nodo era attribuita al nodo
+	corrente e i file presi in carico da una directory condivisa avevano lo
+	stesso suffisso <nome>.GovPay-FDR-Batch.processing su ogni nodo. Tolta la
+	costante da application.properties: se govpay.batch.cluster-id (o
+	GOVPAY_BATCH_CLUSTER_ID) non e' impostata si usa il nome dell'host
+	(ClusterIdPredefinito di govpay-common), anche per gli eventi del GDE e per
+	la presa in carico dei file, che prima richiedevano la proprieta'. Nel
+	container non cambia nulla: l'entrypoint imposta l'indirizzo IP.
+	Negli eventi del GDE dei deploy fuori container il clusterId passa da
+	GovPay-FDR-Batch al nome dell'host.
+
+	* [Monitoraggio] Metriche di esecuzione dei batch (govpay-common#32).
+	Lo scrape /actuator/prometheus riporta le serie govpay_batch_* con il tag
+	nodo; il README le descrive, con l'esempio di configurazione di Prometheus e
+	l'indicazione di esporre actuator su una porta dedicata.
+
 	* [Config] govpay.batch.enabled spegne lo scheduler interno: con false il
 	job non parte ai tick, mentre /run e il profilo cron restano disponibili
 	(link-it/govpay-common#44, che legge la proprieta'). Tolto da
