@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -146,7 +147,7 @@ class FdrFileSystemAcquisitionIntegrationTest {
         copia.setDir(inputProperties.getDir());
         copia.setProcessedDir(inputProperties.getProcessedDir());
         copia.setErrorDir(inputProperties.getErrorDir());
-        copia.setExtension(inputProperties.getExtension());
+        copia.setExtension(new ArrayList<>(inputProperties.getExtension()));
         copia.setMaxFilesPerRun(inputProperties.getMaxFilesPerRun());
         return copia;
     }
@@ -279,12 +280,6 @@ class FdrFileSystemAcquisitionIntegrationTest {
 
     private static final String COD_FLUSSO_XML = "2026-07-15ABI03365-B6FXC00000004719";
 
-    /** Finche' il default resta {@code .json} gli XML vanno abilitati esplicitamente. */
-    private void depositaXml(String nome, String contenuto) throws IOException {
-        inputProperties.setExtension(".xml");
-        deposita(nome, contenuto);
-    }
-
     private static String flussoXml() throws IOException {
         try (InputStream in = FdrFileSystemAcquisitionIntegrationTest.class
                 .getResourceAsStream("/fdr-xml/flusso-valido.xml")) {
@@ -295,7 +290,7 @@ class FdrFileSystemAcquisitionIntegrationTest {
     @Test
     @DisplayName("Un flusso XML finisce su FR e RENDICONTAZIONI con revisione 1 e senza spostare il watermark")
     void acquisisceIlFlussoXml() throws IOException {
-        depositaXml("flusso.xml", flussoXml());
+        deposita("flusso.xml", flussoXml());
 
         eseguiStep();
 
@@ -329,10 +324,10 @@ class FdrFileSystemAcquisitionIntegrationTest {
     @Test
     @DisplayName("Un secondo XML dello stesso flusso diventa la revisione 2 e rende obsoleta la 1")
     void nuovaRevisioneDaXml() throws IOException {
-        depositaXml("flusso.xml", flussoXml());
+        deposita("flusso.xml", flussoXml());
         eseguiStep();
 
-        depositaXml("flusso-corretto.xml", flussoXml()
+        deposita("flusso-corretto.xml", flussoXml()
             .replace("<singoloImportoPagato>70.43<", "<singoloImportoPagato>80.43<")
             .replace("<importoTotalePagamenti>170.43<", "<importoTotalePagamenti>180.43<"));
         eseguiStep();
@@ -353,7 +348,7 @@ class FdrFileSystemAcquisitionIntegrationTest {
     @Test
     @DisplayName("Un flusso XML di dominio non censito viene scartato con il motivo")
     void scartaXmlDiDominioNonCensito() throws IOException {
-        depositaXml("flusso.xml", flussoXml().replace(COD_DOMINIO, "00000000000"));
+        deposita("flusso.xml", flussoXml().replace(COD_DOMINIO, "00000000000"));
 
         eseguiStep();
 
@@ -366,7 +361,7 @@ class FdrFileSystemAcquisitionIntegrationTest {
     @Test
     @DisplayName("Un XML non valido sull'XSD viene scartato con riga e colonna dell'errore")
     void scartaXmlNonValido() throws IOException {
-        depositaXml("flusso.xml", flussoXml()
+        deposita("flusso.xml", flussoXml()
             .replace("<codiceEsitoSingoloPagamento>0<", "<codiceEsitoSingoloPagamento>7<"));
 
         eseguiStep();

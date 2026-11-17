@@ -23,7 +23,8 @@ Il sistema scarica, processa e riconcilia i flussi di rendicontazione con i paga
 ### Step 1-bis: Acquisizione da File System (opzionale)
 - **Reader**: `FdrFileSystemReader` - Elenca i file della directory di acquisizione e ne prende in carico uno alla volta rinominandolo (la rinomina atomica e' il lock fra nodi)
 - **Processor**: `FdrFileSystemProcessor` - Per ogni file:
-  - Deserializza il JSON con lo stesso mapper usato verso pagoPA
+  - Legge il file con il parser del suo formato: `XmlFdrFlowFileParser` per i `.xml` (tracciato `ctFlussoRiversamento`, JAXB con validazione XSD), `JsonFdrFlowFileParser` per gli altri (stesso mapper usato verso pagoPA)
+  - Per l'XML, che non porta la revisione, la calcola da `FR`: 1 per un flusso nuovo, altrimenti l'ultima + 1
   - Verifica che il dominio sia censito e abilitato
   - Verifica che il flusso non sia gia' presente in `FR`
   - Produce lo stesso `FdrCompleteData` dello Step 4, senza passare da `FR_TEMP`
@@ -164,7 +165,7 @@ scheduler.initialDelayString=1
 
 ### Acquisizione da file system
 
-Canale alternativo alle API pagoPA: i flussi depositati come file JSON in una directory
+Canale alternativo alle API pagoPA: i flussi depositati come file JSON o XML in una directory
 vengono acquisiti all'inizio di ogni esecuzione del job, prima dell'interrogazione del Nodo.
 
 E' una **procedura di emergenza**, pensata per i flussi usciti dalla finestra di ricerca di
@@ -185,14 +186,18 @@ govpay.fdr.input.dir=/var/govpay/fdr/input
 govpay.fdr.input.processed-dir=/var/govpay/fdr/processed
 govpay.fdr.input.error-dir=/var/govpay/fdr/error
 
-# Estensione dei file da acquisire
-govpay.fdr.input.extension=.json
+# Estensioni dei file da acquisire, separate da virgola (default: .json,.xml).
+# I .xml sono letti come tracciato ctFlussoRiversamento, tutti gli altri come JSON.
+govpay.fdr.input.extension=.json,.xml
+
+# Validazione dei file XML su FlussoRiversamento_1_0_4.xsd (default: true)
+govpay.fdr.input.xml.validate=true
 
 # Numero massimo di file elaborati in una singola esecuzione del job
 govpay.fdr.input.max-files-per-run=1000
 ```
 
-**Formato del file**: la response della GET puntuale sul flusso
+**Formato JSON** (ogni estensione diversa da `.xml`): la response della GET puntuale sul flusso
 (`/organizations/{organizationId}/fdrs/{fdr}/revisions/{revision}/psps/{pspId}`) con in piu' la
 lista dei pagamenti inline nel campo `payments`, cioe' l'unione dei due endpoint pagoPA.
 Le date sono accettate sia come stringa ISO sia come secondi dall'epoch. I campi non
@@ -228,24 +233,56 @@ riconosciuti vengono ignorati.
 Se `totPayments` e `sumPayments` sono assenti si usano `computedTotPayments` e
 `computedSumPayments`, cosi' i controlli di quadratura restano attivi.
 
+**Formato XML** (file `.xml`): il tracciato `ctFlussoRiversamento` (namespace
+`http://www.digitpa.gov.it/schemas/2011/Pagamenti/`, schema `FlussoRiversamento_1_0_4.xsd`),
+con o senza prefisso del namespace. Il file viene validato sull'XSD, a meno di
+`govpay.fdr.input.xml.validate=false`; DTD ed entita' esterne non sono ammessi.
+
+| Dato XML | Campo del flusso |
+|---|---|
+| `identificativoFlusso` | identificativo del flusso |
+| `dataOraFlusso` | data/ora del flusso; senza offset e' intesa nel fuso `spring.jackson.time-zone` |
+| `identificativoUnivocoRegolamento`, `dataRegolamento`, `codiceBicBancaDiRiversamento` | dati del riversamento |
+| `istitutoMittente` | PSP (`codiceIdentificativoUnivoco`, `denominazioneMittente`) |
+| `istitutoRicevente` | dominio (`codiceIdentificativoUnivoco`, `denominazioneRicevente`) |
+| `numeroTotalePagamenti`, `importoTotalePagamenti` | totali dichiarati, usati nei controlli di quadratura |
+| `datiSingoliPagamenti` | pagamenti: esito `0`, `3`, `4`, `8`, `9` come `EXECUTED`, `REVOKED`, `STAND_IN`, `STAND_IN_NO_RPT`, `NO_RPT`; `indiceDatiSingoloPagamento` assente vale 1 |
+
+Il tracciato non contiene la **revisione**: il batch la calcola dalla base dati. Vale 1 se il
+flusso (dominio, identificativo, PSP) non e' in `FR`, altrimenti e' l'ultima revisione
+acquisita + 1, che rende obsolete le precedenti come per i flussi scaricati da pagoPA.
+Depositare l'XML di un flusso gia' acquisito crea quindi una nuova revisione anche se il
+contenuto e' identico. Restano vuoti stato, data di pubblicazione (il flusso non sposta
+l'acquisizione incrementale da pagoPA), intermediario e canale del PSP.
+
+L'XSD ammette solo importi positivi: un flusso con pagamenti revocati a importo negativo
+viene scartato dalla validazione e va acquisito con `govpay.fdr.input.xml.validate=false`.
+
 **Ciclo di vita dei file**: un file non viene mai cancellato.
 
 | Esito | Destinazione |
 |---|---|
 | Flusso acquisito | `processed-dir`, col nome originale |
-| Flusso gia' presente in `FR` | `processed-dir`, senza reinserimento |
-| File malformato, dominio non censito o non abilitato, scrittura fallita | `error-dir`, con un `.error.txt` contenente la motivazione |
+| Flusso JSON gia' presente in `FR` con la stessa revisione | `processed-dir`, senza reinserimento |
+| File malformato, XML non valido sull'XSD, dominio non censito o non abilitato, scrittura fallita | `error-dir`, con un `.error.txt` contenente la motivazione |
 
 Le directory di archiviazione vengono create solo quando c'e' un file da archiviare.
+
+Un file ancora in copia puo' essere preso in carico a meta' e scartato come malformato:
+conviene copiarlo con un'estensione non configurata (es. `flusso.xml.tmp`) e rinominarlo a
+copia finita.
 
 **Multi-nodo**: la directory puo' essere condivisa. Ogni nodo prende in carico un file
 rinominandolo in `<nome>.<cluster-id>.processing` con una move atomica; se la rinomina
 fallisce il file e' di un altro nodo e viene ignorato. Un file rimasto con quel suffisso
 indica un nodo terminato durante l'elaborazione: e' visibile all'operatore, che puo'
-rinominarlo per rimetterlo in coda.
+rinominarlo per rimetterlo in coda. Due XML dello stesso flusso elaborati nello stesso
+momento da nodi diversi calcolano la stessa revisione: il secondo viene scartato per
+violazione del vincolo su `FR` e puo' essere rimesso in coda.
 
 **Tracciamento**: ogni file produce un evento GDE `ACQUISIZIONE_FLUSSO_FILE_SYSTEM`
-di categoria `INTERNO`, con esito `OK` per gli acquisiti e i duplicati e `KO` per gli scarti.
+di categoria `INTERNO`, con esito `OK` per gli acquisiti e i duplicati e `KO` per gli scarti. Per i flussi acquisiti
+il dettaglio dell'esito riporta il formato del file e, per l'XML, la revisione calcolata.
 
 ### Database
 ```properties
@@ -369,6 +406,7 @@ curl http://localhost:8080/api/batch/nextExecution
 ### ✅ Acquisizione da file system
 - Canale alternativo alle API pagoPA, disabilitato di default
 - Stessa persistenza, riconciliazione e gestione anomalie del canale API
+- Formati JSON (response pagoPA) e XML (`ctFlussoRiversamento`, con revisione calcolata)
 - Deduplica sul flusso gia' presente in `FR`, archiviazione dei file, lock fra nodi
 
 ### ✅ Multi-nodo e Recovery

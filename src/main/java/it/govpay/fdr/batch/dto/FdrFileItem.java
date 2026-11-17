@@ -18,6 +18,8 @@ import it.govpay.fdr.batch.step4.FdrPaymentsProcessor.FdrCompleteData;
  * @param codDominio    dominio del flusso, se estraibile dal file
  * @param codFlusso     identificativo del flusso, se estraibile dal file
  * @param motivo        descrizione dello scarto o della deduplica
+ * @param origine       formato del file e, se calcolata, origine della revisione
+ *                      (es. "formato XML, revisione 2 calcolata"); per diagnostica
  */
 public record FdrFileItem(
     Path file,
@@ -26,7 +28,8 @@ public record FdrFileItem(
     FdrCompleteData data,
     String codDominio,
     String codFlusso,
-    String motivo
+    String motivo,
+    String origine
 ) {
 
     public enum Esito {
@@ -39,17 +42,21 @@ public record FdrFileItem(
     }
 
     public static FdrFileItem acquisire(Path file, String nomeOriginale, FdrCompleteData data) {
+        return acquisire(file, nomeOriginale, data, null);
+    }
+
+    public static FdrFileItem acquisire(Path file, String nomeOriginale, FdrCompleteData data, String origine) {
         return new FdrFileItem(file, nomeOriginale, Esito.ACQUISIRE, data,
-            data.getCodDominio(), data.getCodFlusso(), null);
+            data.getCodDominio(), data.getCodFlusso(), null, origine);
     }
 
     public static FdrFileItem duplicato(Path file, String nomeOriginale, String codDominio,
                                         String codFlusso, String motivo) {
-        return new FdrFileItem(file, nomeOriginale, Esito.DUPLICATO, null, codDominio, codFlusso, motivo);
+        return new FdrFileItem(file, nomeOriginale, Esito.DUPLICATO, null, codDominio, codFlusso, motivo, null);
     }
 
     public static FdrFileItem scartato(Path file, String nomeOriginale, String codDominio,
                                        String codFlusso, String motivo) {
-        return new FdrFileItem(file, nomeOriginale, Esito.SCARTATO, null, codDominio, codFlusso, motivo);
+        return new FdrFileItem(file, nomeOriginale, Esito.SCARTATO, null, codDominio, codFlusso, motivo, null);
     }
 }
