@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +25,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import it.govpay.common.entity.DominioEntity;
 import it.govpay.common.repository.DominioRepository;
 import it.govpay.fdr.batch.config.FdrApiClientConfig;
+import it.govpay.fdr.batch.config.FdrInputProperties;
 import it.govpay.fdr.batch.dto.FdrClaimedFile;
 import it.govpay.fdr.batch.dto.FdrFileItem;
 import it.govpay.fdr.batch.repository.FrRepository;
@@ -78,7 +80,8 @@ class FdrFileSystemProcessorTest {
             frRepository,
             new FdrPaymentsProcessor(null, ZONE_ID),
             ZONE_ID,
-            apiClientConfig);
+            List.of(new XmlFdrFlowFileParser(ZONE_ID, new FdrInputProperties()),
+                new JsonFdrFlowFileParser(apiClientConfig)));
 
         dominioAbilitato();
         when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(
@@ -227,5 +230,21 @@ class FdrFileSystemProcessorTest {
         assertThat(item.esito()).isEqualTo(FdrFileItem.Esito.DUPLICATO);
         assertThat(item.data()).isNull();
         assertThat(item.motivo()).contains("gia' presente in FR");
+    }
+
+    @Test
+    @DisplayName("Un file .xml viene letto con il parser XML; senza revisione nel tracciato viene scartato")
+    void flussoXmlSenzaRevisione() throws IOException {
+        Path file = tempDir.resolve("flusso.xml.node.processing");
+        try (var in = getClass().getResourceAsStream("/fdr-xml/flusso-valido.xml")) {
+            Files.copy(in, file);
+        }
+
+        FdrFileItem item = processor.process(new FdrClaimedFile(file, "flusso.xml"));
+
+        assertThat(item.esito()).isEqualTo(FdrFileItem.Esito.SCARTATO);
+        assertThat(item.codFlusso()).isEqualTo("2026-07-15ABI03365-B6FXC00000004719");
+        assertThat(item.codDominio()).isEqualTo(COD_DOMINIO);
+        assertThat(item.motivo()).contains("revision");
     }
 }

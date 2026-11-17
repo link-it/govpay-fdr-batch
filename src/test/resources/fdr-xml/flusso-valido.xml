@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FlussoRiversamento xmlns="http://www.digitpa.gov.it/schemas/2011/Pagamenti/">
+    <versioneOggetto>1.0</versioneOggetto>
+    <identificativoFlusso>2026-07-15ABI03365-B6FXC00000004719</identificativoFlusso>
+    <dataOraFlusso>2026-07-15T10:30:00</dataOraFlusso>
+    <identificativoUnivocoRegolamento>Bonifico SEPA-03365-B6FXC</identificativoUnivocoRegolamento>
+    <dataRegolamento>2026-07-16</dataRegolamento>
+    <istitutoMittente>
+        <identificativoUnivocoMittente>
+            <tipoIdentificativoUnivoco>B</tipoIdentificativoUnivoco>
+            <codiceIdentificativoUnivoco>ABI03365</codiceIdentificativoUnivoco>
+        </identificativoUnivocoMittente>
+        <denominazioneMittente>CHERRY BANK SPA</denominazioneMittente>
+    </istitutoMittente>
+    <codiceBicBancaDiRiversamento>CHBKITMM</codiceBicBancaDiRiversamento>
+    <istitutoRicevente>
+        <identificativoUnivocoRicevente>
+            <tipoIdentificativoUnivoco>G</tipoIdentificativoUnivoco>
+            <codiceIdentificativoUnivoco>09788660968</codiceIdentificativoUnivoco>
+        </identificativoUnivocoRicevente>
+        <denominazioneRicevente>RIENERGIA SRLS</denominazioneRicevente>
+    </istitutoRicevente>
+    <numeroTotalePagamenti>3</numeroTotalePagamenti>
+    <importoTotalePagamenti>170.43</importoTotalePagamenti>
+    <datiSingoliPagamenti>
+        <identificativoUnivocoVersamento>00551000024916517</identificativoUnivocoVersamento>
+        <identificativoUnivocoRiscossione>8c1d4c6cf55a42108cc8820456031b0f</identificativoUnivocoRiscossione>
+        <indiceDatiSingoloPagamento>2</indiceDatiSingoloPagamento>
+        <singoloImportoPagato>70.43</singoloImportoPagato>
+        <codiceEsitoSingoloPagamento>0</codiceEsitoSingoloPagamento>
+        <dataEsitoSingoloPagamento>2026-07-14</dataEsitoSingoloPagamento>
+    </datiSingoliPagamenti>
+    <datiSingoliPagamenti>
+        <identificativoUnivocoVersamento>00551000024916518</identificativoUnivocoVersamento>
+        <identificativoUnivocoRiscossione>IUR-STANDIN-1</identificativoUnivocoRiscossione>
+        <singoloImportoPagato>50.00</singoloImportoPagato>
+        <codiceEsitoSingoloPagamento>4</codiceEsitoSingoloPagamento>
+        <dataEsitoSingoloPagamento>2026-07-14</dataEsitoSingoloPagamento>
+    </datiSingoliPagamenti>
+    <datiSingoliPagamenti>
+        <identificativoUnivocoVersamento>00551000024916519</identificativoUnivocoVersamento>
+        <identificativoUnivocoRiscossione>IUR-STANDIN-2</identificativoUnivocoRiscossione>
+        <singoloImportoPagato>50.00</singoloImportoPagato>
+        <codiceEsitoSingoloPagamento>8</codiceEsitoSingoloPagamento>
+        <dataEsitoSingoloPagamento>2026-07-15</dataEsitoSingoloPagamento>
+    </datiSingoliPagamenti>
+</FlussoRiversamento>

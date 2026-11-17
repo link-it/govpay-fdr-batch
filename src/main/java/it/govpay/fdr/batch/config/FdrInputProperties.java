@@ -63,6 +63,22 @@ public class FdrInputProperties {
     private int maxFilesPerRun = 1000;
 
     /**
+     * Opzioni dei flussi in formato XML ({@code ctFlussoRiversamento}).
+     */
+    private Xml xml = new Xml();
+
+    @Data
+    public static class Xml {
+
+        /**
+         * Valida i file XML sull'XSD {@code FlussoRiversamento_1_0_4} prima di acquisirli.
+         * Da disattivare solo per acquisire file reali che non rispettano lo schema
+         * (es. importi negativi dei pagamenti revocati).
+         */
+        private boolean validate = true;
+    }
+
+    /**
      * La directory di acquisizione e' facoltativa anche a canale abilitato: se non e'
      * configurata lo step non ha nulla da fare e si limita a non produrre item.
      */
