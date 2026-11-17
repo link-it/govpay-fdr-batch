@@ -1,7 +1,6 @@
 package it.govpay.fdr.batch.filesystem;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.time.LocalDate;
@@ -16,11 +15,9 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import it.govpay.common.entity.DominioEntity;
 import it.govpay.common.repository.DominioRepository;
-import it.govpay.fdr.batch.config.FdrApiClientConfig;
 import it.govpay.fdr.batch.dto.FdrClaimedFile;
 import it.govpay.fdr.batch.dto.FdrFileItem;
 import it.govpay.fdr.batch.dto.FdrFlowFile;
@@ -49,31 +46,37 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
     private final FrRepository frRepository;
     private final FdrPaymentsProcessor paymentsProcessor;
     private final ZoneId applicationZoneId;
-    private final ObjectMapper jsonMapper;
+    private final List<FdrFlowFileParser> parsers;
 
+    /**
+     * @param parsers parser dei formati supportati, in ordine di precedenza: viene usato
+     *                il primo che dichiara di gestire il file
+     */
     public FdrFileSystemProcessor(DominioRepository dominioRepository,
                                   FrRepository frRepository,
                                   FdrPaymentsProcessor paymentsProcessor,
                                   ZoneId applicationZoneId,
-                                  FdrApiClientConfig fdrApiClientConfig) {
+                                  List<FdrFlowFileParser> parsers) {
         this.dominioRepository = dominioRepository;
         this.frRepository = frRepository;
         this.paymentsProcessor = paymentsProcessor;
         this.applicationZoneId = applicationZoneId;
-        // Stesso mapper usato verso le API pagoPA: i file hanno lo stesso formato date
-        // (epoch con nanosecondi, millisecondi a lunghezza variabile, date senza offset)
-        this.jsonMapper = fdrApiClientConfig.createPagoPAObjectMapper();
+        this.parsers = List.copyOf(parsers);
     }
 
     @Override
     public FdrFileItem process(FdrClaimedFile claimed) {
         Path file = claimed.file();
         String nome = claimed.nomeOriginale();
-        log.info("Analisi del flusso da file system: {}", nome);
+        Optional<FdrFlowFileParser> parser = parsers.stream().filter(p -> p.supporta(nome)).findFirst();
+        if (parser.isEmpty()) {
+            return scarta(claimed, null, null, "Formato del file non riconosciuto");
+        }
+        log.info("Analisi del flusso da file system: {} (formato {})", nome, parser.get().formato());
 
         FdrFlowFile flusso;
         try {
-            flusso = leggi(file);
+            flusso = parser.get().leggi(file);
         } catch (JsonProcessingException e) {
             // Sottoclasse di IOException: va intercettata prima, altrimenti un file
             // malformato verrebbe segnalato come un problema di lettura del file
@@ -121,10 +124,6 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
         log.info("Flusso {} del dominio {} pronto per l'acquisizione: {} pagamenti nel file, {} dichiarati in testata",
             codFlusso, codDominio, data.getPayments().size(), data.getNumeroPagamenti());
         return FdrFileItem.acquisire(file, nome, data);
-    }
-
-    private FdrFlowFile leggi(Path file) throws IOException {
-        return jsonMapper.readValue(Files.readString(file), FdrFlowFile.class);
     }
 
     /**
