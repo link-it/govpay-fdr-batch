@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -24,8 +25,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import it.govpay.common.entity.DominioEntity;
 import it.govpay.common.repository.DominioRepository;
 import it.govpay.fdr.batch.config.FdrApiClientConfig;
+import it.govpay.fdr.batch.config.FdrInputProperties;
 import it.govpay.fdr.batch.dto.FdrClaimedFile;
 import it.govpay.fdr.batch.dto.FdrFileItem;
+import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.step4.FdrPaymentsProcessor;
 
@@ -78,7 +81,8 @@ class FdrFileSystemProcessorTest {
             frRepository,
             new FdrPaymentsProcessor(null, ZONE_ID),
             ZONE_ID,
-            apiClientConfig);
+            List.of(new XmlFdrFlowFileParser(ZONE_ID, new FdrInputProperties()),
+                new JsonFdrFlowFileParser(apiClientConfig)));
 
         dominioAbilitato();
         when(frRepository.existsByCodDominioAndCodFlussoAndCodPspAndRevisione(
@@ -227,5 +231,57 @@ class FdrFileSystemProcessorTest {
         assertThat(item.esito()).isEqualTo(FdrFileItem.Esito.DUPLICATO);
         assertThat(item.data()).isNull();
         assertThat(item.motivo()).contains("gia' presente in FR");
+    }
+
+    private static final String COD_FLUSSO_XML = "2026-07-15ABI03365-B6FXC00000004719";
+
+    private FdrClaimedFile depositaXml() throws IOException {
+        Path file = tempDir.resolve("flusso.xml.node.processing");
+        try (var in = getClass().getResourceAsStream("/fdr-xml/flusso-valido.xml")) {
+            Files.copy(in, file);
+        }
+        return new FdrClaimedFile(file, "flusso.xml");
+    }
+
+    @Test
+    @DisplayName("XML di un flusso mai acquisito: revisione 1")
+    void flussoXmlNuovo() throws IOException {
+        when(frRepository.findFirstByCodDominioAndCodFlussoAndCodPspOrderByRevisioneDesc(
+            COD_DOMINIO, COD_FLUSSO_XML, COD_PSP)).thenReturn(Optional.empty());
+
+        FdrFileItem item = processor.process(depositaXml());
+
+        assertThat(item.esito()).isEqualTo(FdrFileItem.Esito.ACQUISIRE);
+        assertThat(item.data().getCodFlusso()).isEqualTo(COD_FLUSSO_XML);
+        assertThat(item.data().getRevisione()).isEqualTo(1L);
+        assertThat(item.origine()).isEqualTo("formato XML, revisione 1 calcolata");
+        assertThat(item.data().getStato()).isNull();
+        assertThat(item.data().getDataOraPubblicazione()).isNull();
+        assertThat(item.data().getNumeroPagamenti()).isEqualTo(3L);
+        assertThat(item.data().getPayments()).hasSize(3);
+        assertThat(item.data().getDataOraFlusso()).isEqualTo(LocalDateTime.of(2026, 7, 15, 10, 30));
+        assertThat(item.data().getPayments().get(0).getData()).isEqualTo(LocalDateTime.of(2026, 7, 14, 0, 0));
+    }
+
+    @Test
+    @DisplayName("XML di un flusso gia' acquisito con revisione 2: acquisito come revisione 3")
+    void flussoXmlGiaPresente() throws IOException {
+        when(frRepository.findFirstByCodDominioAndCodFlussoAndCodPspOrderByRevisioneDesc(
+            COD_DOMINIO, COD_FLUSSO_XML, COD_PSP))
+            .thenReturn(Optional.of(Fr.builder().revisione(2L).build()));
+
+        FdrFileItem item = processor.process(depositaXml());
+
+        assertThat(item.esito()).isEqualTo(FdrFileItem.Esito.ACQUISIRE);
+        assertThat(item.data().getRevisione()).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("JSON senza revisione: resta uno scarto, la revisione si calcola solo per l'XML")
+    void flussoJsonSenzaRevisione() throws IOException {
+        FdrFileItem item = processor.process(scrivi(FLUSSO_JSON.replace("\"revision\":1,", "")));
+
+        assertThat(item.esito()).isEqualTo(FdrFileItem.Esito.SCARTATO);
+        assertThat(item.motivo()).contains("revision");
     }
 }

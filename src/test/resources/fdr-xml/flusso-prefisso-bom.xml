@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<pay_i:FlussoRiversamento xmlns:pay_i="http://www.digitpa.gov.it/schemas/2011/Pagamenti/">
+    <pay_i:versioneOggetto>1.0</pay_i:versioneOggetto>
+    <pay_i:identificativoFlusso>2026-01-15ABI03365-B6FXC00000000001</pay_i:identificativoFlusso>
+    <pay_i:dataOraFlusso>2026-01-15T10:30:00</pay_i:dataOraFlusso>
+    <pay_i:identificativoUnivocoRegolamento>Bonifico SEPA-03365-JAN</pay_i:identificativoUnivocoRegolamento>
+    <pay_i:dataRegolamento>2026-01-16</pay_i:dataRegolamento>
+    <pay_i:istitutoMittente>
+        <pay_i:identificativoUnivocoMittente>
+            <pay_i:tipoIdentificativoUnivoco>A</pay_i:tipoIdentificativoUnivoco>
+            <pay_i:codiceIdentificativoUnivoco>ABI03365</pay_i:codiceIdentificativoUnivoco>
+        </pay_i:identificativoUnivocoMittente>
+    </pay_i:istitutoMittente>
+    <pay_i:istitutoRicevente>
+        <pay_i:identificativoUnivocoRicevente>
+            <pay_i:tipoIdentificativoUnivoco>G</pay_i:tipoIdentificativoUnivoco>
+            <pay_i:codiceIdentificativoUnivoco>09788660968</pay_i:codiceIdentificativoUnivoco>
+        </pay_i:identificativoUnivocoRicevente>
+    </pay_i:istitutoRicevente>
+    <pay_i:numeroTotalePagamenti>1</pay_i:numeroTotalePagamenti>
+    <pay_i:importoTotalePagamenti>10.00</pay_i:importoTotalePagamenti>
+    <pay_i:datiSingoliPagamenti>
+        <pay_i:identificativoUnivocoVersamento>RF23567483937849450550875</pay_i:identificativoUnivocoVersamento>
+        <pay_i:identificativoUnivocoRiscossione>IUR-JAN-1</pay_i:identificativoUnivocoRiscossione>
+        <pay_i:singoloImportoPagato>10.00</pay_i:singoloImportoPagato>
+        <pay_i:codiceEsitoSingoloPagamento>9</pay_i:codiceEsitoSingoloPagamento>
+        <pay_i:dataEsitoSingoloPagamento>2026-01-15</pay_i:dataEsitoSingoloPagamento>
+    </pay_i:datiSingoliPagamenti>
+</pay_i:FlussoRiversamento>

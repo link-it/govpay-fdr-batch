@@ -36,6 +36,7 @@
 
         <!-- Dependencies -->
         <govpay-common.version>2.1.0-SNAPSHOT</govpay-common.version>
+        <jaxb-maven-plugin.version>4.0.9</jaxb-maven-plugin.version>
     </properties>
     
     <profiles>
@@ -107,6 +108,17 @@
             <groupId>org.gov4j.govpay</groupId>
             <artifactId>govpay-common</artifactId>
             <version>${govpay-common.version}</version>
+        </dependency>
+
+        <!-- JAXB: lettura dei flussi XML ctFlussoRiversamento depositati su file system
+             (versioni gestite da Spring Boot) -->
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
         </dependency>
 
         <!-- Spring Boot Starter for Batch -->
@@ -298,6 +310,31 @@
                                 <serializableModel>true</serializableModel>
                                 <openApiNullable>false</openApiNullable>
                             </configOptions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- JAXB: classi del tracciato ctFlussoRiversamento generate dall'XSD -->
+            <plugin>
+                <groupId>org.jvnet.jaxb</groupId>
+                <artifactId>jaxb-maven-plugin</artifactId>
+                <version>${jaxb-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-flusso-riversamento</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <schemaDirectory>${project.basedir}/src/main/resources/xsd</schemaDirectory>
+                            <schemaIncludes>
+                                <include>FlussoRiversamento_1_0_4.xsd</include>
+                            </schemaIncludes>
+                            <generatePackage>it.govpay.fdr.xml.riversamento</generatePackage>
+                            <generateDirectory>${project.build.directory}/generated-sources/xjc</generateDirectory>
+                            <noFileHeader>true</noFileHeader>
+                            <episode>false</episode>
                         </configuration>
                     </execution>
                 </executions>
