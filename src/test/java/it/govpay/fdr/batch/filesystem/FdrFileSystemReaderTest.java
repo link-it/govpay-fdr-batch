@@ -155,4 +155,29 @@ class FdrFileSystemReaderTest {
     void directoryVuota() {
         assertThat(leggiTutto(reader())).isEmpty();
     }
+
+    @Test
+    @DisplayName("Di default vengono presi in carico sia i .json sia i .xml, senza distinguere le maiuscole")
+    void estensioniDiDefault() throws IOException {
+        Files.writeString(tempDir.resolve("a.json"), "{}");
+        Files.writeString(tempDir.resolve("b.xml"), "<x/>");
+        Files.writeString(tempDir.resolve("c.XML"), "<x/>");
+        Files.writeString(tempDir.resolve("d.txt"), "non un flusso");
+
+        List<FdrClaimedFile> letti = leggiTutto(reader());
+
+        assertThat(letti).extracting(FdrClaimedFile::nomeOriginale).containsExactly("a.json", "b.xml", "c.XML");
+    }
+
+    @Test
+    @DisplayName("Con la sola estensione .json configurata (compatibilita') gli XML vengono ignorati")
+    void soloJson() throws IOException {
+        properties.setExtension(List.of(".json"));
+        Files.writeString(tempDir.resolve("a.json"), "{}");
+        Files.writeString(tempDir.resolve("b.xml"), "<x/>");
+
+        List<FdrClaimedFile> letti = leggiTutto(reader());
+
+        assertThat(letti).extracting(FdrClaimedFile::nomeOriginale).containsExactly("a.json");
+    }
 }

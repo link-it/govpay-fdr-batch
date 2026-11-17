@@ -86,9 +86,11 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
         String codFlusso = flusso.getFdr();
         String codPsp = flusso.getSender() != null ? flusso.getSender().getPspId() : null;
 
+        String origine = "formato " + parser.get().formato();
         if (flusso.getRevision() == null && !parser.get().revisioneNelTracciato()
                 && !isBlank(codDominio) && !isBlank(codFlusso) && !isBlank(codPsp)) {
             flusso.setRevision(calcolaRevisione(nome, codDominio, codFlusso, codPsp));
+            origine += ", revisione " + flusso.getRevision() + " calcolata";
         }
 
         String erroreValidazione = valida(flusso, codDominio, codFlusso, codPsp);
@@ -123,7 +125,7 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
         FdrCompleteData data = converti(flusso, codDominio, codPsp);
         log.info("Flusso {} del dominio {} pronto per l'acquisizione: {} pagamenti nel file, {} dichiarati in testata",
             codFlusso, codDominio, data.getPayments().size(), data.getNumeroPagamenti());
-        return FdrFileItem.acquisire(file, nome, data);
+        return FdrFileItem.acquisire(file, nome, data, origine);
     }
 
     /**

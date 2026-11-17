@@ -254,6 +254,7 @@ class FdrFileSystemProcessorTest {
         assertThat(item.esito()).isEqualTo(FdrFileItem.Esito.ACQUISIRE);
         assertThat(item.data().getCodFlusso()).isEqualTo(COD_FLUSSO_XML);
         assertThat(item.data().getRevisione()).isEqualTo(1L);
+        assertThat(item.origine()).isEqualTo("formato XML, revisione 1 calcolata");
         assertThat(item.data().getStato()).isNull();
         assertThat(item.data().getDataOraPubblicazione()).isNull();
         assertThat(item.data().getNumeroPagamenti()).isEqualTo(3L);
