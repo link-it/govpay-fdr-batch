@@ -3,9 +3,14 @@ package it.govpay.fdr.batch.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -33,6 +38,7 @@ import it.govpay.fdr.batch.filesystem.FdrFileSystemProcessor;
 import it.govpay.fdr.batch.filesystem.FdrFileSystemReader;
 import it.govpay.fdr.batch.filesystem.FdrFileSystemWriter;
 import it.govpay.fdr.batch.gde.service.GdeService;
+import it.govpay.fdr.batch.repository.FdrDominioRepository;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.repository.RendicontazioneRepository;
 import it.govpay.fdr.batch.service.FdrApiService;
@@ -82,6 +88,9 @@ class FdrFileSystemAcquisitionIntegrationTest {
 
     @Autowired
     private FrRepository frRepository;
+
+    @Autowired
+    private FdrDominioRepository fdrDominioRepository;
 
     @Autowired
     private RendicontazioneRepository rendicontazioneRepository;
@@ -138,7 +147,7 @@ class FdrFileSystemAcquisitionIntegrationTest {
         copia.setDir(inputProperties.getDir());
         copia.setProcessedDir(inputProperties.getProcessedDir());
         copia.setErrorDir(inputProperties.getErrorDir());
-        copia.setExtension(inputProperties.getExtension());
+        copia.setExtension(new ArrayList<>(inputProperties.getExtension()));
         copia.setMaxFilesPerRun(inputProperties.getMaxFilesPerRun());
         return copia;
     }
@@ -265,5 +274,101 @@ class FdrFileSystemAcquisitionIntegrationTest {
         assertThat(inputProperties.getErrorDirPath().resolve("flusso.json.error.txt"))
             .exists()
             .content().contains("non censito");
+    }
+
+    // ---- Flussi XML ctFlussoRiversamento -------------------------------------------
+
+    private static final String COD_FLUSSO_XML = "2026-07-15ABI03365-B6FXC00000004719";
+
+    private static String flussoXml() throws IOException {
+        try (InputStream in = FdrFileSystemAcquisitionIntegrationTest.class
+                .getResourceAsStream("/fdr-xml/flusso-valido.xml")) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    @Test
+    @DisplayName("Un flusso XML finisce su FR e RENDICONTAZIONI con revisione 1 e senza spostare il watermark")
+    void acquisisceIlFlussoXml() throws IOException {
+        deposita("flusso.xml", flussoXml());
+
+        eseguiStep();
+
+        List<Fr> flussi = frRepository.findAll();
+        assertThat(flussi).hasSize(1);
+        Fr fr = flussi.get(0);
+        assertThat(fr.getCodDominio()).isEqualTo(COD_DOMINIO);
+        assertThat(fr.getCodFlusso()).isEqualTo(COD_FLUSSO_XML);
+        assertThat(fr.getCodPsp()).isEqualTo(COD_PSP);
+        assertThat(fr.getRevisione()).isEqualTo(1L);
+        assertThat(fr.getObsoleto()).isFalse();
+        assertThat(fr.getDataOraFlusso()).isEqualTo(LocalDateTime.of(2026, 7, 15, 10, 30));
+        assertThat(fr.getDataRegolamento()).isEqualTo(LocalDateTime.of(2026, 7, 16, 0, 0));
+        assertThat(fr.getNumeroPagamenti()).isEqualTo(3L);
+        assertThat(fr.getImportoTotalePagamenti()).isEqualTo(170.43);
+        assertThat(fr.getCodBicRiversamento()).isEqualTo("CHBKITMM");
+        assertThat(fr.getDataOraPubblicazione()).isNull();
+
+        assertThat(rendicontazioneRepository.findAll())
+            .extracting(Rendicontazione::getEsito)
+            .containsExactlyInAnyOrder(0, 4, 8);
+        assertThat(inputProperties.getProcessedDirPath().resolve("flusso.xml")).exists();
+
+        // Un flusso senza data di pubblicazione non deve spostare il publishedGt del canale API
+        assertThat(fdrDominioRepository.findDominioWithMaxDataOraPubblicazione())
+            .filteredOn(riga -> COD_DOMINIO.equals(((DominioEntity) riga[0]).getCodDominio()))
+            .singleElement()
+            .satisfies(riga -> assertThat(riga[1]).isNull());
+    }
+
+    @Test
+    @DisplayName("Un secondo XML dello stesso flusso diventa la revisione 2 e rende obsoleta la 1")
+    void nuovaRevisioneDaXml() throws IOException {
+        deposita("flusso.xml", flussoXml());
+        eseguiStep();
+
+        deposita("flusso-corretto.xml", flussoXml()
+            .replace("<singoloImportoPagato>70.43<", "<singoloImportoPagato>80.43<")
+            .replace("<importoTotalePagamenti>170.43<", "<importoTotalePagamenti>180.43<"));
+        eseguiStep();
+
+        List<Fr> flussi = frRepository.findAll().stream()
+            .sorted(Comparator.comparing(Fr::getRevisione))
+            .toList();
+        assertThat(flussi).extracting(Fr::getRevisione).containsExactly(1L, 2L);
+        assertThat(flussi.get(0).getObsoleto()).isTrue();
+        assertThat(flussi.get(0).getDataOraFlusso())
+            .isEqualTo(LocalDateTime.of(2026, 7, 15, 10, 30).minus(1, ChronoUnit.MILLIS));
+        assertThat(flussi.get(1).getObsoleto()).isFalse();
+        assertThat(flussi.get(1).getDataOraFlusso()).isEqualTo(LocalDateTime.of(2026, 7, 15, 10, 30));
+        assertThat(flussi.get(1).getImportoTotalePagamenti()).isEqualTo(180.43);
+        assertThat(inputProperties.getProcessedDirPath().resolve("flusso-corretto.xml")).exists();
+    }
+
+    @Test
+    @DisplayName("Un flusso XML di dominio non censito viene scartato con il motivo")
+    void scartaXmlDiDominioNonCensito() throws IOException {
+        deposita("flusso.xml", flussoXml().replace(COD_DOMINIO, "00000000000"));
+
+        eseguiStep();
+
+        assertThat(frRepository.findAll()).isEmpty();
+        assertThat(inputProperties.getErrorDirPath().resolve("flusso.xml.error.txt"))
+            .exists()
+            .content().contains("non censito");
+    }
+
+    @Test
+    @DisplayName("Un XML non valido sull'XSD viene scartato con riga e colonna dell'errore")
+    void scartaXmlNonValido() throws IOException {
+        deposita("flusso.xml", flussoXml()
+            .replace("<codiceEsitoSingoloPagamento>0<", "<codiceEsitoSingoloPagamento>7<"));
+
+        eseguiStep();
+
+        assertThat(frRepository.findAll()).isEmpty();
+        assertThat(inputProperties.getErrorDirPath().resolve("flusso.xml.error.txt"))
+            .exists()
+            .content().contains("XML non valido rispetto a").contains("riga");
     }
 }

@@ -1,3 +1,20 @@
+2026-11-17  Giuliano Pintori <pintori@link.it>
+
+	* [Batch] Acquisizione da file system dei flussi XML ctFlussoRiversamento
+	(#75, backport da 2.0.x). I file .xml depositati in govpay.fdr.input.dir
+	sono letti con JAXB, validati su FlussoRiversamento_1_0_4.xsd
+	(govpay.fdr.input.xml.validate, default true) e acquisiti con la stessa
+	persistenza del JSON. DTD ed entita' esterne non sono ammessi. Il tracciato
+	non porta la revisione: vale 1 se il flusso non e' in FR, altrimenti
+	l'ultima acquisita + 1, che rende obsolete le precedenti. Le date senza
+	offset sono intese nel fuso applicativo, con l'offset reale di ora legale
+	e solare.
+
+	* [Config] govpay.fdr.input.extension accetta piu' estensioni separate da
+	virgola e passa da .json a .json,.xml; il confronto non distingue maiuscole
+	e minuscole. Un valore singolo resta valido: chi ha impostato .json in una
+	configurazione esterna continua a ignorare gli XML finche' non aggiunge .xml.
+
 2026-10-08  Giuliano Pintori <pintori@link.it>
 
 	* [Sicurezza]

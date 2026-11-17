@@ -78,10 +78,10 @@ public class FdrFileSystemReader implements ItemReader<FdrClaimedFile>, ItemStre
 
         if (files.isEmpty()) {
             log.debug("Acquisizione da file system: nessun file '{}' in {}",
-                inputProperties.getExtension(), inputDir.toAbsolutePath());
+                String.join(",", inputProperties.getExtension()), inputDir.toAbsolutePath());
         } else {
             log.info("Acquisizione da file system: trovati {} file '{}' in {}",
-                files.size(), inputProperties.getExtension(), inputDir.toAbsolutePath());
+                files.size(), String.join(",", inputProperties.getExtension()), inputDir.toAbsolutePath());
         }
     }
 
@@ -90,11 +90,10 @@ public class FdrFileSystemReader implements ItemReader<FdrClaimedFile>, ItemStre
      * fallire il job: il canale ordinario verso pagoPA deve proseguire comunque.
      */
     private List<Path> elencaFile(Path inputDir) {
-        String estensione = inputProperties.getExtension();
         try (Stream<Path> stream = Files.list(inputDir)) {
             return stream
                 .filter(Files::isRegularFile)
-                .filter(p -> p.getFileName().toString().endsWith(estensione))
+                .filter(p -> inputProperties.isEstensioneAmmessa(p.getFileName().toString()))
                 .sorted(Comparator.comparing(p -> p.getFileName().toString()))
                 .limit(inputProperties.getMaxFilesPerRun())
                 .toList();

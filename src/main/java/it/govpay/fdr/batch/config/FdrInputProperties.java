@@ -1,6 +1,9 @@
 package it.govpay.fdr.batch.config;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -52,15 +55,46 @@ public class FdrInputProperties {
     private String errorDir;
 
     /**
-     * Estensione dei file da acquisire.
+     * Estensioni dei file da acquisire (es. {@code .json,.xml}). Il formato del file
+     * si riconosce dall'estensione: {@code .xml} e' il tracciato ctFlussoRiversamento,
+     * ogni altra e' letta come JSON. Il confronto non distingue maiuscole e minuscole.
      */
-    private String extension = ".json";
+    private List<String> extension = new ArrayList<>(List.of(".json", ".xml"));
 
     /**
      * Numero massimo di file elaborati in una singola esecuzione del job.
      * Evita che un travaso massivo nella directory monopolizzi il batch.
      */
     private int maxFilesPerRun = 1000;
+
+    /**
+     * Opzioni dei flussi in formato XML ({@code ctFlussoRiversamento}).
+     */
+    private Xml xml = new Xml();
+
+    @Data
+    public static class Xml {
+
+        /**
+         * Valida i file XML sull'XSD {@code FlussoRiversamento_1_0_4} prima di acquisirli.
+         * Da disattivare solo per acquisire file reali che non rispettano lo schema
+         * (es. importi negativi dei pagamenti revocati).
+         */
+        private boolean validate = true;
+    }
+
+    /**
+     * @return {@code true} se il nome termina con una delle estensioni configurate
+     */
+    public boolean isEstensioneAmmessa(String nomeFile) {
+        if (nomeFile == null || extension == null) {
+            return false;
+        }
+        String nome = nomeFile.toLowerCase(Locale.ROOT);
+        return extension.stream()
+            .filter(e -> e != null && !e.isBlank())
+            .anyMatch(e -> nome.endsWith(e.trim().toLowerCase(Locale.ROOT)));
+    }
 
     /**
      * La directory di acquisizione e' facoltativa anche a canale abilitato: se non e'

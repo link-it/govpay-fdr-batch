@@ -85,6 +85,15 @@ class FdrFileSystemWriterTest {
     }
 
     @Test
+    @DisplayName("L'evento GDE riporta il formato del file e la revisione calcolata")
+    void acquisisceConOrigine() {
+        scrivi(FdrFileItem.acquisire(FILE, NOME, datiFlusso(), "formato XML, revisione 2 calcolata"));
+
+        verify(gdeService).saveAcquisizioneFileSystemOk(any(), any(), any(), eq(NOME),
+            eq("Acquisito flusso con 1 rendicontazioni (formato XML, revisione 2 calcolata)"));
+    }
+
+    @Test
     @DisplayName("Un flusso valido viene persistito, archiviato fra i processati e tracciato OK")
     void acquisisce() {
         scrivi(FdrFileItem.acquisire(FILE, NOME, datiFlusso()));

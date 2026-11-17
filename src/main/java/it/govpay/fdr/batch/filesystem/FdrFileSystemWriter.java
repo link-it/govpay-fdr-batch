@@ -81,8 +81,12 @@ public class FdrFileSystemWriter implements ItemWriter<FdrFileItem> {
             item.codFlusso(), item.codDominio(), item.nomeOriginale(), numeroPagamenti);
         archiver.archiviaProcessato(item.file(), item.nomeOriginale());
         incrementa(STATS_ACQUISITI);
+        String dettaglio = String.format("Acquisito flusso con %d rendicontazioni", numeroPagamenti);
+        if (item.origine() != null) {
+            dettaglio += " (" + item.origine() + ")";
+        }
         gdeService.saveAcquisizioneFileSystemOk(eventoFr(item), inizio, OffsetDateTime.now(),
-            item.nomeOriginale(), String.format("Acquisito flusso con %d rendicontazioni", numeroPagamenti));
+            item.nomeOriginale(), dettaglio);
     }
 
     private void archiviaDuplicato(FdrFileItem item) {
