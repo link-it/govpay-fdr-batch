@@ -34,4 +34,12 @@ public interface FrRepository extends JpaRepository<Fr, Long> {
      */
     List<Fr> findByCodDominioAndCodFlussoAndCodPspOrderByDataOraFlussoAsc(
         String codDominio, String codFlusso, String codPsp);
+
+    /**
+     * Ultima revisione acquisita di un flusso (codDominio, codFlusso, codPsp), comprese
+     * quelle obsolete. Serve ai tracciati che non portano la revisione (XML
+     * ctFlussoRiversamento), per i quali la revisione viene calcolata.
+     */
+    Optional<Fr> findFirstByCodDominioAndCodFlussoAndCodPspOrderByRevisioneDesc(
+        String codDominio, String codFlusso, String codPsp);
 }

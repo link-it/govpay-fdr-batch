@@ -1,7 +1,6 @@
 package it.govpay.fdr.batch.filesystem;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.time.LocalDate;
@@ -15,14 +14,12 @@ import java.util.Optional;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
-import tools.jackson.databind.json.JsonMapper;
-
 import it.govpay.common.entity.DominioEntity;
 import it.govpay.common.repository.DominioRepository;
-import it.govpay.fdr.batch.config.FdrApiClientConfig;
 import it.govpay.fdr.batch.dto.FdrClaimedFile;
 import it.govpay.fdr.batch.dto.FdrFileItem;
 import it.govpay.fdr.batch.dto.FdrFlowFile;
+import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.step4.FdrPaymentsProcessor;
 import it.govpay.fdr.batch.step4.FdrPaymentsProcessor.FdrCompleteData;
@@ -48,31 +45,37 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
     private final FrRepository frRepository;
     private final FdrPaymentsProcessor paymentsProcessor;
     private final ZoneId applicationZoneId;
-    private final JsonMapper jsonMapper;
+    private final List<FdrFlowFileParser> parsers;
 
+    /**
+     * @param parsers parser dei formati supportati, in ordine di precedenza: viene usato
+     *                il primo che dichiara di gestire il file
+     */
     public FdrFileSystemProcessor(DominioRepository dominioRepository,
                                   FrRepository frRepository,
                                   FdrPaymentsProcessor paymentsProcessor,
                                   ZoneId applicationZoneId,
-                                  FdrApiClientConfig fdrApiClientConfig) {
+                                  List<FdrFlowFileParser> parsers) {
         this.dominioRepository = dominioRepository;
         this.frRepository = frRepository;
         this.paymentsProcessor = paymentsProcessor;
         this.applicationZoneId = applicationZoneId;
-        // Stesso mapper usato verso le API pagoPA: i file hanno lo stesso formato date
-        // (epoch con nanosecondi, millisecondi a lunghezza variabile, date senza offset)
-        this.jsonMapper = fdrApiClientConfig.createPagoPAObjectMapper();
+        this.parsers = List.copyOf(parsers);
     }
 
     @Override
     public FdrFileItem process(FdrClaimedFile claimed) {
         Path file = claimed.file();
         String nome = claimed.nomeOriginale();
-        log.info("Analisi del flusso da file system: {}", nome);
+        Optional<FdrFlowFileParser> parser = parsers.stream().filter(p -> p.supporta(nome)).findFirst();
+        if (parser.isEmpty()) {
+            return scarta(claimed, null, null, "Formato del file non riconosciuto");
+        }
+        log.info("Analisi del flusso da file system: {} (formato {})", nome, parser.get().formato());
 
         FdrFlowFile flusso;
         try {
-            flusso = leggi(file);
+            flusso = parser.get().leggi(file);
         } catch (IOException e) {
             return scarta(claimed, null, null, "Lettura del file fallita: " + e.getMessage());
         } catch (RuntimeException e) {
@@ -82,6 +85,13 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
         String codDominio = flusso.getReceiver() != null ? flusso.getReceiver().getOrganizationId() : null;
         String codFlusso = flusso.getFdr();
         String codPsp = flusso.getSender() != null ? flusso.getSender().getPspId() : null;
+
+        String origine = "formato " + parser.get().formato();
+        if (flusso.getRevision() == null && !parser.get().revisioneNelTracciato()
+                && !isBlank(codDominio) && !isBlank(codFlusso) && !isBlank(codPsp)) {
+            flusso.setRevision(calcolaRevisione(nome, codDominio, codFlusso, codPsp));
+            origine += ", revisione " + flusso.getRevision() + " calcolata";
+        }
 
         String erroreValidazione = valida(flusso, codDominio, codFlusso, codPsp);
         if (erroreValidazione != null) {
@@ -115,11 +125,27 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
         FdrCompleteData data = converti(flusso, codDominio, codPsp);
         log.info("Flusso {} del dominio {} pronto per l'acquisizione: {} pagamenti nel file, {} dichiarati in testata",
             codFlusso, codDominio, data.getPayments().size(), data.getNumeroPagamenti());
-        return FdrFileItem.acquisire(file, nome, data);
+        return FdrFileItem.acquisire(file, nome, data, origine);
     }
 
-    private FdrFlowFile leggi(Path file) throws IOException {
-        return jsonMapper.readValue(Files.readString(file), FdrFlowFile.class);
+    /**
+     * Revisione di un flusso il cui tracciato non la porta: 1 se il flusso non e' mai
+     * stato acquisito, altrimenti la successiva all'ultima presente in FR. La nuova
+     * revisione rende obsolete le precedenti come per il canale API.
+     */
+    private long calcolaRevisione(String nome, String codDominio, String codFlusso, String codPsp) {
+        Optional<Fr> ultima = frRepository
+            .findFirstByCodDominioAndCodFlussoAndCodPspOrderByRevisioneDesc(codDominio, codFlusso, codPsp);
+        long revisione = ultima.map(fr -> fr.getRevisione() + 1).orElse(1L);
+        if (ultima.isPresent()) {
+            log.warn("Flusso [Dominio:{} Flusso:{} PSP:{}] del file {} gia' presente in FR con revisione {}:"
+                    + " viene acquisito come revisione {} (calcolata, assente nel tracciato)",
+                codDominio, codFlusso, codPsp, nome, ultima.get().getRevisione(), revisione);
+        } else {
+            log.info("Flusso [Dominio:{} Flusso:{} PSP:{}] del file {}: revisione {} (calcolata, assente nel tracciato)",
+                codDominio, codFlusso, codPsp, nome, revisione);
+        }
+        return revisione;
     }
 
     /**
@@ -133,14 +159,14 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
         if (isBlank(codFlusso)) {
             return "Identificativo del flusso (fdr) assente";
         }
-        if (flusso.getRevision() == null) {
-            return "Revisione del flusso (revision) assente";
-        }
         if (isBlank(codDominio)) {
             return "Identificativo del dominio (receiver.organizationId) assente";
         }
         if (isBlank(codPsp)) {
             return "Identificativo del PSP (sender.pspId) assente";
+        }
+        if (flusso.getRevision() == null) {
+            return "Revisione del flusso (revision) assente";
         }
         if (flusso.getPayments() == null) {
             return "Lista dei pagamenti (payments) assente: il file non e' nel formato atteso";
