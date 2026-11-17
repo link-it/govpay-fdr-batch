@@ -33,4 +33,12 @@ public interface FdrFlowFileParser {
      * @return nome del formato, per log e diagnostica
      */
     String formato();
+
+    /**
+     * @return {@code false} se il tracciato non porta la revisione del flusso, che va
+     *         quindi calcolata dalla base dati prima dell'acquisizione
+     */
+    default boolean revisioneNelTracciato() {
+        return true;
+    }
 }

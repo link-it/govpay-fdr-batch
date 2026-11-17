@@ -114,6 +114,11 @@ public class XmlFdrFlowFileParser implements FdrFlowFileParser {
     }
 
     @Override
+    public boolean revisioneNelTracciato() {
+        return false;
+    }
+
+    @Override
     public FdrFlowFile leggi(Path file) throws IOException {
         return converti(unmarshal(file));
     }

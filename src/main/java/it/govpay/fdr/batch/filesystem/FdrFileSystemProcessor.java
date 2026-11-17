@@ -21,6 +21,7 @@ import it.govpay.common.repository.DominioRepository;
 import it.govpay.fdr.batch.dto.FdrClaimedFile;
 import it.govpay.fdr.batch.dto.FdrFileItem;
 import it.govpay.fdr.batch.dto.FdrFlowFile;
+import it.govpay.fdr.batch.entity.Fr;
 import it.govpay.fdr.batch.repository.FrRepository;
 import it.govpay.fdr.batch.step4.FdrPaymentsProcessor;
 import it.govpay.fdr.batch.step4.FdrPaymentsProcessor.FdrCompleteData;
@@ -91,6 +92,11 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
         String codFlusso = flusso.getFdr();
         String codPsp = flusso.getSender() != null ? flusso.getSender().getPspId() : null;
 
+        if (flusso.getRevision() == null && !parser.get().revisioneNelTracciato()
+                && !isBlank(codDominio) && !isBlank(codFlusso) && !isBlank(codPsp)) {
+            flusso.setRevision(calcolaRevisione(nome, codDominio, codFlusso, codPsp));
+        }
+
         String erroreValidazione = valida(flusso, codDominio, codFlusso, codPsp);
         if (erroreValidazione != null) {
             return scarta(claimed, codDominio, codFlusso, erroreValidazione);
@@ -127,6 +133,26 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
     }
 
     /**
+     * Revisione di un flusso il cui tracciato non la porta: 1 se il flusso non e' mai
+     * stato acquisito, altrimenti la successiva all'ultima presente in FR. La nuova
+     * revisione rende obsolete le precedenti come per il canale API.
+     */
+    private long calcolaRevisione(String nome, String codDominio, String codFlusso, String codPsp) {
+        Optional<Fr> ultima = frRepository
+            .findFirstByCodDominioAndCodFlussoAndCodPspOrderByRevisioneDesc(codDominio, codFlusso, codPsp);
+        long revisione = ultima.map(fr -> fr.getRevisione() + 1).orElse(1L);
+        if (ultima.isPresent()) {
+            log.warn("Flusso [Dominio:{} Flusso:{} PSP:{}] del file {} gia' presente in FR con revisione {}:"
+                    + " viene acquisito come revisione {} (calcolata, assente nel tracciato)",
+                codDominio, codFlusso, codPsp, nome, ultima.get().getRevisione(), revisione);
+        } else {
+            log.info("Flusso [Dominio:{} Flusso:{} PSP:{}] del file {}: revisione {} (calcolata, assente nel tracciato)",
+                codDominio, codFlusso, codPsp, nome, revisione);
+        }
+        return revisione;
+    }
+
+    /**
      * Verifica i soli dati senza i quali il flusso non e' identificabile o non e'
      * acquisibile. I controlli di merito (quadratura importi e numero pagamenti)
      * restano in carico alla persistenza, che li registra come anomalie sull'FR.
@@ -137,14 +163,14 @@ public class FdrFileSystemProcessor implements ItemProcessor<FdrClaimedFile, Fdr
         if (isBlank(codFlusso)) {
             return "Identificativo del flusso (fdr) assente";
         }
-        if (flusso.getRevision() == null) {
-            return "Revisione del flusso (revision) assente";
-        }
         if (isBlank(codDominio)) {
             return "Identificativo del dominio (receiver.organizationId) assente";
         }
         if (isBlank(codPsp)) {
             return "Identificativo del PSP (sender.pspId) assente";
+        }
+        if (flusso.getRevision() == null) {
+            return "Revisione del flusso (revision) assente";
         }
         if (flusso.getPayments() == null) {
             return "Lista dei pagamenti (payments) assente: il file non e' nel formato atteso";
