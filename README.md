@@ -71,7 +71,7 @@ Il profilo `jar` va indicato insieme a `dist`: è quello che lascia i driver JDB
 
 ## Configurazione
 
-Le proprietà si impostano in `application.properties`, da riga di comando (`-D<proprietà>=<valore>`) o con le variabili d'ambiente equivalenti di Spring Boot: punti e trattini diventano `_` e il nome va in maiuscolo (es. `govpay.batch.page-size` → `GOVPAY_BATCH_PAGE_SIZE`, `scheduler.fdrAcquisitionJob.fixedDelayString` → `SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING`). Con l'immagine Docker si usano anche le variabili descritte in [Esecuzione con Docker](#esecuzione-con-docker).
+Le proprietà si impostano in `application.properties`, da riga di comando (`-D<proprietà>=<valore>`) o con le variabili d'ambiente equivalenti di Spring Boot: punti e trattini diventano `_` e il nome va in maiuscolo (es. `govpay.batch.page-size` → `GOVPAY_BATCH_PAGE_SIZE`, `scheduler.fdrAcquisitionJob.fixedDelayString` → `SCHEDULER_FDRACQUISITIONJOB_FIXEDDELAYSTRING`). Fanno eccezione le proprietà `spring.datasource.hikari.connection-*`: vedi [Database](#database). Con l'immagine Docker si usano anche le variabili descritte in [Esecuzione con Docker](#esecuzione-con-docker).
 
 ### Acquisizione da pagoPA
 
@@ -146,6 +146,9 @@ URL, autenticazione e timeout di pagoPA e del GDE non sono proprietà del batch:
 | `spring.datasource.hikari.connection-timeout` | `30000` (`20000` nel container) | Attesa massima di una connessione, in ms |
 | `spring.datasource.hikari.idle-timeout` | `600000` (`10000` nel container) | Tempo dopo cui una connessione inattiva viene chiusa, in ms |
 | `spring.datasource.hikari.max-lifetime` | `1800000` (`600000` nel container) | Durata massima di una connessione, in ms |
+| `spring.datasource.hikari.transaction-isolation` | `TRANSACTION_READ_COMMITTED` | Isolamento delle transazioni, lo stesso del core GovPay. Valori: `TRANSACTION_READ_UNCOMMITTED`, `TRANSACTION_READ_COMMITTED`, `TRANSACTION_REPEATABLE_READ`, `TRANSACTION_SERIALIZABLE`. Senza questa proprietà vale il default del database, su MySQL `REPEATABLE-READ`; con `spring.datasource.jndi-name` vale quello del datasource dell'application server |
+
+Le proprietà `spring.datasource.hikari.connection-*` (es. `connection-timeout`) vanno scritte come variabile d'ambiente **senza** il trattino basso dopo `CONNECTION`: `SPRING_DATASOURCE_HIKARI_CONNECTIONTIMEOUT`, non `SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT`. Con il trattino basso Spring Boot cerca anche la proprietà `connection` del pool, apre una connessione prima di aver applicato la configurazione e l'avvio fallisce con `The configuration of the pool is sealed once started` sulla proprietà `transaction-isolation`.
 
 I driver JDBC non sono inclusi né nel jar né nel war: vedi [Esecuzione](#esecuzione).
 
